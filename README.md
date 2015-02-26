@@ -3,6 +3,8 @@ Hello
 
 Bomberjacket OS is a radical new operating system with a focus on minimalism. It steals conceptually from Lisp machines and Plan 9.
 
+![Bomberjacket OS Logo](http://dump.mntmn.com/bjos.png)
+
 Architecture
 ------------
 
