@@ -35,13 +35,13 @@ if [ $? -eq 0 ]; then
 cd bin
 ./bmfs bmfs.image create l 2
 ./bmfs bmfs.image write l
-./bmfs bmfs.image create editor.l 2
+./bmfs bmfs.image create editor.l 1
 ./bmfs bmfs.image write editor.l
-./bmfs bmfs.image create keymap 2
+./bmfs bmfs.image create keymap 1
 ./bmfs bmfs.image write keymap
-./bmfs bmfs.image create unifont 2
+./bmfs bmfs.image create unifont 5
 ./bmfs bmfs.image write unifont
-./bmfs bmfs.image create buffer 2
+./bmfs bmfs.image create buffer 1
 ./bmfs bmfs.image write buffer
 cd ..
 else

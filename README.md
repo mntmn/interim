@@ -22,6 +22,24 @@ Rationale
 - You need only one text encoding: UTF-8.
 - All facilities must be navigable by keyboard.
 
+Building
+--------
+
+1. Create a fresh disk image: ````./init-disk.sh````
+2. Build and install the bootloader & kernel: ````./build-kernel.sh````
+3. Build the OS: ````./build-os.sh````
+
+Optionally, you can build newlib yourselves if you don't trust my included 64-bit binary: ````./build-newlib.sh````
+
+Running
+-------
+
+1. Initialise a network bridge if you haven't done so before. Read and modify this script before running! ````./setup-bridge.sh```` 
+
+2. Launch QEMU: ````./run.sh````
+
+If you run into 
+
 Licenses
 --------
 
