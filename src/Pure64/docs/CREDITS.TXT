@@ -1,0 +1,17 @@
+===============================================================================
+Pure64 -- a 64-bit loader written in Assembly for x86-64 systems
+Copyright (C) 2007-2014 Return Infinity -- see LICENSE.TXT
+===============================================================================
+
+
+PROJECT ADMIN (MAIN CODE AND DOCUMENTATION)
+
+ * Ian Seyler -- ian.seyler@returninfinity.com
+
+
+DEVELOPMENT AND TESTING
+
+ * Members of OSDev.org
+
+
+===============================================================================
