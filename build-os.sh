@@ -7,6 +7,7 @@ COMPILE="gcc -std=c99 $GCC_OPTS -I newlib/newlib-2.2.0/newlib/libc/include/ -I./
 
 if [ $1 ]
 then
+   mkdir -p obj
    $COMPILE -c $OPTIMIZE -o obj/lightning.o  lightning/lightning.c 
    $COMPILE -c $OPTIMIZE -o obj/jit_names.o  lightning/jit_names.c
    $COMPILE -c $OPTIMIZE -o obj/jit_note.o   lightning/jit_note.c
