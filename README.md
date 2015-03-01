@@ -26,9 +26,9 @@ Building
 --------
 
 1. Install the dependencies: `qemu`, `nasm`
-1. Create a fresh disk image: ````./init-disk.sh````
-2. Build and install the bootloader & kernel: ````./build-kernel.sh````
-3. Build the OS: ````./build-os.sh````
+2. Create a fresh disk image: ````./init-disk.sh````
+3. Build and install the bootloader & kernel ("1" option rebuilds libraries): ````./build-kernel.sh 1````
+4. Build the OS: ````./build-os.sh````
 
 Optionally, you can build newlib yourselves if you don't trust my included 64-bit binary: ````./build-newlib.sh````
 
