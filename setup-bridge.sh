@@ -8,5 +8,5 @@ elif command -v ip >/dev/null 2>&1; then
   ip link set br0 up
   ip addr add 10.0.0.1 broadcast 10.0.0.255 dev br0
 else
-  echo "I don\'t now how to configurate the bridge on your machine"
+  echo "I don\'t know how to configure the network bridge on your machine."
 fi;
