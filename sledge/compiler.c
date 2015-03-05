@@ -59,6 +59,9 @@
 #define BUILTIN_SAVE 37
 #define BUILTIN_UDP_POLL 70
 #define BUILTIN_UDP_SEND 71
+#define BUILTIN_TCP_CONNECT 72
+#define BUILTIN_TCP_BIND 73
+#define BUILTIN_TCP_SEND 74
 
 typedef struct env_entry {
   char name[128];
@@ -67,6 +70,9 @@ typedef struct env_entry {
 } env_entry;
 
 static struct env_entry* global_env = NULL;
+
+static Cell* coerce_int_cell; // recycled cell used to return coereced integers
+static Cell* error_cell; // recycled cell used to return errors
 
 // utf8
 unsigned int utf8_rune_len(uint8_t b) {
@@ -191,11 +197,34 @@ int rune_to_utf8(jit_word_t c, void* tempbuf, int* count)
   return 0;
 }
 
-unsigned int utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
+jit_word_t utf8_strlen_cell(Cell* cell) {
+  if (!cell || (cell->tag!=TAG_STR && cell->tag!=TAG_BYTES) || !cell->addr) return 0;
+  return utf8_strlen(cell->addr);
+}
+
+jit_word_t utf8_rune_at_cell(Cell* cell, Cell* c_idx) {
+  if (!cell || (cell->tag!=TAG_STR && cell->tag!=TAG_BYTES)) return 0;
+  if (!c_idx || c_idx->tag!=TAG_INT) return 0;
+  if (c_idx->value >= cell->size) return 0;
+  if (c_idx->value < 0) return 0;
+  if (!cell->addr) {
+    printf("error: string with NULL addr at %p!\n",cell);
+    return 0;
+  }
+  return utf8_rune_at(cell->addr, c_idx->value);
+}
+
+jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
+  if (!cell || (cell->tag!=TAG_STR && cell->tag!=TAG_BYTES)) return 0;
+  if (!c_idx || c_idx->tag!=TAG_INT) return 0;
+  if (!c_rune || c_rune->tag!=TAG_INT) return 0;
+
   char* s = cell->addr;
   int idx = c_idx->value;
   int rune = c_rune->value;
 
+  if (idx<0 || idx>=cell->size) return 0;
+  
   // fast forward to the right place
   unsigned int i = 0, j = 0;
   while (i<cell->size && s[i]) {
@@ -210,6 +239,8 @@ unsigned int utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
   int rune_len = 0;
   char tmp[10];
   rune_to_utf8(rune, tmp, &rune_len);
+  
+  if ((i+rune_len)>=cell->size) return 0;
 
   //printf("-- existing rune length at %d: %d new rune length: %d\n",idx,j,rune_len);
   
@@ -258,27 +289,53 @@ int lookup_symbol_int(char* name, env_entry** env) {
 void insert_symbol(Cell* symbol, Cell* cell, env_entry** env) {
   env_entry* e;
   HASH_FIND_STR(*env, symbol->addr, e);
+
   if (e) {
-    // TODO: free old
 #ifdef DEBUG
     if (cell) {
-      printf("insert_symbol replacing %s <- %d\n",symbol->addr,cell->value);
+      printf("insert_symbol replacing %s <- %x\n",symbol->addr,cell->value);
     } else {
       printf("insert_symbol replacing %s <- NULL\n",symbol->addr);
     }  
 #endif
     if (!cell) {
-      e->cell = alloc_int(0);
+      e->cell->tag = TAG_INT;
+      e->cell->value = 0;
     } else {
-      e->cell = cell;
+      if (cell->tag == TAG_INT) {
+        if (e->cell->tag == TAG_INT) {
+          e->cell->value = cell->value; // no new allocation, just copy int value
+        } else {
+          //printf("-- %s copy over %p (%d) <- %p (%d)\n",symbol->addr,e->cell,e->cell->tag,cell,cell->tag);
+          memcpy(e->cell, cell, sizeof(struct Cell));
+        }
+      } else {
+        //e->cell = cell;
+        memcpy(e->cell, cell, sizeof(struct Cell));
+      }
     }
   } else {
+
 #ifdef DEBUG
-    printf("insert_symbol %s <- %d\n",symbol->addr,cell->value);
+    if (cell) {
+      printf("insert_symbol %s <- %x\n",symbol->addr,cell->value);
+    } else {
+      printf("insert_symbol %s <- NULL\n",symbol->addr);
+    }
 #endif
     e = malloc(sizeof(env_entry));
     strcpy(e->name, (char*)symbol->addr);
-    e->cell = alloc_clone(cell);
+
+    if (cell && cell->tag == TAG_INT) {
+      e->cell = alloc_clone(cell);
+    } else {
+      if (!cell) {
+        e->cell = alloc_nil();
+      } else {
+        e->cell = alloc_clone(cell);
+      }
+    }
+    
     HASH_ADD_STR(*env, name, e);
   }
 }
@@ -326,11 +383,21 @@ void stack_pop(int reg, jit_word_t* sp)
 
 int compile_applic(Cell* list, int wants_int);
 
+void argnum_error(char* usage) {
+  printf("argument error. correct usage: %s.\n",usage);
+  jit_movi(JIT_R0, (jit_word_t)error_cell);
+}
+
 // returns 1 if returning coerced cell
 int compile_arg(int reg, Cell* arg, int save_regs, int wants_integer) {
+  if (!arg) {
+    argnum_error("missing argument");
+    return 0;
+  }
+  
   jit_word_t tag = arg->tag;
 
-  //printf("compile arg: %p %d %d\n",arg,save_regs,wants_integer);
+  //printf("compile arg: %d %d %d\n",arg->tag,save_regs,wants_integer);
   
   if (tag == TAG_INT) {
     if (wants_integer) {
@@ -384,10 +451,6 @@ int compile_arg(int reg, Cell* arg, int save_regs, int wants_integer) {
 
     return coerced;
   }
-}
-
-void argnum_error(char* usage) {
-  printf("argument error. correct usage: %s.\n",usage);
 }
 
 void compile_add(Cell* args) {
@@ -488,10 +551,8 @@ void compile_def(Cell* args, int wants_int) {
     }
   }
   
-  int coerced = compile_arg(JIT_R0, car(cdr(args)), 0, 0);
+  int coerced = compile_arg(JIT_R0, value, 0, 0);
   stack_push(JIT_R0, &stack_ptr);
-
-  // TO DO: if coerced cell, then copy its value only
   
   jit_prepare();
   jit_pushargi((jit_word_t)sym);
@@ -647,6 +708,38 @@ void compile_udp_send(Cell* args) {
   compile_arg(JIT_R0, car(args), 0, 0);
   jit_pushargr(JIT_R0);
   jit_finishi(machine_send_udp);
+  jit_retval(JIT_R0);
+}
+
+void compile_tcp_connect(Cell* args) {
+  compile_arg(JIT_R0, car(args), 0, 0);
+  compile_arg(JIT_R1, car(cdr(args)), 1, 0);
+  
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_pushargr(JIT_R1);
+  jit_finishi(machine_connect_tcp);
+  jit_retval(JIT_R0);
+}
+
+void compile_tcp_bind(Cell* args) {
+  jit_prepare();
+  compile_arg(JIT_R0, car(args), 0, 0);
+  jit_pushargr(JIT_R0);
+  compile_arg(JIT_R0, car(cdr(args)), 0, 0);
+  jit_pushargr(JIT_R0);
+  jit_finishi(machine_bind_tcp);
+  jit_retval(JIT_R0);
+}
+
+void compile_tcp_send(Cell* args) {
+  compile_arg(JIT_R0, car(args), 0, 0);
+  compile_arg(JIT_R1, car(cdr(args)), 1, 0);
+  
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_pushargr(JIT_R1);
+  jit_finishi(machine_send_tcp);
   jit_retval(JIT_R0);
 }
 
@@ -908,7 +1001,7 @@ void compile_lambda(Cell* lbd, Cell* args, int recursion) {
       int coerced = compile_arg(JIT_R0, car(args), 0, 0);
       
       char buffer[64];
-      sprintf(buffer,"compile arg: %d (t:%d) %s\n",i,coerced,sym->addr);
+      sprintf(buffer,"compile arg: %d (%s) %s\n",i,(coerced?"int":"cell"),sym->addr);
       jit_note(buffer, __LINE__);
 
       argtypes[i] = 0;
@@ -924,7 +1017,7 @@ void compile_lambda(Cell* lbd, Cell* args, int recursion) {
 #ifdef DEBUG
       jit_prepare();
       jit_ellipsis();
-      jit_pushargi((jit_word_t)"pushed arg: %d\n");
+      jit_pushargi((jit_word_t)"pushed arg: %x\n");
       jit_pushargr(JIT_R0);
       jit_finishi(printf);
 #endif
@@ -1133,13 +1226,13 @@ void compile_write(Cell* args) {
 }
 
 jit_word_t compile_compile(Cell* expr) {
-  if (!expr) return alloc_nil();
+  if (!expr) return (jit_word_t)alloc_nil();
 
-  if (expr->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  if (expr->tag!=TAG_STR && expr->tag!=TAG_BYTES) return (jit_word_t)alloc_error(ERR_INVALID_PARAM_TYPE);
   
   Cell* read_expr = read_string(expr->addr);
 
-  if (!read_expr) return alloc_error(ERR_APPLY_NIL);
+  if (!read_expr) return (jit_word_t)alloc_error(ERR_APPLY_NIL);
 
   //Cell* compiled = compile_fn(alloc_cons(read_expr,NULL));
   
@@ -1186,10 +1279,8 @@ typedef jit_word_t (*funcptr)();
 
 // eval
 void compile_eval(Cell* args) {
-  
   Cell* arg = car(args);
-
-  if (!arg) argnum_error("(eval string)");
+  if (!arg) return argnum_error("(eval string)");
   
   compile_arg(JIT_R0, arg, 0, 0);
 
@@ -1226,12 +1317,11 @@ void compile_uget(Cell* args) {
   // TODO: tag + bounds check
 
   compile_arg(JIT_R0, arg, 0, 0);
-  compile_arg(JIT_R1, car(cdr(args)), 1, 1);
+  compile_arg(JIT_R1, car(cdr(args)), 1, 0);
   jit_prepare();
-  jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
   jit_pushargr(JIT_R0);
   jit_pushargr(JIT_R1);
-  jit_finishi(utf8_rune_at);
+  jit_finishi(utf8_rune_at_cell);
   jit_retval(JIT_R0);
 }
 
@@ -1255,7 +1345,6 @@ void compile_uput(Cell* args) {
   if (!car(args) || !car(cdr(args))) return argnum_error("(uput string index rune)");
   Cell* arg = car(args);
 
-  // TODO: tag + bounds check
   compile_arg(JIT_R0, arg, 0, 0);
   compile_arg(JIT_R1, car(cdr(cdr(args))), 1, 0);
   jit_movr(JIT_V0, JIT_R1);
@@ -1265,13 +1354,15 @@ void compile_uput(Cell* args) {
   jit_pushargr(JIT_R0);
   jit_pushargr(JIT_R1);
   jit_pushargr(JIT_V0);
-  jit_finishi(utf8_put_rune_at);
+  jit_finishi(utf8_put_rune_at); // checks tag + bounds
   jit_retval(JIT_R0);
 }
 
 void compile_size(Cell* args) {
   if (!car(args)) return argnum_error("(size bytes/string)");
   Cell* arg = car(args);
+
+  // FIXME: will crash with NULL
   
   compile_arg(JIT_R0, arg, 0, 0);
   jit_ldxi(JIT_R0, JIT_R0, sizeof(jit_word_t)); // cdr r0 = r0 + one word = r0->next
@@ -1282,17 +1373,12 @@ void compile_usize(Cell* args) {
   if (!car(args)) return argnum_error("(usize string)");
   Cell* arg = car(args);
 
-  // TODO: tag + bounds check
-
   compile_arg(JIT_R0, arg, 0, 0);
   jit_prepare();
-  jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
   jit_pushargr(JIT_R0);
-  jit_finishi(utf8_strlen);
+  jit_finishi(utf8_strlen_cell); // this checks the tag
   jit_retval(JIT_R0);
 }
-
-static Cell* coerce_int_cell;
 
 int coerce_int_to_cell() {
   //jit_note("coerce_int_to_cell",__LINE__);
@@ -1321,7 +1407,7 @@ int compile_applic(Cell* list, int wants_int) {
       jit_movi(JIT_R0, car(list)->value);
     } else {
       jit_movi(JIT_R0, (jit_word_t)car(list));
-    };
+    }
     return 0;
   }
 
@@ -1347,6 +1433,7 @@ int compile_applic(Cell* list, int wants_int) {
 
   if (!op_cell) {
     printf("<error:undefined symbol %s>\n",car(list)->addr);
+    jit_movi(JIT_R0, 0);
     return 0;
   }
   
@@ -1503,6 +1590,16 @@ int compile_applic(Cell* list, int wants_int) {
   case BUILTIN_UDP_SEND:
     compile_udp_send(cdr(list));
     break;
+    
+  case BUILTIN_TCP_CONNECT:
+    compile_tcp_connect(cdr(list));
+    break;
+  case BUILTIN_TCP_SEND:
+    compile_tcp_send(cdr(list));
+    break;
+  case BUILTIN_TCP_BIND:
+    compile_tcp_bind(cdr(list));
+    break;
   }
   return 0;
 }
@@ -1510,8 +1607,8 @@ int compile_applic(Cell* list, int wants_int) {
 void init_compiler() {
   init_allocator();
   coerce_int_cell = alloc_int(0);
-  //printf("coerce_int_cell: %p\n",coerce_int_cell);
-
+  error_cell = alloc_error(0);
+  
   insert_symbol(alloc_sym("+"), alloc_builtin(BUILTIN_ADD), &global_env);
   insert_symbol(alloc_sym("-"), alloc_builtin(BUILTIN_SUB), &global_env);
   insert_symbol(alloc_sym("*"), alloc_builtin(BUILTIN_MUL), &global_env);
@@ -1556,6 +1653,10 @@ void init_compiler() {
   
   insert_symbol(alloc_sym("udp-poll"), alloc_builtin(BUILTIN_UDP_POLL), &global_env);
   insert_symbol(alloc_sym("udp-send"), alloc_builtin(BUILTIN_UDP_SEND), &global_env);
+
+  insert_symbol(alloc_sym("tcp-bind"), alloc_builtin(BUILTIN_TCP_BIND), &global_env);
+  insert_symbol(alloc_sym("tcp-connect"), alloc_builtin(BUILTIN_TCP_CONNECT), &global_env);
+  insert_symbol(alloc_sym("tcp-send"), alloc_builtin(BUILTIN_TCP_SEND), &global_env);
 
   int num_syms=HASH_COUNT(global_env);
   printf("sledge knows %u symbols. enter (ls) to see them.\n\n", num_syms);

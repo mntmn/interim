@@ -2,3 +2,5 @@
 obj/*.o
 bin/bmfs.image
 fs-notes.txt
+a.out
+sledge/udis86/

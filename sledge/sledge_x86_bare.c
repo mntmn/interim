@@ -46,6 +46,18 @@ void init_bm_video() {
 #define ARP_REQUEST 1
 #define ARP_REPLY 2
 #define PROTO_IP_UDP 0x11
+#define PROTO_IP_TCP 0x6
+
+#define TCP_NS  256
+#define TCP_CWR 128
+#define TCP_ECE 64
+#define TCP_URG 32
+#define TCP_ACK 16
+#define TCP_PSH 8
+#define TCP_RST 4
+#define TCP_SYN 2
+#define TCP_FIN 1
+
 
 // size: 14
 typedef struct eth_header {
@@ -92,8 +104,26 @@ typedef struct udp_packet {
   uint8_t data;
 } udp_packet;
 
+typedef struct tcp_packet {
+  uint16_t src_port;
+  uint16_t dest_port;
+  uint32_t seqnum;
+  uint32_t acknum;
+  uint8_t data_offset;
+  uint8_t flags;
+  uint16_t window;
+  uint16_t checksum;
+  uint16_t urg_pointer;
+  uint8_t data;
+} tcp_packet;
+
 uint16_t swap16(uint16_t in) {
   uint16_t out = in<<8 | ((in&0xff00)>>8);
+  return out;
+}
+
+uint32_t swap32(uint32_t in) {
+  uint32_t out = in<<24 | ((in&0xff00)<<8) | ((in&0xff0000)>>8) | ((in&0xff000000)>>24);
   return out;
 }
 
@@ -103,11 +133,18 @@ char their_mac[] = {0xff,0xff,0xff,0xff,0xff,0xff};
 
 char my_ip[] = {10,0,0,4};
 char their_ip[] = {10,0,0,1};
+//char their_ip[] = {91,250,115,15};
+//char their_ip[] = {91,217,189,42};
 
 char* tx_packet;
 char* rx_packet;
 
 static Cell* udp_cell;
+static uint32_t my_seqnum = 23;
+static uint32_t their_seqnum = 0;
+static uint32_t my_tcp_port = 5000;
+
+void send_tcp_packet(int srcport, int port, uint8_t flags, uint32_t seqnum, uint32_t acknum, uint8_t* data, uint16_t size);
 
 void eth_task() {
   int len = 0;
@@ -132,26 +169,31 @@ void eth_task() {
                sip[0],sip[1],sip[2],sip[3],
                tip[0],tip[1],tip[2],tip[3]);
 
-        // build response
-        eth_header* te = (eth_header*)tx_packet;
-        memcpy(te->dest_mac, arp->sender_mac, 6);
-        memcpy(te->src_mac,  my_mac, 6);
-        te->type = swap16(ETH_TYPE_ARP);
+        if (*(uint32_t*)tip == *(uint32_t*)my_ip) {
+          // build response
+          eth_header* te = (eth_header*)tx_packet;
+          memcpy(te->dest_mac, arp->sender_mac, 6);
+          memcpy(te->src_mac,  my_mac, 6);
+          te->type = swap16(ETH_TYPE_ARP);
       
-        arp_packet* ta = (arp_packet*)(((uint8_t*)te)+14);
-        ta->hwtype = swap16(1);
-        ta->proto = swap16(PROTO_IP);
-        ta->hwsize = 6;
-        ta->proto_size = 4;
-        ta->opcode = swap16(ARP_REPLY);
+          arp_packet* ta = (arp_packet*)(((uint8_t*)te)+14);
+          ta->hwtype = swap16(1);
+          ta->proto = swap16(PROTO_IP);
+          ta->hwsize = 6;
+          ta->proto_size = 4;
+          ta->opcode = swap16(ARP_REPLY);
 
-        memcpy(ta->sender_mac, my_mac, 6);
-        memcpy(ta->sender_ip,  arp->target_ip, 4);
-        memcpy(ta->target_mac, arp->sender_mac, 6);
-        memcpy(ta->target_ip,  arp->sender_ip, 4);
+          memcpy(ta->sender_mac, my_mac, 6);
+          memcpy(ta->sender_ip,  arp->target_ip, 4);
+          memcpy(ta->target_mac, arp->sender_mac, 6);
+          memcpy(ta->target_ip,  arp->sender_ip, 4);
 
-        printf("sending arp reply.\n");
-        b_ethernet_tx(tx_packet, 14+28);
+          printf("sending arp reply.\n");
+          b_ethernet_tx(tx_packet, 14+28);
+
+          // their mac address is probably the router :3
+          memcpy(their_mac, e->src_mac, 6);
+        }
       } else {
         //printf("unhandled arp opcode: %x\n",swap16(arp->opcode));
       }
@@ -173,66 +215,101 @@ void eth_task() {
         memcpy(udp_cell->addr, &u->data, 1500);
         udp_cell->size = u->size-8;
       }
+      else if (i4->proto == PROTO_IP_TCP) {
+        tcp_packet* rxt = (tcp_packet*)(&i4->data);
+
+        int payload_size = swap16(i4->size)-20-20;
+
+        if (rxt->flags == (TCP_SYN|TCP_ACK)) {
+          // reply to SYN ACK
+
+          my_seqnum++;
+          their_seqnum = swap32(rxt->seqnum)+1;
+          printf("REPLY TO SYN ACK: %x\n",rxt->flags);
+          send_tcp_packet(swap16(rxt->dest_port),swap16(rxt->src_port),TCP_ACK,my_seqnum,their_seqnum,NULL,0);
+        }
+        else if ((rxt->flags&TCP_FIN) == TCP_FIN) {
+          send_tcp_packet(swap16(rxt->dest_port),swap16(rxt->src_port),TCP_RST,my_seqnum,their_seqnum,NULL,0);
+          
+          my_seqnum++;
+        }
+        else if (payload_size>0) {
+          // receive and reply to data
+          their_seqnum = swap32(rxt->seqnum)+payload_size;
+          printf("REPLY TO PSH acknum: %d\n",their_seqnum);
+          send_tcp_packet(swap16(rxt->dest_port),swap16(rxt->src_port),TCP_ACK,my_seqnum,their_seqnum,NULL,0);
+
+          memcpy(udp_cell->addr, &rxt->data, payload_size);
+          udp_cell->size = payload_size;
+        }
+      }
     }
   }
-}
-
-uint16_t cksum(uint16_t* ip, int len){
-  long sum = 0;  /* assume 32 bit long, 16 bit short */
-
-  while(len > 1){
-    sum += *((unsigned short*) ip);
-    ip++;
-    if(sum & 0x80000000)   /* if high order bit set, fold */
-      sum = (sum & 0xFFFF) + (sum >> 16);
-    len -= 2;
-  }
-
-  if(len)       /* take care of left over byte */
-    sum += (unsigned short) *(unsigned char *)ip;
-          
-  while(sum>>16)
-    sum = (sum & 0xFFFF) + (sum >> 16);
-
-  return ~sum;
 }
 
 /* taken from TCP/IP Illustrated Vol. 2(1995) by Gary R. Wright and W. Richard
    Stevens. Page 236 */
 
-
-uint16_t udp_cksum(udp_packet* udp, ipv4_packet* i4, uint16_t len){
+uint16_t cksum(uint16_t* ip, int len){
   long sum = 0;  /* assume 32 bit long, 16 bit short */
 
   while(len > 1){
-    sum += (*((unsigned short*)udp));
-    udp++;
-    if(sum & 0x80000000)   /* if high order bit set, fold */
+    uint16_t word = swap16(*ip);
+    sum += word;
+    ip++;
+    if(sum & 0x80000000) {  /* if high order bit set, fold */
       sum = (sum & 0xFFFF) + (sum >> 16);
+    }
     len -= 2;
   }
 
-  if(len)       /* take care of left over byte */
-    sum += (unsigned short) *(unsigned char *)udp;
-
-  // add pseudo header
-
-  sum += (((uint16_t*)i4->src_ip)[0]);
-  sum += (((uint16_t*)i4->src_ip)[1]);
+  if(len) {      /* take care of left over byte */
+    sum += swap16((uint16_t) *(unsigned char *)ip);
+  }
   
-  sum += (((uint16_t*)i4->dest_ip)[0]);
-  sum += (((uint16_t*)i4->dest_ip)[1]);
-  
-  sum += ((uint16_t)PROTO_IP_UDP);
-  sum += len; // is already swapped
-  
-  while(sum>>16)
+  while(sum>>16) {
     sum = (sum & 0xFFFF) + (sum >> 16);
-
+  }
+  
   return ~sum;
 }
 
+uint16_t transport_cksum(void* packet, uint16_t protocol, ipv4_packet* i4, uint16_t len) {
+  long sum = 0;  /* assume 32 bit long, 16 bit short */
+  uint16_t* data = (uint16_t*)packet;
 
+  uint16_t i = len;
+  while(i > 1){
+    uint16_t word = swap16(*data);
+    sum += word;
+    data++;
+    if(sum & 0x80000000)   /* if high order bit set, fold */
+      sum = (sum & 0xFFFF) + (sum >> 16);
+    i -= 2;
+  }
+
+  if (i) {      /* take care of left over byte */
+    uint16_t word = swap16((uint16_t) *(unsigned char *)data);
+    sum += word;
+  }
+
+  // add pseudo header
+
+  sum += swap16(((uint16_t*)i4->src_ip)[0]);
+  sum += swap16(((uint16_t*)i4->src_ip)[1]);
+  
+  sum += swap16(((uint16_t*)i4->dest_ip)[0]);
+  sum += swap16(((uint16_t*)i4->dest_ip)[1]);
+  
+  sum += protocol;
+  sum += len;
+  
+  while(sum>>16) {
+    sum = (sum & 0xFFFF) + (sum >> 16);
+  }
+  
+  return ~sum;
+}
 
 Cell* machine_send_udp(Cell* data_cell) {
   if (!data_cell || (data_cell->tag!=TAG_BYTES && data_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
@@ -250,16 +327,16 @@ Cell* machine_send_udp(Cell* data_cell) {
   i4->services = 0;
   i4->size = swap16(20+8+len); // patch later i4+udp
   i4->id = swap16(0xbeef);
-  i4->flags = 0;
-  i4->frag_offset = 0; //swap16(0x4000); // cargo cult
+  i4->flags = 0x40; // don't fragment
+  i4->frag_offset = 0; // cargo cult
   i4->ttl = 64;
   i4->proto = PROTO_IP_UDP;
   i4->checksum = 0;
 
-  i4->checksum = cksum((uint16_t*)i4, 20);
-
   memcpy(i4->src_ip, my_ip, 4);
   memcpy(i4->dest_ip, their_ip, 4);
+  
+  i4->checksum = swap16(cksum((uint16_t*)i4, 20));
   
   udp_packet* u = (udp_packet*)(&i4->data);
   u->dest_port = swap16(4001);
@@ -267,17 +344,95 @@ Cell* machine_send_udp(Cell* data_cell) {
   u->size = swap16(len+8);
   u->checksum = 0; // fixme
 
-  memcpy(&u->data, data, len);
+  if (data && len) {
+    memcpy(&u->data, data, len);
+  }
   
   int packet_len = len+8+20+14;  // data + udp + i4 + eth
 
-  u->checksum = udp_cksum(u, i4, u->size);
+  u->checksum = swap16(transport_cksum(u, PROTO_IP_UDP, i4, len+8));
 
   printf("sending udp packet.\n");
   b_ethernet_tx(tx_packet, packet_len);
 
-  return alloc_int(len+8+20+14);
+  return alloc_int(1);
 }
+
+Cell* machine_bind_tcp(Cell* port_cell, Cell* fn_cell) {
+}
+
+void send_tcp_packet(int srcport, int port, uint8_t flags, uint32_t seqnum, uint32_t acknum, uint8_t* data, uint16_t size) {
+  memset(tx_packet, 0, 64*1024);
+  
+  int len = size;
+  
+  eth_header* te = (eth_header*)tx_packet;
+  memcpy(te->dest_mac, their_mac, 6);
+  memcpy(te->src_mac,  my_mac, 6);
+  te->type = swap16(ETH_TYPE_IP);
+      
+  ipv4_packet* i4 = (ipv4_packet*)(((uint8_t*)te)+14);
+  i4->version = (4<<4) | 5; // ipv4 + ihl5 (5*4 bytes header)
+  i4->services = 0;
+  i4->size = swap16(20+20+len); // patch later i4+tcp
+  i4->id = swap16(0xbeef);
+  i4->flags = 0x40; // don't fragment
+  i4->frag_offset = 0;
+  i4->ttl = 64;
+  i4->proto = PROTO_IP_TCP;
+  i4->checksum = 0;
+
+  memcpy(i4->src_ip, my_ip, 4);
+  memcpy(i4->dest_ip, their_ip, 4);
+  
+  i4->checksum = swap16(cksum((uint16_t*)i4, 20));
+  
+  tcp_packet* t = (tcp_packet*)(&i4->data);
+  t->dest_port = swap16(port);
+  t->src_port = swap16(srcport);
+  t->seqnum = swap32(seqnum);
+  t->acknum = swap32(acknum);
+  t->data_offset = (5<<4);
+  t->flags = flags;
+  t->window = swap16(0x7210);
+  t->urg_pointer = 0;
+  t->checksum = 0;
+
+  memcpy(&t->data, data, len);
+  
+  t->checksum = swap16(transport_cksum(t, PROTO_IP_TCP, i4, len+5*4));
+  
+  printf("sending tcp packet.\n");
+  int packet_len = len+5*4+20+14;  // data + tcp + i4 + eth
+  
+  b_ethernet_tx(tx_packet, packet_len);
+}
+
+Cell* machine_connect_tcp(Cell* port_cell, Cell* data_cell) {
+  if (!port_cell || (port_cell->tag!=TAG_INT)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  if (!data_cell || (data_cell->tag!=TAG_BYTES && data_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+
+  memcpy(their_ip,data_cell->addr,4);
+
+  my_seqnum++;
+  send_tcp_packet(my_tcp_port,port_cell->value,TCP_RST,my_seqnum,0,NULL,0);
+  my_tcp_port++;
+  my_seqnum+=10;
+  send_tcp_packet(my_tcp_port,port_cell->value,TCP_SYN,my_seqnum,0,NULL,0);
+  
+  return alloc_int(1);
+}
+
+Cell* machine_send_tcp(Cell* port_cell, Cell* data_cell) {
+  if (!port_cell || (port_cell->tag!=TAG_INT)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  if (!data_cell || (data_cell->tag!=TAG_BYTES && data_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+
+  send_tcp_packet(my_tcp_port,port_cell->value,TCP_PSH|TCP_ACK,my_seqnum,their_seqnum,data_cell->addr,data_cell->size);
+  my_seqnum+=data_cell->size;
+  
+  return alloc_int(1);
+}
+
 
 void init_bm_eth() {
   //b_system_config(networkcallback_set, (unsigned long int)eth_receive);
@@ -289,7 +444,7 @@ void memset64(void * dest, uint32_t val32, uintptr_t size)
   uintptr_t i;
   for(i = 0; i < (size & (~7)); i+=8)
   {
-    memcpy( ((char*)dest) + i, &value, 8 );
+    memcpy(((char*)dest) + i, &value, 8);
   }
 }
 
@@ -396,7 +551,6 @@ int machine_get_key(int modifiers) {
 }
 
 Cell* machine_poll_udp() {
-  udp_cell->size = 0;
   eth_task();
   return udp_cell;
 }
@@ -545,7 +699,7 @@ int main(int argc, char *argv[])
   init_bm_video();
   init_compiler();
   
-  udp_cell = alloc_num_bytes(1500);
+  udp_cell = alloc_num_bytes(65535);
   
   printf("welcome to sledge/minilisp x86/64 (c)2015 mntmn.\n");
 

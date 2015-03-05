@@ -61,6 +61,11 @@ Cell* machine_save_file(Cell* cell, char* path) {
 }
 
 Cell* machine_load_file(char* path) {
+
+  char buf[512];
+  sprintf(buf,"fs/%s",path);
+  path = buf;
+  
   printf("about to load: %s\n",path);
   struct stat st;
   if (stat(path, &st)) return alloc_error(ERR_NOT_FOUND);
@@ -78,8 +83,25 @@ Cell* machine_load_file(char* path) {
 }
 
 Cell* machine_poll_udp() {
-  return alloc_nil();
+  return NULL;
 }
+
+Cell* machine_send_udp(Cell* data_cell) {
+  return data_cell;
+}
+
+Cell* machine_connect_tcp(Cell* port_cell, Cell* data_cell) {
+  return data_cell;
+}
+
+Cell* machine_send_tcp(Cell* port_cell, Cell* data_cell) {
+  return data_cell;
+}
+
+Cell* machine_bind_tcp(Cell* port_cell, Cell* fn_cell) {
+  return fn_cell;
+}
+
 
 static struct timeval tm1;
 

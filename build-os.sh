@@ -22,7 +22,7 @@ fi
 
 #gcc -c -m64 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone -o libBareMetal.o libBareMetal.c
 
-$COMPILE -o lightning.app -g -T newlib/app.ld newlib/crt0.o sledge/sledge_x86_bare.c obj/lightning.o obj/jit_names.o obj/jit_note.o obj/jit_size.o obj/jit_memory.o obj/glue.o obj/reader.o obj/alloc.o obj/blit.o obj/writer.o newlib/libc.a newlib/libBareMetal.o
+$COMPILE $OPTIMIZE -o lightning.app -g -T newlib/app.ld newlib/crt0.o sledge/sledge_x86_bare.c obj/lightning.o obj/jit_names.o obj/jit_note.o obj/jit_size.o obj/jit_memory.o obj/glue.o obj/reader.o obj/alloc.o obj/blit.o obj/writer.o newlib/libc.a newlib/libBareMetal.o
 
 #ld -T newlib/app.ld -o lightning.app newlib/crt0.o newlib/libc.a lightning.o jit_names.o jit_note.o jit_size.o glue.o newlib/libBareMetal.o
 
@@ -30,6 +30,7 @@ cp sledge/editor.l bin/editor.l
 cp sledge/fs/keymap-bm bin/keymap
 cp sledge/fs/unifont bin/
 cp sledge/fs/buffer bin/
+cp sledge/goa.l bin/goa
 mv lightning.app bin/l
 if [ $? -eq 0 ]; then
 cd bin
@@ -43,6 +44,8 @@ cd bin
 ./bmfs bmfs.image write unifont
 ./bmfs bmfs.image create buffer 1
 ./bmfs bmfs.image write buffer
+./bmfs bmfs.image create goa 1
+./bmfs bmfs.image write goa
 cd ..
 else
 echo "Error"

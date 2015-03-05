@@ -29,3 +29,6 @@
                  (+ (fib (- n 1)) (fib (- n 2))) )))
 
 (test 14 (= (fib 10) 55))
+
+(def foo (fn a b (+ a b)))
+(test 15 (do (def a 5) (def b 6) (= (foo (+ a 1) (- b 2)) 10)))

@@ -26,15 +26,13 @@ void init_allocator() {
 
 void* cell_malloc(int num_bytes) {
   if (cell_allocator == CA_STACK) {
-#ifdef DEBUG
-    printf("cell_malloc/stack: %d (%d)\n",num_bytes,stack_bytes_used);
-#endif
+    //printf("cell_malloc/stack: %d (%d)\n",num_bytes,stack_bytes_used);
     void* new_mem = cell_stack + stack_bytes_used;
     if (stack_bytes_used + num_bytes < stack_bytes_max) {
       stack_bytes_used += num_bytes;
       return new_mem;
     } else {
-      printf("cell_malloc/stack: out of memory\n");
+      printf("cell_malloc/stack: out of memory: %d (%d)\n",num_bytes,stack_bytes_used);
       exit(1);
       return &oom_cell;
     }
@@ -159,6 +157,9 @@ Cell* alloc_clone(Cell* orig) {
   clone->addr = 0;
   clone->next = 0;
   clone->size = orig->size;
+
+  //printf("cloning a %d (value %d)\n",orig->tag,orig->value);
+  
   if (orig->tag == TAG_SYM || orig->tag == TAG_STR) {
     clone->addr = cell_malloc(orig->size+1);
     memcpy(clone->addr, orig->addr, orig->size+1);
