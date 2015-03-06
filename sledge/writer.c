@@ -64,8 +64,8 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
     char* hex_buffer = malloc(cell->size*2+1);
     unsigned int i;
     for (i=0; i<cell->size; i++) {
-      // FIXME: buffer overflow
-      snprintf(hex_buffer+i*2, bufsize-i*2, "%x",((byte*)cell->addr)[i]);
+      // FIXME: buffer overflow?
+      snprintf(hex_buffer+i*2, bufsize-i*2, "%02x",((byte*)cell->addr)[i]);
     }
     snprintf(buffer, bufsize, "\[%s]", hex_buffer);
     free(hex_buffer);

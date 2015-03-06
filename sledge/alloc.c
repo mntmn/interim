@@ -100,13 +100,17 @@ Cell* alloc_bytes() {
   return alloc_num_bytes(SYM_INIT_BUFFER_SIZE);
 }
 
-Cell* alloc_string() {
+Cell* alloc_num_string(unsigned int num_bytes) {
   Cell* cell = cell_malloc(sizeof(Cell));
-  cell->addr = cell_malloc(SYM_INIT_BUFFER_SIZE);
-  memset(cell->addr, 0, SYM_INIT_BUFFER_SIZE);
+  cell->addr = cell_malloc(num_bytes);
+  memset(cell->addr, 0, num_bytes);
   cell->tag = TAG_STR;
-  cell->size = SYM_INIT_BUFFER_SIZE;
+  cell->size = num_bytes;
   return cell;
+}
+
+Cell* alloc_string() {
+  return alloc_num_string(SYM_INIT_BUFFER_SIZE);
 }
 
 Cell* alloc_string_copy(char* str) {
@@ -115,6 +119,17 @@ Cell* alloc_string_copy(char* str) {
   strcpy(cell->addr, str);
   cell->tag = TAG_STR;
   cell->size = strlen(str)+1;
+  return cell;
+}
+
+Cell* alloc_concat(Cell* str1, Cell* str2) {
+  Cell* cell = cell_malloc(sizeof(Cell));
+  unsigned int newsize = strlen(str1->addr)+strlen(str2->addr)+1;
+  cell->addr = cell_malloc(newsize);
+  strcpy(cell->addr, str1->addr);
+  strcpy(cell->addr+strlen(str1->addr), str2->addr);
+  cell->tag = TAG_STR;
+  cell->size = newsize;
   return cell;
 }
 

@@ -82,7 +82,15 @@ Cell* machine_load_file(char* path) {
   return result_cell;
 }
 
+Cell* my_tcp_connected_callback;
+Cell* my_tcp_data_callback;
+
 Cell* machine_poll_udp() {
+  if (my_tcp_connected_callback) {
+    printf("-- calling tcp connected callback\n");
+    funcptr fn = (funcptr)my_tcp_connected_callback->next;
+    return fn();
+  }
   return NULL;
 }
 
@@ -90,11 +98,13 @@ Cell* machine_send_udp(Cell* data_cell) {
   return data_cell;
 }
 
-Cell* machine_connect_tcp(Cell* port_cell, Cell* data_cell) {
-  return data_cell;
+Cell* machine_connect_tcp(Cell* host_cell, Cell* port_cell, Cell* connected_fn_cell, Cell* data_fn_cell) {
+  my_tcp_connected_callback = connected_fn_cell;
+  
+  return port_cell;
 }
 
-Cell* machine_send_tcp(Cell* port_cell, Cell* data_cell) {
+Cell* machine_send_tcp(Cell* data_cell) {
   return data_cell;
 }
 

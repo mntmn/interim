@@ -27,6 +27,10 @@
 #define BUILTIN_CDR 15
 #define BUILTIN_CONS 16
 
+#define BUILTIN_ALLOC 31
+#define BUILTIN_ALLOC_STR 32
+#define BUILTIN_CONCAT 33
+
 #define BUILTIN_GET 17
 #define BUILTIN_PUT 18
 #define BUILTIN_SIZE 19
@@ -279,7 +283,7 @@ Cell* lookup_symbol(char* name, env_entry** env) {
   return res->cell;
 }
 
-int lookup_symbol_int(char* name, env_entry** env) {
+jit_word_t lookup_symbol_int(char* name, env_entry** env) {
   env_entry* res;
   HASH_FIND_STR(*env, name, res);
   if (!res || !res->cell) return 0;
@@ -557,7 +561,7 @@ void compile_def(Cell* args, int wants_int) {
   jit_prepare();
   jit_pushargi((jit_word_t)sym);
 
-  if (coerced) {
+  if (coerced && wants_int) {
     // copy int out of recycled cell
     jit_ldr(JIT_R0, JIT_R0);
     jit_pushargr(JIT_R0);
@@ -712,12 +716,24 @@ void compile_udp_send(Cell* args) {
 }
 
 void compile_tcp_connect(Cell* args) {
+  // Cell* machine_connect_tcp(Cell* host_cell, Cell* port_cell, Cell* connected_fn_cell, Cell* data_fn_cell);
+  
+  compile_arg(JIT_R0, car(cdr(cdr(cdr(args)))), 0, 0);
+  stack_push(JIT_R0, &stack_ptr);
+  compile_arg(JIT_R0, car(cdr(cdr(args))), 0, 0);
+  stack_push(JIT_R0, &stack_ptr);
+  compile_arg(JIT_R0, car(cdr(args)), 0, 0);
+  stack_push(JIT_R0, &stack_ptr);
   compile_arg(JIT_R0, car(args), 0, 0);
-  compile_arg(JIT_R1, car(cdr(args)), 1, 0);
   
   jit_prepare();
   jit_pushargr(JIT_R0);
-  jit_pushargr(JIT_R1);
+  stack_pop(JIT_R0, &stack_ptr);
+  jit_pushargr(JIT_R0);
+  stack_pop(JIT_R0, &stack_ptr);
+  jit_pushargr(JIT_R0);
+  stack_pop(JIT_R0, &stack_ptr);
+  jit_pushargr(JIT_R0);
   jit_finishi(machine_connect_tcp);
   jit_retval(JIT_R0);
 }
@@ -734,11 +750,9 @@ void compile_tcp_bind(Cell* args) {
 
 void compile_tcp_send(Cell* args) {
   compile_arg(JIT_R0, car(args), 0, 0);
-  compile_arg(JIT_R1, car(cdr(args)), 1, 0);
   
   jit_prepare();
   jit_pushargr(JIT_R0);
-  jit_pushargr(JIT_R1);
   jit_finishi(machine_send_tcp);
   jit_retval(JIT_R0);
 }
@@ -1203,6 +1217,49 @@ void compile_cons(Cell* args) {
   jit_retval(JIT_R0);
 }
 
+// alloc allocates a bytes object with specified size
+// will contain zeroes
+void compile_alloc(Cell* args) {
+  if (!car(args)) return argnum_error("(alloc size)");
+  Cell* size_arg = car(args);
+  compile_arg(JIT_R0, size_arg, 0, 1);
+  
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_finishi(alloc_num_bytes);
+  jit_retval(JIT_R0); // returns fresh cell
+}
+
+// alloc_str allocates a string object with specified bytes size
+// will contain zeroes
+void compile_alloc_str(Cell* args) {
+  if (!car(args)) return argnum_error("(alloc-str size)");
+  Cell* size_arg = car(args);
+  compile_arg(JIT_R0, size_arg, 0, 1);
+  
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_finishi(alloc_num_string);
+  jit_retval(JIT_R0); // returns fresh cell
+}
+
+// concat allocates a new string combining two strings or buffers
+void compile_concat(Cell* args) {
+  if (!car(args)) return argnum_error("(concat str1 str2)");
+  if (!car(cdr(args))) return argnum_error("(concat str1 str2)");
+  
+  Cell* arg1 = car(args);
+  compile_arg(JIT_R0, arg1, 0, 0);
+  Cell* arg2 = car(cdr(args));
+  compile_arg(JIT_R1, arg2, 1, 0);
+  
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_pushargr(JIT_R1);
+  jit_finishi(alloc_concat);
+  jit_retval(JIT_R0); // returns fresh cell
+}
+
 // write
 // allocates a string object and writes s-expression dump of object
 // into it
@@ -1512,6 +1569,15 @@ int compile_applic(Cell* list, int wants_int) {
   case BUILTIN_CONS:
     compile_cons(cdr(list));
     break;
+  case BUILTIN_ALLOC:
+    compile_alloc(cdr(list));
+    break;
+  case BUILTIN_ALLOC_STR:
+    compile_alloc_str(cdr(list));
+    break;
+  case BUILTIN_CONCAT:
+    compile_concat(cdr(list));
+    break;
 
   case BUILTIN_EVAL:
     compile_eval(cdr(list));
@@ -1629,6 +1695,10 @@ void init_compiler() {
   insert_symbol(alloc_sym("car"), alloc_builtin(BUILTIN_CAR), &global_env);
   insert_symbol(alloc_sym("cdr"), alloc_builtin(BUILTIN_CDR), &global_env);
   insert_symbol(alloc_sym("cons"), alloc_builtin(BUILTIN_CONS), &global_env);
+
+  insert_symbol(alloc_sym("concat"), alloc_builtin(BUILTIN_CONCAT), &global_env);
+  insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC), &global_env);
+  insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR), &global_env);
 
   insert_symbol(alloc_sym("get"), alloc_builtin(BUILTIN_GET), &global_env);
   insert_symbol(alloc_sym("uget"), alloc_builtin(BUILTIN_UGET), &global_env);

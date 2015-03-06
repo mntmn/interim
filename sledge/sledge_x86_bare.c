@@ -144,6 +144,9 @@ static uint32_t my_seqnum = 23;
 static uint32_t their_seqnum = 0;
 static uint32_t my_tcp_port = 5000;
 
+static Cell* my_tcp_connected_callback;
+static Cell* my_tcp_data_callback;
+
 void send_tcp_packet(int srcport, int port, uint8_t flags, uint32_t seqnum, uint32_t acknum, uint8_t* data, uint16_t size);
 
 void eth_task() {
@@ -225,8 +228,13 @@ void eth_task() {
 
           my_seqnum++;
           their_seqnum = swap32(rxt->seqnum)+1;
-          printf("REPLY TO SYN ACK: %x\n",rxt->flags);
+          //printf("REPLY TO SYN ACK: %x\n",rxt->flags);
           send_tcp_packet(swap16(rxt->dest_port),swap16(rxt->src_port),TCP_ACK,my_seqnum,their_seqnum,NULL,0);
+          
+          if (my_tcp_connected_callback) {
+            funcptr fn = (funcptr)my_tcp_connected_callback->next;
+            return fn();
+          }
         }
         else if ((rxt->flags&TCP_FIN) == TCP_FIN) {
           send_tcp_packet(swap16(rxt->dest_port),swap16(rxt->src_port),TCP_RST,my_seqnum,their_seqnum,NULL,0);
@@ -235,12 +243,21 @@ void eth_task() {
         }
         else if (payload_size>0) {
           // receive and reply to data
+          uint32_t old_seqnum = their_seqnum;
           their_seqnum = swap32(rxt->seqnum)+payload_size;
-          printf("REPLY TO PSH acknum: %d\n",their_seqnum);
+          //printf("REPLY TO PSH acknum: %d\n",their_seqnum);
           send_tcp_packet(swap16(rxt->dest_port),swap16(rxt->src_port),TCP_ACK,my_seqnum,their_seqnum,NULL,0);
 
           memcpy(udp_cell->addr, &rxt->data, payload_size);
           udp_cell->size = payload_size;
+          *((uint8_t*)udp_cell->addr+payload_size) = 0;
+
+          if (old_seqnum != their_seqnum) {
+            if (my_tcp_data_callback) {
+              funcptr fn = (funcptr)my_tcp_data_callback->next;
+              return fn(udp_cell);
+            }
+          } // else duplicate packet received
         }
       }
     }
@@ -402,17 +419,24 @@ void send_tcp_packet(int srcport, int port, uint8_t flags, uint32_t seqnum, uint
   
   t->checksum = swap16(transport_cksum(t, PROTO_IP_TCP, i4, len+5*4));
   
-  printf("sending tcp packet.\n");
+  //printf("sending tcp packet.\n");
   int packet_len = len+5*4+20+14;  // data + tcp + i4 + eth
   
   b_ethernet_tx(tx_packet, packet_len);
 }
 
-Cell* machine_connect_tcp(Cell* port_cell, Cell* data_cell) {
-  if (!port_cell || (port_cell->tag!=TAG_INT)) return alloc_error(ERR_INVALID_PARAM_TYPE);
-  if (!data_cell || (data_cell->tag!=TAG_BYTES && data_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+static int their_tcp_port = 8000;
 
-  memcpy(their_ip,data_cell->addr,4);
+Cell* machine_connect_tcp(Cell* host_cell, Cell* port_cell, Cell* connected_fn_cell, Cell* data_fn_cell) {
+  if (!host_cell || (host_cell->tag!=TAG_BYTES && host_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  if (!port_cell || (port_cell->tag!=TAG_INT)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  
+  my_tcp_connected_callback = connected_fn_cell;
+  my_tcp_data_callback = data_fn_cell;
+
+  their_tcp_port = port_cell->value;
+
+  memcpy(their_ip,host_cell->addr,4);
 
   my_seqnum++;
   send_tcp_packet(my_tcp_port,port_cell->value,TCP_RST,my_seqnum,0,NULL,0);
@@ -423,11 +447,10 @@ Cell* machine_connect_tcp(Cell* port_cell, Cell* data_cell) {
   return alloc_int(1);
 }
 
-Cell* machine_send_tcp(Cell* port_cell, Cell* data_cell) {
-  if (!port_cell || (port_cell->tag!=TAG_INT)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+Cell* machine_send_tcp(Cell* data_cell) {
   if (!data_cell || (data_cell->tag!=TAG_BYTES && data_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
 
-  send_tcp_packet(my_tcp_port,port_cell->value,TCP_PSH|TCP_ACK,my_seqnum,their_seqnum,data_cell->addr,data_cell->size);
+  send_tcp_packet(my_tcp_port,their_tcp_port,TCP_PSH|TCP_ACK,my_seqnum,their_seqnum,data_cell->addr,data_cell->size);
   my_seqnum+=data_cell->size;
   
   return alloc_int(1);
@@ -496,31 +519,30 @@ int machine_get_key(int modifiers) {
     if (inportbyte(0x64) & 1) {
       
       int key = 0;
-      do {
-        key = inportbyte(0x60);
+      key = inportbyte(0x60);
         
-        //printf("key: %d\n",key);
+      //printf("key: %d\n",key);
         
-        if (key == 0x2a) { kb_shift = 1; return 0; }
-        if (key == 0xaa) { kb_shift = 0; return 0; }
+      if (key == 0x2a) { kb_shift = 1; return 0; }
+      if (key == 0xaa) { kb_shift = 0; return 0; }
 
-        // right shift
-        if (key == 54)  { kb_shift = 1; return 0; }
-        if (key == 182) { kb_shift = 0; return 0; }
+      // right shift
+      if (key == 54)  { kb_shift = 1; return 0; }
+      if (key == 182) { kb_shift = 0; return 0; }
 
-        if (key == 29)  { kb_meta = 1; return 0; }
-        if (key == 157) { kb_meta = 0; return 0; }
+      if (key == 29)  { kb_meta = 1; return 0; }
+      if (key == 157) { kb_meta = 0; return 0; }
         
-        if (key == 56)  { kb_alt = 1; return 0; }
-        if (key == 184) { kb_alt = 0; return 0; }
+      if (key == 56)  { kb_alt = 1; return 0; }
+      if (key == 184) { kb_alt = 0; return 0; }
         
-        if (key == 29)  { kb_ctrl = 1; return 0; }
-        if (key == 219) { kb_ctrl = 0; return 0; }
+      if (key == 29)  { kb_ctrl = 1; return 0; }
+      if (key == 219) { kb_ctrl = 0; return 0; }
         
-        if (key == 58)  { kb_caps = 1; return 0; }
-        if (key == 186) { kb_caps = 0; return 0; }
-        
-      } while (key>127);
+      if (key == 58)  { kb_caps = 1; return 0; }
+      if (key == 186) { kb_caps = 0; return 0; }
+      
+      if (key>127) return 0;
       
       // convert to SDL scancodes
       if (key!=0) {

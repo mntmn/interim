@@ -14,6 +14,6 @@ Cell* machine_load_file(char* path);
 Cell* machine_poll_udp();
 Cell* machine_send_udp(Cell* data_cell);
 
-Cell* machine_connect_tcp(Cell* port_cell, Cell* data_cell);
-Cell* machine_send_tcp(Cell* port_cell, Cell* data_cell);
+Cell* machine_connect_tcp(Cell* host_cell, Cell* port_cell, Cell* connected_fn_cell, Cell* data_fn_cell);
+Cell* machine_send_tcp(Cell* data_cell);
 Cell* machine_bind_tcp(Cell* port_cell, Cell* fn_cell);

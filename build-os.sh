@@ -1,6 +1,6 @@
 #!/bin/sh
 
-GCC_OPTS="-m64 -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone"
+GCC_OPTS="-m64 -g -nostdlib -nostartfiles -nodefaultlibs -fomit-frame-pointer -mno-red-zone"
 OPTIMIZE="-O3"
 
 COMPILE="gcc -std=c99 $GCC_OPTS -I newlib/newlib-2.2.0/newlib/libc/include/ -I./lightning/lightning -I./lightning/"
