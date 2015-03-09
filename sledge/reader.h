@@ -15,12 +15,16 @@
 #define PST_ERR_UNEXP_JUNK_IN_NUMBER 11
 #define PST_ERR_UNEXP_JUNK_IN_BYTES 12
 
+#define VST_DEFAULT 0
+#define VST_HEX 1
+
 #define uint unsigned int
 
 typedef struct ReaderState {
   uint state;
   Cell* cell;
   uint sym_len;
+  uint valuestate; // i.e. dec/hex/char
 
   Cell** stack;
   uint level; // "stack pointer"

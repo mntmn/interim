@@ -44,6 +44,7 @@ ReaderState* read_char(char c, ReaderState* rs) {
       rs->state = PST_COMMENT;
     } else if (c>='0' && c<='9') {
       rs->state = PST_NUM;
+      rs->valuestate = VST_DEFAULT;
       new_cell = alloc_int(0);
       new_cell->value = c-'0';
       cell->addr = new_cell;
@@ -91,18 +92,29 @@ ReaderState* read_char(char c, ReaderState* rs) {
       rs->state = PST_ATOM;
     }
   } else if (rs->state == PST_NUM || rs->state == PST_NUM_NEG) {
-    if (c>='0' && c<='9') {
+    if (c>='0' && c<='9' || ((rs->valuestate == VST_HEX && c>='a' && c<='f'))) {
       // build number
       Cell* vcell = (Cell*)cell->addr;
-      if (rs->state == PST_NUM_NEG) {
-        vcell->value = vcell->value*10 - (c-'0');
+      int mul = 10;
+      if (rs->valuestate == VST_HEX) mul = 16;
+      int d = 0;
+      if (c>='a') {
+        d = 10+(c-'a');
       } else {
-        vcell->value = vcell->value*10 + (c-'0');
+        d = c-'0';
+      }
+      
+      if (rs->state == PST_NUM_NEG) {
+        vcell->value = vcell->value*mul - d;
+      } else {
+        vcell->value = vcell->value*mul + d;
       }
     } else if (c==' ' || c==13 || c==10) {
       cell = reader_next_list_cell(cell, rs);
     } else if (c==')') {
       cell = reader_end_list(cell, rs);
+    } else if (c=='x') {
+      rs->valuestate = VST_HEX;
     } else {
       rs->state = PST_ERR_UNEXP_JUNK_IN_NUMBER;
     }
