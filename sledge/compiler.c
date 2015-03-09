@@ -239,7 +239,7 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
 
   // how long is the existing rune at target spot?
   j = utf8_rune_len(s[i]);
-  
+
   int rune_len = 0;
   char tmp[10];
   rune_to_utf8(rune, tmp, &rune_len);
@@ -265,8 +265,6 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
     }
     memmove(cell->addr+i+rune_len, cell->addr+i+j, movelen);
   }
-
-  //printf("writing rune %d at %d: %x\n",rune,i,tmp[0]);
 
   // write the new rune
   for (int m=0; m<rune_len; m++) {
@@ -434,7 +432,7 @@ int compile_arg(int reg, Cell* arg, int save_regs, int wants_integer) {
       }
     }
     else if (tag == TAG_CONS) {
-      coerced = compile_applic(arg, wants_integer);
+      coerced = compile_applic(arg, wants_integer); // FIXME rethink
     }
     else {
       if (save_regs) {
@@ -462,20 +460,20 @@ void compile_add(Cell* args) {
   compile_arg(JIT_R0, car(args), 0, 1);
   compile_arg(JIT_R1, car(cdr(args)), 1, 1);
 
+#ifdef DEBUG
   stack_push(JIT_R0, &stack_ptr);
   stack_push(JIT_R1, &stack_ptr);
   
-#ifdef DEBUG
   jit_prepare();
   jit_ellipsis();
   jit_pushargi((jit_word_t)"-- add %d %d\n");
   jit_pushargr(JIT_R0);
   jit_pushargr(JIT_R1);
   jit_finishi(printf);
-#endif
 
   stack_pop(JIT_R1, &stack_ptr);
   stack_pop(JIT_R0, &stack_ptr);
+#endif
   
   jit_addr(JIT_R0, JIT_R0, JIT_R1);
 }
@@ -1027,14 +1025,14 @@ void compile_lambda(Cell* lbd, Cell* args, int recursion) {
 
       // push for bind in phase 2
       stack_push(JIT_R0, &stack_ptr);
-      
-#ifdef DEBUG
-      jit_prepare();
-      jit_ellipsis();
-      jit_pushargi((jit_word_t)"pushed arg: %x\n");
-      jit_pushargr(JIT_R0);
-      jit_finishi(printf);
-#endif
+
+      /*
+        jit_prepare();
+        jit_ellipsis();
+        jit_pushargi((jit_word_t)"pushed arg: %x\n");
+        jit_pushargr(JIT_R0);
+        jit_finishi(printf);
+      */
       
       i++;
     }
@@ -1188,12 +1186,40 @@ void compile_quote(Cell* args) {
   jit_movi(JIT_R0, (jit_word_t)car(args));
 }
 
-void compile_car(Cell* args) {
+jit_word_t do_car(Cell* cell) {
+  if (!cell) return 0;
+  if (cell->tag != TAG_CONS) return 0;
+  return (jit_word_t)cell->addr;
+}
+
+jit_word_t do_car_int(Cell* cell) {
+  if (!cell) return 0;
+  if (cell->tag != TAG_CONS) return 0;
+  Cell* carc = cell->addr;
+  if (!carc) return 0;
+  return carc->value;
+}
+
+void compile_car(Cell* args, int wants_int) {
   if (!car(args)) return argnum_error("(car list)");
   Cell* arg = car(args);
   
   compile_arg(JIT_R0, arg, 0, 0);
-  jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  if (wants_int) {
+    jit_finishi(do_car_int);
+  } else {
+    jit_finishi(do_car);
+  }
+  jit_retval(JIT_R0);
+  //jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
+}
+
+jit_word_t do_cdr(Cell* cell) {
+  if (!cell) return 0;
+  if (cell->tag != TAG_CONS) return 0;
+  return (jit_word_t)cell->next;
 }
 
 void compile_cdr(Cell* args) {
@@ -1201,7 +1227,11 @@ void compile_cdr(Cell* args) {
   Cell* arg = car(args);
   
   compile_arg(JIT_R0, arg, 0, 0);
-  jit_ldxi(JIT_R0, JIT_R0, sizeof(jit_word_t)); // cdr r0 = r0 + one word = r0->next
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_finishi(do_cdr);
+  jit_retval(JIT_R0);
+  //jit_ldxi(JIT_R0, JIT_R0, sizeof(jit_word_t)); // cdr r0 = r0 + one word = r0->next
 }
 
 void compile_cons(Cell* args) {
@@ -1348,6 +1378,21 @@ void compile_eval(Cell* args) {
   jit_retval(JIT_R0);
 }
 
+jit_word_t vec_get(Cell* vec, jit_word_t position) {
+  if (!vec || (vec->tag!=TAG_STR && vec->tag!=TAG_BYTES)) return 0;
+  if (position>=vec->size || position<0) return 0;
+  return ((uint8_t*)vec->addr)[position];
+}
+
+jit_word_t vec_put(Cell* vec, jit_word_t position, jit_word_t value) {
+  if (!vec || (vec->tag!=TAG_STR && vec->tag!=TAG_BYTES)) return 0;
+  if (position>=vec->size || position<0) return 0;
+  uint8_t v = (uint8_t)value;
+  ((uint8_t*)vec->addr)[position] = v;
+
+  return v;
+}
+
 // vectors/strings
 void compile_get(Cell* args) {
   if (!car(args) || !car(cdr(args))) return argnum_error("(get bytes-or-string index)");
@@ -1358,12 +1403,18 @@ void compile_get(Cell* args) {
   compile_arg(JIT_R0, arg, 0, 0);
   compile_arg(JIT_R1, car(cdr(args)), 1, 1);
 
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_pushargr(JIT_R1);
+  jit_finishi(vec_get);
+  jit_retval(JIT_R0);
+
   // fetch size
   // jit_ldxi(JIT_R2, JIT_R0, sizeof(jit_word_t));
   // jit_node_t* jump = jit_bltr(JIT_R2, JIT_R1);
   
-  jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
-  jit_ldxr_uc(JIT_R0, JIT_R0, JIT_R1); // *(r0 + r1) -> r0
+  //jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
+  //jit_ldxr_uc(JIT_R0, JIT_R0, JIT_R1); // *(r0 + r1) -> r0
 }
 
 // utf8 char get
@@ -1390,11 +1441,22 @@ void compile_put(Cell* args) {
   // TODO: optimize
   
   compile_arg(JIT_R0, arg, 0, 0);
-  jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
+  compile_arg(JIT_R1, car(cdr(cdr(args))), 1, 1);
+  stack_push(JIT_R1, &stack_ptr);
   compile_arg(JIT_R1, car(cdr(args)), 1, 1);
+  
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_pushargr(JIT_R1);
+  stack_pop(JIT_R1, &stack_ptr);
+  jit_pushargr(JIT_R1);
+  jit_finishi(vec_put);
+  jit_retval(JIT_R0);
+  
+  /*jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
   jit_addr(JIT_R0, JIT_R0, JIT_R1);
   compile_arg(JIT_R1, car(cdr(cdr(args))), 1, 1);
-  jit_str_c(JIT_R0, JIT_R1); // *(r0 + r1) -> r0
+  jit_str_c(JIT_R0, JIT_R1); // *(r0 + r1) -> r0 */
 }
 
 // utf8 char put
@@ -1402,15 +1464,18 @@ void compile_uput(Cell* args) {
   if (!car(args) || !car(cdr(args))) return argnum_error("(uput string index rune)");
   Cell* arg = car(args);
 
+  compile_arg(JIT_R0, car(cdr(cdr(args))), 0, 0);
+  stack_push(JIT_R0, &stack_ptr);
+  compile_arg(JIT_R0, car(cdr(args)), 0, 0);
+  stack_push(JIT_R0, &stack_ptr);
   compile_arg(JIT_R0, arg, 0, 0);
-  compile_arg(JIT_R1, car(cdr(cdr(args))), 1, 0);
-  jit_movr(JIT_V0, JIT_R1);
-  compile_arg(JIT_R1, car(cdr(args)), 1, 0);
 
   jit_prepare();
   jit_pushargr(JIT_R0);
-  jit_pushargr(JIT_R1);
-  jit_pushargr(JIT_V0);
+  stack_pop(JIT_R0, &stack_ptr);
+  jit_pushargr(JIT_R0);
+  stack_pop(JIT_R0, &stack_ptr);
+  jit_pushargr(JIT_R0);
   jit_finishi(utf8_put_rune_at); // checks tag + bounds
   jit_retval(JIT_R0);
 }
@@ -1561,7 +1626,7 @@ int compile_applic(Cell* list, int wants_int) {
     compile_quote(cdr(list));
     break;
   case BUILTIN_CAR:
-    compile_car(cdr(list));
+    compile_car(cdr(list), wants_int);
     break;
   case BUILTIN_CDR:
     compile_cdr(cdr(list));
