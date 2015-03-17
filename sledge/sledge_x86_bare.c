@@ -514,7 +514,12 @@ static int kb_caps = 0;
 
 int machine_get_key(int modifiers) {
   if (modifiers) {
-    return kb_shift;
+    int map = kb_shift;
+    if (kb_ctrl) map += 512;
+    if (kb_meta) map += 1024;
+    if (kb_alt)  map += 256;
+    
+    return map;
   } else {
     if (inportbyte(0x64) & 1) {
       
@@ -592,12 +597,21 @@ Cell* machine_save_file(Cell* cell, char* path) {
   return alloc_int(0);
 }
 
+static char sysfs_tmp[1024];
+
 Cell* machine_load_file(char* path) {
-  printf("about to load: %s\n",path);
+  //printf("about to load: %s\n",path);
   //struct stat st;
   //if (stat(path, &st)) return alloc_error(ERR_NOT_FOUND);
 
   //if (st.st_size < 1) return alloc_bytes(); // zero-byte file
+
+  // sysfs
+  if (!strcmp(path,"/sys/mem")) {
+    MemStats* mst = alloc_stats();
+    sprintf(sysfs_tmp, "(%d %d)", mst->stack_bytes_used, mst->stack_bytes_max);
+    return read_string(sysfs_tmp);
+  }
 
   uint32_t f = b_file_open(path);
 
@@ -741,7 +755,7 @@ int main(int argc, char *argv[])
   while (1) {
     ptest = NULL;
     
-    printf("sledge> ");
+    //printf("sledge> ");
     fflush(stdout);
     //getdelim(&in_line, &len, '\n', stdin);
 
@@ -753,6 +767,7 @@ int main(int argc, char *argv[])
         if (bootf) {
           uint32_t res = b_file_read(bootf, boot_buffer, 4000);
           printf("editor.l read: %ld\n",res);
+          
           b_file_close(bootf);
         } else {
           //fgets(in_line, 10240, stdin);
@@ -839,7 +854,13 @@ int main(int argc, char *argv[])
       stack_ptr = stack_base = jit_allocai(1024 * sizeof(int)); //malloc(1024*sizeof(unsigned long long)); //
       //printf("stack_ptr: %x\n",stack_ptr);
     
-      compile_arg(JIT_R0, ptest, 0, 0);
+      int success = compile_arg(JIT_R0, ptest, TAG_ANY);
+
+      if (!success) {
+        printf("<HALT\n");
+        while(1) {};
+      }
+      
       jit_retr(JIT_R0);
   
       compiled = jit_emit();

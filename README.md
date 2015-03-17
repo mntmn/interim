@@ -5,6 +5,8 @@ Bomberjacket OS is a radical new operating system with a focus on minimalism. It
 
 ![Bomberjacket OS Logo](http://dump.mntmn.com/bjos.png)
 
+![Bomberjacket OS Screenshot](http://dump.mntmn.com/bjos-mar17-2015.png)
+
 Architecture
 ------------
 
@@ -39,8 +41,7 @@ Running
 
 2. Launch QEMU: ````./run.sh````
 
-If you run into
-
+You can evaluate LISP-expressions in the editor by pressing Ctrl-E (or Super-E). Example: type ````(buf-load "goa")```` and press Ctrl-E. This will load a graphics demo into the editor. Start it by pressing Ctrl-E again.
 
 Debugging
 ---------

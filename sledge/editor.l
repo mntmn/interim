@@ -44,8 +44,6 @@
   result
 )))
 
-
-
 (def unifont (load "unifont"))
 (def white 16777215)
 (def cyan 65535)

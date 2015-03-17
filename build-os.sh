@@ -27,11 +27,11 @@ $COMPILE $OPTIMIZE -o lightning.app -g -T newlib/app.ld newlib/crt0.o sledge/sle
 
 #ld -T newlib/app.ld -o lightning.app newlib/crt0.o newlib/libc.a lightning.o jit_names.o jit_note.o jit_size.o glue.o newlib/libBareMetal.o
 
-cp sledge/editor.l bin/editor.l
+cp sledge/editlite.l bin/editor.l
 cp sledge/fs/keymap-bm bin/keymap
 cp sledge/fs/unifont bin/
 cp sledge/fs/buffer bin/
-cp sledge/goa.l bin/goa
+cp sledge/test.l bin/goa
 mv lightning.app bin/l
 if [ $? -eq 0 ]; then
 cd bin

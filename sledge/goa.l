@@ -1,13 +1,13 @@
 (do
-(def c 0)
+(mut c 0)
 (while 1
   (do
-    (def c (+ 1 (% (+ c 1) 256)))
-    (def b 320)
-    (while (def b (- b 1))
+    (mut c (+ 1 (% (+ c 1) 256)))
+    (mut b 320)
+    (while (mut b (- b 1))
       (do
-        (def a 320)
-        (while (def a (- a 1))
+        (mut a 320)
+        (while (mut a (- a 1))
           (pixel a b (/ (+ a b) c)))))
     (flip))))
 

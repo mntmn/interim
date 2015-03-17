@@ -13,6 +13,8 @@ static enum cell_allocator_t cell_allocator = CA_STACK;
 
 static Cell oom_cell;
 
+static struct MemStats mem_stats;
+
 void init_allocator() {
   oom_cell.tag = TAG_ERROR;
   oom_cell.value = ERR_OUT_OF_MEMORY;
@@ -57,6 +59,14 @@ void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes
   return new;
 }
 
+MemStats* alloc_stats() {
+  mem_stats.stack_bytes_used = stack_bytes_used;
+  mem_stats.stack_bytes_max = stack_bytes_max;
+  mem_stats.heap_bytes_used = heap_bytes_used;
+  mem_stats.heap_bytes_max = heap_bytes_max;
+  return &mem_stats;
+}
+
 Cell* alloc_cons(Cell* ar, Cell* dr) {
   //printf("alloc_cons: ar %p dr %p\n",ar,dr);
   Cell* cons = cell_malloc(sizeof(Cell));
@@ -84,6 +94,7 @@ Cell* alloc_int(int i) {
   Cell* num = cell_malloc(sizeof(Cell));
   num->tag = TAG_INT;
   num->value = i;
+  //printf("++ alloc_int %d\n",i);
   return num;
 }
 

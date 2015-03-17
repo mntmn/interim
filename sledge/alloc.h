@@ -10,6 +10,13 @@ enum cell_allocator_t {
   CA_HEAP
 };
 
+typedef struct MemStats {
+  unsigned long stack_bytes_used;
+  unsigned long heap_bytes_used;
+  unsigned long stack_bytes_max;
+  unsigned long heap_bytes_max;
+} MemStats;
+
 void init_allocator();
 
 void* cell_malloc(int num_bytes);
@@ -29,6 +36,8 @@ Cell* alloc_error(unsigned int code);
 Cell* alloc_lambda(Cell* args);
 Cell* alloc_builtin(unsigned int b);
 Cell* alloc_clone(Cell* orig);
+
+MemStats* alloc_stats();
 
 void  free_tree(Cell* root);
 

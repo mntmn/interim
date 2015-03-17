@@ -5,17 +5,23 @@
 
 #define byte unsigned char
 
-#define TAG_INT  0
-#define TAG_CONS 1
-#define TAG_SYM  2
-#define TAG_LAMBDA  3
-#define TAG_BUILTIN 4
-#define TAG_BIGNUM 5
-#define TAG_STR 6
-#define TAG_BYTES 7
-#define TAG_VEC 8
-#define TAG_ERROR 9
-#define TAG_LET 10
+#define TAG_INT  1
+#define TAG_CONS 2
+#define TAG_SYM  3
+#define TAG_LAMBDA  4
+#define TAG_BUILTIN 5
+#define TAG_BIGNUM 6
+#define TAG_STR 7
+#define TAG_BYTES 8
+#define TAG_VEC 9
+#define TAG_ERROR 10
+#define TAG_LET 11
+#define TAG_ANY 20
+#define TAG_VOID 666
+
+#define TAG_PURE_INT 0 // not a cell
+
+#define tag_t jit_word_t
 
 #define MAX_EVAL_DEPTH 10000
 #define SYM_INIT_BUFFER_SIZE 32
@@ -61,7 +67,7 @@ void  register_alien_func(char* symname, alien_func func);
 
 extern Cell* read_string(char* in);
 
-#define car(x) ((Cell*)x->addr)
-#define cdr(x) ((Cell*)x->next)
+#define car(x) (x?(Cell*)x->addr:NULL)
+#define cdr(x) (x?(Cell*)x->next:NULL)
 
 #endif

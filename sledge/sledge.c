@@ -8,11 +8,10 @@
 #include "sdl.h"
 
 #define MAX_INT 4294967296
-//#define DEBUG 1
+#define DEBUG 1
 
 typedef jit_word_t (*funcptr)();
 static jit_state_t *_jit;
-static jit_state_t *_jit_saved;
 static jit_word_t stack_ptr, stack_base;
 
 #include "compiler.c"
@@ -60,8 +59,16 @@ Cell* machine_save_file(Cell* cell, char* path) {
   return alloc_int(0);
 }
 
-Cell* machine_load_file(char* path) {
+static char sysfs_tmp[1024];
 
+Cell* machine_load_file(char* path) {
+  // sysfs
+  if (!strcmp(path,"/sys/mem")) {
+    MemStats* mst = alloc_stats();
+    sprintf(sysfs_tmp, "(%d %d)", mst->stack_bytes_used, mst->stack_bytes_max);
+    return read_string(sysfs_tmp);
+  }
+  
   char buf[512];
   sprintf(buf,"fs/%s",path);
   path = buf;
@@ -89,7 +96,7 @@ Cell* machine_poll_udp() {
   if (my_tcp_connected_callback) {
     printf("-- calling tcp connected callback\n");
     funcptr fn = (funcptr)my_tcp_connected_callback->next;
-    return fn();
+    return NULL;
   }
   return NULL;
 }
@@ -131,7 +138,7 @@ static inline void stop_clock()
 
 int main(int argc, char *argv[])
 {
-  Cell* ptest = NULL;
+  Cell* expr = NULL;
   char* in_line = NULL;
   char in_buffer[100*1024];
   int len = 0;
@@ -153,12 +160,12 @@ int main(int argc, char *argv[])
   int sdl_inited = 0;
 
   while (1) {
-    ptest = NULL;
+    expr = NULL;
     
     printf("sledge> ");
     int r = getline(&in_line, &len, stdin);
-
-    if (r<1) exit(0);
+    
+    if (!r) exit(0);
 
     // recognize parens
     int l = strlen(in_line);
@@ -181,19 +188,14 @@ int main(int argc, char *argv[])
       }
       in_offset+=l;
     } else {
-      ptest = read_string(in_buffer);
+      expr = read_string(in_buffer);
       in_offset=0;
     }
-    //printf("parens: %d offset: %d\n",parens,in_offset);
     
     jit_node_t  *in;
     funcptr     compiled;
     
-    //printf("stack_ptr: %x\n",stack_ptr);
-    //printf("ptest: %p\n",ptest);
-
-    if (ptest) {
-
+    if (expr) {
       if (!jit_inited) { 
         init_jit(argv[0]);
         jit_inited = 1;
@@ -203,16 +205,22 @@ int main(int argc, char *argv[])
       jit_prolog();
       stack_ptr = stack_base = jit_allocai(1024 * sizeof(int));
 
-      compile_arg(JIT_R0, ptest, 0, 0);
-  
-      compiled = jit_emit();
+      Cell* res;
+      int success = compile_arg(JIT_R0, expr, TAG_ANY);
+
+      if (success) {
+        compiled = jit_emit();
       
 #ifdef DEBUG
-      jit_disassemble();
+        //jit_disassemble();
       start_clock();
 #endif
 
-      Cell* res = (Cell*)compiled(0);
+        res = (Cell*)compiled(0);
+      } else {
+        printf("<compilation failed>\n");
+        res = NULL;
+      }
 
       // TODO: move to write op
       if (!res) {
@@ -226,6 +234,9 @@ int main(int argc, char *argv[])
 #ifdef DEBUG
       stop_clock();
 #endif
+
+      MemStats* mst = alloc_stats();
+      printf("%lu heap bytes, %lu/%lu stack bytes used\n",mst->heap_bytes_used,mst->stack_bytes_used,mst->stack_bytes_max);
       
       jit_clear_state();
       jit_destroy_state();
