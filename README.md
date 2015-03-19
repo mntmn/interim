@@ -3,6 +3,8 @@ Hello
 
 Bomberjacket OS is a radical new operating system with a focus on minimalism. It steals conceptually from Lisp machines and Plan 9.
 
+There are currently two targets: Intel x86_64 PC and 32-bit ARM (currently Raspberry Pi Model B which is ancient ARMv6). Patches to bootstrap on 32-bit x86 are welcome.
+
 ![Bomberjacket OS Logo](http://dump.mntmn.com/bjos.png)
 
 ![Bomberjacket OS Screenshot](http://dump.mntmn.com/bjos-mar17-2015.png)
@@ -34,14 +36,19 @@ Building
 
 Optionally, you can build newlib yourselves if you don't trust my included 64-bit binary: ````./build-newlib.sh````
 
-Running
--------
+Running (X86/64 Emulator)
+-------------------------
 
 1. Initialise a network bridge if you haven't done so before. Read and modify this script before running! ````./setup-bridge.sh```` 
 
 2. Launch QEMU: ````./run.sh````
 
 You can evaluate LISP-expressions in the editor by pressing Ctrl-E (or Super-E). Example: type ````(buf-load "goa")```` and press Ctrl-E. This will load a graphics demo into the editor. Start it by pressing Ctrl-E again.
+
+Running (Raspberry Pi)
+----------------------
+
+Prepare a bootable SD card with the usual FAT partition that has the Pi-specicic boot blobs in it and copy ````kernel.img```` into it. You can recycle any other Raspberry OS distribution, i.e. Raspian for this. Just replace the kernel.img and delete cmdline.txt. Keyboard input is currently only over UART, so you will probably want to connect a UART->USB cable to another computer and use it to control Bomberjacket/Pi. 
 
 Debugging
 ---------
