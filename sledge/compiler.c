@@ -7,6 +7,8 @@
 #include "machine.h"
 #include "blit.h"
 
+void memdump(uint32_t start,uint32_t len,int raw);
+
 typedef enum builtin_t {
   BUILTIN_ADD,
   BUILTIN_SUB,
@@ -72,7 +74,7 @@ typedef enum builtin_t {
 
 typedef struct env_entry {
   Cell* cell;
-  char name[128];
+  char name[64];
   UT_hash_handle hh;
 } env_entry;
 
@@ -121,9 +123,10 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_entry** env) {
     e->cell = cell;
     return e->cell;
   }
+  printf("++ alloc env entry (%d), symbol size %d\r\n",sizeof(env_entry),symbol->size);
     
   e = malloc(sizeof(env_entry));
-  strcpy(e->name, (char*)symbol->addr);
+  memcpy(e->name, (char*)symbol->addr, symbol->size);
   e->cell = cell;
 
   HASH_ADD_STR(*env, name, e);
@@ -131,16 +134,37 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_entry** env) {
   return e->cell;
 }
 
+static int stack_reg = 0;
+
 void stack_push(int reg, jit_word_t* sp)
 {
   jit_stxi(*sp, JIT_FP, reg);
   *sp += sizeof(jit_word_t);
+  /*if (stack_reg == 0) {
+    jit_movr(JIT_V0, reg);
+  } else if (stack_reg == 1) {
+    jit_movr(JIT_V1, reg);
+  } else if (stack_reg == 2) {
+    jit_movr(JIT_V2, reg);
+  }
+  stack_reg = (stack_reg+1)%4;*/
 }
 
 void stack_pop(int reg, jit_word_t* sp)
 {
   *sp -= sizeof(jit_word_t);
   jit_ldxi(reg, JIT_FP, *sp);
+
+  /*stack_reg = stack_reg-1;
+  if (stack_reg<0) stack_reg = 0;
+  
+  if (stack_reg == 0) {
+    jit_movr(reg, JIT_V0);
+  } else if (stack_reg == 1) {
+    jit_movr(reg, JIT_V1);
+  } else if (stack_reg == 2) {
+    jit_movr(reg, JIT_V2);
+    }*/
 }
 
 int compile_applic(int retreg, Cell* list, tag_t required);
@@ -376,9 +400,9 @@ int compile_def(int retreg, Cell* args, tag_t required) {
 
           // FIXME: recursion is broken
           
-          env_entry* stub_e = intern_symbol(sym, &global_env);
+          /*env_entry* stub_e = intern_symbol(sym, &global_env);
           stub_e->cell = alloc_lambda(0);
-          stub_e->cell->next = (void*)0xdeadbeef;
+          stub_e->cell->next = (void*)0xdeadbeef;*/
         }
       }
     }
@@ -601,7 +625,7 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
   jit_node_t* fn_label = jit_note(__FILE__, __LINE__);
   jit_prolog();
   
-  //stack_ptr = stack_base = jit_allocai(1024 * sizeof(int));
+  //stack_ptr = stack_base = jit_allocai(128 * sizeof(int));
   
   jit_node_t* fn_body_label = jit_label();
 
@@ -622,8 +646,10 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
     // res->addr will point to the args
     res->next = jit_emit();
 
+    //printf("-- emitted at %p in %p\n",res->next,res);
+    //memdump(res->next,0x100,0);
+  
 /*#ifdef DEBUG
-    printf("-- emitted at %p in %p\n",res->next,res);
     printf("<assembled: %p>\n",res->next);
     jit_disassemble();
     printf("--------------------------------------\n");
@@ -639,9 +665,9 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
     jit_movi(retreg, (jit_word_t)res);
   } else {
     if (currently_compiling_fn_sym) {
-      printf("<could not compile_fn %s>\n",currently_compiling_fn_sym->addr);
+      printf("<could not compile_fn %s>\r\n",currently_compiling_fn_sym->addr);
     } else {
-      printf("<could not compile_fn (anonymous)>\n");
+      printf("<could not compile_fn (anonymous)>\r\n");
     }
     jit_movi(retreg, 0);
   }
@@ -672,16 +698,16 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
     if (car(cdr(pargs))) {
       Cell* sym = car(pargs);
       
-      char buffer[64];
+      /*char buffer[64];
       sprintf(buffer,"save arg: %d %s\n",i,sym->addr);
-      jit_note(buffer, __LINE__);
+      jit_note(buffer, __LINE__);*/
 
       // FIXME: possible optimization when pushing the same arg twice
       // (in subcall), but rare?
 
       env_entry* arge = intern_symbol(sym, env);
-      jit_ldi(JIT_R0, arge);
-      stack_push(JIT_R0, &stack_ptr);
+      //jit_ldi(JIT_R0, arge);
+      //stack_push(JIT_R0, &stack_ptr);
       
       int res = compile_arg(JIT_R0, car(args), TAG_ANY);
       
@@ -712,7 +738,8 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
   }
   
   if (recursion == 1) {
-    jit_note("jump to lambda as recursion\n",__LINE__);
+    printf("++ recursion\r\n");
+    //jit_note("jump to lambda as recursion\n",__LINE__);
     // get jump address at runtime
     jit_movi(JIT_R0, (jit_word_t)currently_compiling_fn_op);
     jit_ldxi(JIT_R0, JIT_R0, sizeof(jit_word_t)); // *(r0 + 1) -> r0
@@ -724,14 +751,15 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
     //jit_node_t* rec_jump = jit_calli(currently_compiling_fn_label);
     //jit_patch_at(rec_jump, );
   } else {
-    jit_note("call lambda as function\n",__LINE__);
+    //jit_note("call lambda as function\n",__LINE__);
     jit_prepare();
     jit_finishi(lbd->next);
     jit_retval(retreg);
   }
 
   // pass 4: restore environment
-  
+
+  /*
   if (recursion<2) {
     jit_movr(JIT_R2, retreg); // fixme: how to ensure this is a clobber-free reg?
 
@@ -744,7 +772,7 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
     }
     
     jit_movr(retreg, JIT_R2);
-  }
+    }*/
 
   if (requires == TAG_PURE_INT) {
     return unbox_int(retreg);
@@ -1224,7 +1252,34 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
   return 0;
 }
 
+void memdump(uint32_t start,uint32_t len,int raw) {
+  for (uint32_t i=0; i<len;) {
+    if (!raw) printf("%08x | ",start+i);
+    for (uint32_t x=0; x<16; x++) {
+      printf("%02x ",*((uint8_t*)start+i+x));
+    }
+    if (!raw)
+    for (uint32_t x=0; x<16; x++) {
+      uint8_t c = *((uint8_t*)start+i+x);
+      if (c>=32 && c<=128) {
+        printf("%c",c);
+      } else {
+        printf(".");
+      }
+    }
+    printf("\r\n");
+    i+=16;
+  }
+  printf("\r\n\r\n");
+}
+
 void init_compiler() {
+
+  //memdump(0x6f460,0x200,0);
+  //uart_getc();
+  
+  printf("malloc test: %p\r\n",malloc(1024));
+  
   init_allocator();
 
   int_cell_regs = (Cell*)malloc(10*sizeof(Cell));
@@ -1291,6 +1346,22 @@ void init_compiler() {
   insert_symbol(alloc_sym("tcp-connect"), alloc_builtin(BUILTIN_TCP_CONNECT), &global_env);
   insert_symbol(alloc_sym("tcp-send"), alloc_builtin(BUILTIN_TCP_SEND), &global_env);
 
+  extern uint8_t _binary_sledge_fs_unifont_start;
+  Cell* unif = alloc_bytes(16);
+  unif->addr = &_binary_sledge_fs_unifont_start;
+  unif->size = 0x20c100;
+
+  //printf("~~ unifont is at %p\r\n",unif->addr);
+  insert_symbol(alloc_sym("unifont"), unif, &global_env);
+  
+  extern uint8_t _binary_editor_arm_l_start;
+  extern uint32_t _binary_editor_arm_l_size;
+  Cell* editor = alloc_string("foo");
+  editor->addr = &_binary_editor_arm_l_start;
+  editor->size = _binary_editor_arm_l_size;
+
+  insert_symbol(alloc_sym("editor-source"), editor, &global_env);
+  
   int num_syms=HASH_COUNT(global_env);
-  printf("sledge knows %u symbols. enter (ls) to see them.\n\n", num_syms);
+  printf("sledge knows %u symbols. enter (ls) to see them.\r\n", num_syms);
 }

@@ -32,3 +32,8 @@
 
 (def foo (fn a b (+ a b)))
 (test 15 (do (def a 5) (def b 6) (= (foo (+ a 1) (- b 2)) 10)))
+
+(def func-a (fn xx yy (* (+ xx 1) (+ yy 1))))
+(def func-b (fn x y (func-a x y)))
+
+(def tst (fn a b (blit-mono unifont a b 0 0 0 0 0 0)))

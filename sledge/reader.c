@@ -1,6 +1,7 @@
 #include "reader.h"
 #include "alloc.h"
 #include <string.h>
+#include <stdint.h>
 
 Cell* reader_next_list_cell(Cell* cell, ReaderState* rs) {
   cell->next = alloc_nil();
@@ -186,9 +187,9 @@ ReaderState* read_char(char c, ReaderState* rs) {
         vcell->size = 2*vcell->size;
       }
       if (idx%2==0) { // even digit
-        ((byte*)vcell->addr)[idx/2] = n<<4; // high nybble
+        ((uint8_t*)vcell->addr)[idx/2] = n<<4; // high nybble
       } else { // odd digit
-        ((byte*)vcell->addr)[idx/2] |= n;
+        ((uint8_t*)vcell->addr)[idx/2] |= n;
       }
       
     } else if (c==' ' || c==13 || c==10) {

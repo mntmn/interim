@@ -61,5 +61,6 @@ void munmap(void* addr) {
   free(addr);
 }
 
-void mprotect() {
+int mprotect() {
+  return 0;
 }

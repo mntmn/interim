@@ -1,5 +1,6 @@
 #include "minilisp.h"
 #include <stdio.h>
+#include <stdint.h>
 
 #define TMP_BUF_SIZE 4096
 
@@ -65,7 +66,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
     unsigned int i;
     for (i=0; i<cell->size; i++) {
       // FIXME: buffer overflow?
-      snprintf(hex_buffer+i*2, bufsize-i*2, "%02x",((byte*)cell->addr)[i]);
+      snprintf(hex_buffer+i*2, bufsize-i*2, "%02x",((uint8_t*)cell->addr)[i]);
     }
     snprintf(buffer, bufsize, "\[%s]", hex_buffer);
     free(hex_buffer);

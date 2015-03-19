@@ -3,8 +3,6 @@
 
 #include "lightning.h" // for jit_word_t
 
-#define byte unsigned char
-
 #define TAG_INT  1
 #define TAG_CONS 2
 #define TAG_SYM  3

@@ -1,6 +1,6 @@
 (do (mut c 0)
     (def a 1024)
-  (while (lt (inkey 0) 1) (do
+  (while 1 (do
     (mut c (+ 1 (% (+ c 1) 256)))
     (mut b 768)
     (while (mut b (- b 1))

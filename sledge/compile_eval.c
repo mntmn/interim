@@ -5,32 +5,79 @@ jit_word_t compile_compile(Cell* expr) {
   Cell* read_expr = read_string(expr->addr);
   if (!read_expr) return (jit_word_t)alloc_error(ERR_APPLY_NIL);
 
-  push_jit_state();
-  
-  _jit = jit_new_state();
-  jit_node_t* fn_label = jit_label();
-  jit_prolog();
-  
-  stack_ptr = stack_base = jit_allocai(1024 * sizeof(int));
-  
-  jit_node_t* fn_body_label = jit_label();
+  int done = 0;
+  int step_by_step = 0;
 
-  Cell* res = alloc_lambda(alloc_nil());
+  Cell* compile_expr = read_expr;
   
-  compile_arg(JIT_R0, read_expr, TAG_ANY);
-  
-  jit_retr(JIT_R0);
-  jit_epilog();
+  if (read_expr->tag == TAG_CONS && car(cdr(read_expr))) {
+    printf("-- eval top-level list, compiling step-by-step\r\n");
+    
+    /*char* buf = malloc(20000);
+    memset(buf,0,20000);
+    lisp_write(compile_expr, buf, 19999);
+    printf("~~ %s ~~\r\n",buf);*/
+      
+    step_by_step = 1;
+  }
 
-  res->next = jit_emit();
+  Cell* exec_res = NULL;
+    
+  while (!done) {
+    if (step_by_step) {
+      compile_expr = car(read_expr);
+      /*static char buf[1024];
+      memset(buf,0,1024);
+      lisp_write(compile_expr, buf, 1023);
+      printf("~~ compiling %s\r\n",buf);*/
+    }
   
-  jit_clear_state();
+    if (compile_expr) {
+      Cell* res = alloc_lambda(alloc_nil());
   
-  pop_jit_state();
+      push_jit_state();
+      _jit = jit_new_state();
+      jit_node_t* fn_label = jit_label();
+      jit_prolog();
+  
+      //stack_ptr = stack_base = jit_allocai(32 * sizeof(jit_word_t));
+      
+      jit_node_t* fn_body_label = jit_label();
 
-  funcptr fn = (funcptr)res->next;
+      int success = compile_arg(JIT_R0, read_expr, TAG_ANY);
+
+      if (success) {
+        jit_retr(JIT_R0);
+        jit_epilog();
+
+        res->next = jit_emit();
+      }
   
-  return fn();
+      jit_clear_state();
+      //jit_destroy_state();
+      pop_jit_state();
+
+      if (success) {
+        funcptr fn = (funcptr)res->next;
+        if (fn) {
+          //printf("would jump to fn %p\r\n",fn);
+          exec_res = (Cell*)fn();
+        }
+      }
+      
+    } else {
+      //done = 1;
+    }
+    
+    if (step_by_step) {
+      read_expr = cdr(read_expr);
+      if (!read_expr) done = 1;
+    } else {
+      done = 1;
+    }
+  }
+  
+  return (jit_word_t)exec_res;
 }
 
 typedef jit_word_t (*funcptr)();

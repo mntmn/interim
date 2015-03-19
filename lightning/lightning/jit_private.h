@@ -520,7 +520,7 @@ struct jit_state {
 };
 
 struct jit_register {
-    jit_reg_t		 spec;
+    jit_uint32_t		 spec;
     char		*name;
 };
 

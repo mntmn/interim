@@ -1,17 +1,18 @@
 #include "alloc.h"
 #include <malloc.h>
+#include <stdint.h>
 
-static void* cell_heap;
-static void* cell_stack;
+void* cell_heap;
+void* cell_stack;
 
-static unsigned long stack_bytes_max = 0;
-static unsigned long heap_bytes_max = 0;
-static unsigned long heap_bytes_used = 0;
-static unsigned long stack_bytes_used = 0;
+volatile uint32_t stack_bytes_max;
+volatile uint32_t heap_bytes_max;
+volatile uint32_t heap_bytes_used;
+volatile uint32_t stack_bytes_used;
 
-static enum cell_allocator_t cell_allocator = CA_STACK;
+enum cell_allocator_t cell_allocator = CA_STACK;
 
-static Cell oom_cell;
+Cell oom_cell;
 
 static struct MemStats mem_stats;
 
@@ -19,22 +20,30 @@ void init_allocator() {
   oom_cell.tag = TAG_ERROR;
   oom_cell.value = ERR_OUT_OF_MEMORY;
 
-  stack_bytes_max = 1024*1024*10;
+  stack_bytes_used = 0;
+  stack_bytes_max = 1024*1024*1;
+  heap_bytes_used = 0;
   heap_bytes_max = 1024*1024*10;
 
-  cell_heap = malloc(heap_bytes_max);
-  cell_stack = malloc(stack_bytes_max);
+  //cell_heap = malloc(heap_bytes_max);
+  //cell_stack = malloc(stack_bytes_max);
+  //printf("\r\n++ cell stack at %p\r\n",cell_stack);
+  //memset(cell_stack,0,stack_bytes_max);
 }
 
 void* cell_malloc(int num_bytes) {
+  void* new_mem = malloc(num_bytes);
+  memset(new_mem, 0, num_bytes);
+  return new_mem;
+  /*
   if (cell_allocator == CA_STACK) {
-    //printf("cell_malloc/stack: %d (%d)\n",num_bytes,stack_bytes_used);
+    //printf("++ cell_malloc/stack: %d (%d)\r\n",num_bytes,stack_bytes_used);
     void* new_mem = cell_stack + stack_bytes_used;
     if (stack_bytes_used + num_bytes < stack_bytes_max) {
       stack_bytes_used += num_bytes;
       return new_mem;
     } else {
-      printf("cell_malloc/stack: out of memory: %d (%d)\n",num_bytes,stack_bytes_used);
+      printf("cell_malloc/stack: out of memory: %d (%d)\r\n",num_bytes,stack_bytes_used);
       exit(1);
       return &oom_cell;
     }
@@ -44,11 +53,11 @@ void* cell_malloc(int num_bytes) {
       heap_bytes_used += num_bytes;
       return new_mem;
     } else {
-      printf("cell_malloc/heap: out of memory\n");
+      printf("cell_malloc/heap: out of memory\r\n");
       exit(1);
       return &oom_cell;
     }
-  }
+    }*/
 }
 
 void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes) {
@@ -76,13 +85,28 @@ Cell* alloc_cons(Cell* ar, Cell* dr) {
   return cons;
 }
 
+extern void uart_puts(char* str);
+extern void memdump(uint32_t start,uint32_t len,int raw);
+
 Cell* alloc_sym(char* str) {
   Cell* sym = cell_malloc(sizeof(Cell));
+  //printf("++ alloc sym at %p %p %d\r\n",sym,sym->addr,sym->size);
+  
   sym->tag = TAG_SYM;
   if (str) {
-    sym->size = strlen(str)+1;
-    sym->addr = cell_malloc(sym->size);
-    memcpy(sym->addr, str, sym->size);
+    int sz = strlen(str)+1;
+    sym->size = sz;
+    uart_puts(str);
+    //printf("alloc_sym: %s (%d)\r\n",str,sz);
+    //memdump(sym,sizeof(Cell),0);
+    
+    sym->addr = cell_malloc(sz);
+
+    //memdump(sym,sizeof(Cell),0);
+    
+    memcpy(sym->addr, str, sz);
+    
+    //memdump(sym,sizeof(Cell),0);
   } else {
     sym->addr = 0;
     sym->size = 0;
@@ -91,10 +115,10 @@ Cell* alloc_sym(char* str) {
 }
 
 Cell* alloc_int(int i) {
+  //printf("++ alloc_int %d\r\n",i);
   Cell* num = cell_malloc(sizeof(Cell));
   num->tag = TAG_INT;
   num->value = i;
-  //printf("++ alloc_int %d\n",i);
   return num;
 }
 

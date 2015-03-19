@@ -7,7 +7,7 @@
 /* Define to 1 if you have the `disassemble_init_powerpc' function. */
 /* #undef HAVE_DISASSEMBLE_INIT_POWERPC */
 
-#define DISASSEMBLER 1
+#define DISASSEMBLER 0
 
 #include <unistd.h>
 #include <stdlib.h>
