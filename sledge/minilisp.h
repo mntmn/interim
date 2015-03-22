@@ -2,6 +2,7 @@
 #define MINILISP_H
 
 #include "lightning.h" // for jit_word_t
+#include "uthash.h"
 
 #define TAG_INT  1
 #define TAG_CONS 2
@@ -16,6 +17,8 @@
 #define TAG_LET 11
 #define TAG_ANY 20
 #define TAG_VOID 666
+
+#define TAG_MARK 65536
 
 #define TAG_PURE_INT 0 // not a cell
 
@@ -56,6 +59,12 @@ typedef struct Cell {
 } Cell;
 
 int is_nil(Cell* c);
+
+typedef struct env_entry {
+  Cell* cell;
+  char name[64];
+  UT_hash_handle hh;
+} env_entry;
 
 typedef Cell* (*alien_func)(Cell* args, Cell* env);
 

@@ -21,6 +21,7 @@ void init_allocator();
 
 void* cell_malloc(int num_bytes);
 void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes);
+void collect_garbage(env_entry* global_env);
 
 Cell* alloc_cons(Cell* ar, Cell* dr);
 Cell* alloc_sym(char* str);

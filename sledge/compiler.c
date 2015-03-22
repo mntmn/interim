@@ -2,12 +2,11 @@
 #include "reader.h"
 #include "writer.h"
 #include "alloc.h"
-#include "uthash.h"
 
 #include "machine.h"
 #include "blit.h"
 
-void memdump(uint32_t start,uint32_t len,int raw);
+void memdump(jit_word_t start,uint32_t len,int raw);
 
 typedef enum builtin_t {
   BUILTIN_ADD,
@@ -72,11 +71,6 @@ typedef enum builtin_t {
   BUILTIN_TCP_SEND
 } builtin_t;
 
-typedef struct env_entry {
-  Cell* cell;
-  char name[64];
-  UT_hash_handle hh;
-} env_entry;
 
 static struct env_entry* global_env = NULL;
 
@@ -1252,7 +1246,7 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
   return 0;
 }
 
-void memdump(uint32_t start,uint32_t len,int raw) {
+void memdump(jit_word_t start,uint32_t len,int raw) {
   for (uint32_t i=0; i<len;) {
     if (!raw) printf("%08x | ",start+i);
     for (uint32_t x=0; x<16; x++) {
@@ -1346,6 +1340,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("tcp-connect"), alloc_builtin(BUILTIN_TCP_CONNECT), &global_env);
   insert_symbol(alloc_sym("tcp-send"), alloc_builtin(BUILTIN_TCP_SEND), &global_env);
 
+#ifdef _binary_sledge_fs_unifont_start
   extern uint8_t _binary_sledge_fs_unifont_start;
   Cell* unif = alloc_bytes(16);
   unif->addr = &_binary_sledge_fs_unifont_start;
@@ -1361,6 +1356,7 @@ void init_compiler() {
   editor->size = _binary_editor_arm_l_size;
 
   insert_symbol(alloc_sym("editor-source"), editor, &global_env);
+#endif
   
   int num_syms=HASH_COUNT(global_env);
   printf("sledge knows %u symbols. enter (ls) to see them.\r\n", num_syms);

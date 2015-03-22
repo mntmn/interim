@@ -235,8 +235,10 @@ int main(int argc, char *argv[])
       stop_clock();
 #endif
 
-      MemStats* mst = alloc_stats();
-      printf("%lu heap bytes, %lu/%lu stack bytes used\n",mst->heap_bytes_used,mst->stack_bytes_used,mst->stack_bytes_max);
+      //MemStats* mst = alloc_stats();
+      //printf("%lu heap bytes, %lu/%lu stack bytes used\n",mst->heap_bytes_used,mst->stack_bytes_used,mst->stack_bytes_max);
+
+      collect_garbage(global_env);
       
       jit_clear_state();
       jit_destroy_state();

@@ -79,8 +79,8 @@ ReaderState* read_char(char c, ReaderState* rs) {
       // symbol
       rs->state = PST_SYM;
       rs->sym_len = 1;
-      new_cell = alloc_sym(0);
-      new_cell->addr = cell_malloc(SYM_INIT_BUFFER_SIZE);
+      new_cell = alloc_num_bytes(SYM_INIT_BUFFER_SIZE);
+      new_cell->tag = TAG_SYM;
       memset(new_cell->addr, 0, SYM_INIT_BUFFER_SIZE);
       ((char*)new_cell->addr)[0] = c;
       new_cell->size = SYM_INIT_BUFFER_SIZE; // buffer space
