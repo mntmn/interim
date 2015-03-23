@@ -61,7 +61,8 @@ typedef enum builtin_t {
   BUILTIN_INKEY,
 
   BUILTIN_ALIEN,
-  BUILTIN_HELP,
+  BUILTIN_GC,
+  BUILTIN_SYMBOLS,
   BUILTIN_LOAD,
   BUILTIN_SAVE,
   BUILTIN_UDP_POLL,
@@ -130,10 +131,33 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_entry** env) {
 
 static int stack_reg = 0;
 
-void stack_push(int reg, jit_word_t* sp)
+void debug_push(jit_word_t val, jit_word_t sp) {
+  printf("XX push %p <- %lx  stack_base: %p\n",sp,val,stack_base);
+}
+
+void debug_pop(jit_word_t val, jit_word_t sp) {
+  printf("XX pop %p -> %lx\n",sp,val);
+}
+
+jit_word_t debug_tmp = 0;
+
+void stack_push(int reg, void** sp)
 {
-  jit_stxi(*sp, JIT_FP, reg);
-  *sp += sizeof(jit_word_t);
+  jit_ldi(JIT_V0, sp);
+  jit_str(JIT_V0, reg);
+  jit_addi(JIT_V0, JIT_V0, sizeof(jit_word_t));
+  jit_sti(sp, JIT_V0);
+  
+  //printf("stack_push sp: %p\n",*sp);
+  //*sp += sizeof(jit_word_t);
+  
+  /*jit_sti(&debug_tmp, reg);
+  jit_prepare();
+  jit_pushargr(reg);
+  jit_pushargr(JIT_V0);
+  jit_finishi(debug_push);
+  jit_ldi(reg, &debug_tmp);*/
+  
   /*if (stack_reg == 0) {
     jit_movr(JIT_V0, reg);
   } else if (stack_reg == 1) {
@@ -144,10 +168,27 @@ void stack_push(int reg, jit_word_t* sp)
   stack_reg = (stack_reg+1)%4;*/
 }
 
-void stack_pop(int reg, jit_word_t* sp)
+void stack_pop(int reg, void** sp)
 {
-  *sp -= sizeof(jit_word_t);
-  jit_ldxi(reg, JIT_FP, *sp);
+  //*sp -= sizeof(jit_word_t);
+  /*printf("stack_pop sp: %p\n",*sp);
+
+  if (*sp<stack_base) {
+    printf("stack underflow!\n");
+    exit(2);
+    }*/
+
+  jit_ldi(JIT_V0, sp);
+  jit_subi(JIT_V0, JIT_V0, sizeof(jit_word_t));
+  jit_ldr(reg, JIT_V0);
+  jit_sti(sp, JIT_V0);
+  
+  /*jit_sti(&debug_tmp, reg);
+  jit_prepare();
+  jit_pushargr(reg);
+  jit_pushargr(JIT_V0);
+  jit_finishi(debug_pop);
+  jit_ldi(reg, &debug_tmp);*/
 
   /*stack_reg = stack_reg-1;
   if (stack_reg<0) stack_reg = 0;
@@ -394,9 +435,9 @@ int compile_def(int retreg, Cell* args, tag_t required) {
 
           // FIXME: recursion is broken
           
-          /*env_entry* stub_e = intern_symbol(sym, &global_env);
+          env_entry* stub_e = intern_symbol(sym, &global_env);
           stub_e->cell = alloc_lambda(0);
-          stub_e->cell->next = (void*)0xdeadbeef;*/
+          stub_e->cell->next = (void*)0xdeadbeef;
         }
       }
     }
@@ -422,6 +463,10 @@ int compile_def(int retreg, Cell* args, tag_t required) {
   //printf("interning: %s\n",sym->addr);
 
   env_entry* e = intern_symbol(sym, &global_env);
+  if (!e->cell) {
+    e->cell = alloc_int(0); // reserve at compile time
+  }
+  
   jit_sti(&e->cell, retreg);
 
   if (required == TAG_PURE_INT) {
@@ -519,8 +564,6 @@ int compile_print(int retreg, Cell* args, tag_t required) {
   return 1;
 }
 
-/*
-
 Cell* make_symbol_list() {
   Cell* end = alloc_nil();
   for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
@@ -529,12 +572,20 @@ Cell* make_symbol_list() {
   return end;
 }
 
-void compile_help() {
+int compile_symbol_list(int retreg) {
   jit_prepare();
   jit_finishi(make_symbol_list);
   jit_retval(retreg);
+  return 1;
 }
-*/
+
+int compile_gc(int retreg) {
+  jit_prepare();
+  jit_pushargi((jit_word_t)global_env);
+  jit_finishi(collect_garbage);
+  jit_retval(retreg);
+  return 1;
+}
 
 int compile_do(int retreg, Cell* args, tag_t required) {
   if (!car(args)) return argnum_error("(do op1 op2 …)");
@@ -557,19 +608,11 @@ static int num_funcs = 0;
 void push_jit_state() {
   *jit_state_stack = (jit_word_t)_jit;
   jit_state_stack++;
-  *jit_state_stack = (jit_word_t)stack_ptr;
-  jit_state_stack++;
-  *jit_state_stack = (jit_word_t)stack_base;
-  jit_state_stack++;
   
   jit_state_stack_usage++;
 }
 
 void pop_jit_state() {
-  jit_state_stack--;
-  stack_base = *jit_state_stack;
-  jit_state_stack--;
-  stack_ptr = *jit_state_stack;
   jit_state_stack--;
   _jit = (jit_state_t*)*jit_state_stack;
   
@@ -618,8 +661,6 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
   _jit = jit_new_state();
   jit_node_t* fn_label = jit_note(__FILE__, __LINE__);
   jit_prolog();
-  
-  //stack_ptr = stack_base = jit_allocai(128 * sizeof(int));
   
   jit_node_t* fn_body_label = jit_label();
 
@@ -699,20 +740,20 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
       // FIXME: possible optimization when pushing the same arg twice
       // (in subcall), but rare?
 
+      //printf("prototype sym: %p\n",sym);
       env_entry* arge = intern_symbol(sym, env);
-      //jit_ldi(JIT_R0, arge);
-      //stack_push(JIT_R0, &stack_ptr);
+      jit_ldi(JIT_R0, &arge->cell); 
+      stack_push(JIT_R0, &stack_ptr);
       
       int res = compile_arg(JIT_R0, car(args), TAG_ANY);
       
       if (!res) {
         printf("<could not compile fn arg %d\n>",i);
         success = 0;
-        break;
+        // store new value
+      } else {
+        jit_sti(&arge->cell, JIT_R0);
       }
-
-      // store new value
-      jit_sti(&arge->cell, JIT_R0);
 
       arges[i] = arge;
       
@@ -753,9 +794,8 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
 
   // pass 4: restore environment
 
-  /*
   if (recursion<2) {
-    jit_movr(JIT_R2, retreg); // fixme: how to ensure this is a clobber-free reg?
+    jit_movr(JIT_V1, retreg); // fixme: how to ensure this is a clobber-free reg?
 
     // after call, restore old symbol values from the stack (in reverse order)
     for (int j=i-1; j>=0; j--) {
@@ -765,8 +805,8 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
       jit_sti(&arge->cell, JIT_R0); // restore any overwritten value
     }
     
-    jit_movr(retreg, JIT_R2);
-    }*/
+    jit_movr(retreg, JIT_V1);
+  }
 
   if (requires == TAG_PURE_INT) {
     return unbox_int(retreg);
@@ -1006,13 +1046,16 @@ int compile_write(int retreg, Cell* args, tag_t requires) {
 
   jit_prepare();
   jit_pushargr(JIT_R1); // object Cell*
-  jit_ldxi(JIT_R1, JIT_R0, sizeof(jit_word_t)); // buffer size
+  //jit_ldxi(JIT_R1, JIT_R0, sizeof(jit_word_t)); // buffer size
+  jit_movi(JIT_R1, 1023);
   jit_ldr(JIT_R0, JIT_R0);
   jit_pushargr(JIT_R0); // buffer char*
   jit_pushargr(JIT_R1); // buffer size 
   jit_finishi(lisp_write);
-  
-  jit_retval(retreg); // return target buffer cell
+
+  // FIXME
+  //jit_retval(retreg); // return target buffer cell
+  jit_movi(retreg, 0);
   return 1;
 }
 
@@ -1021,9 +1064,7 @@ int compile_write(int retreg, Cell* args, tag_t requires) {
 #include "compile_file_io.c"
 #include "compile_input.c"
 #include "compile_eval.c"
-/*
 #include "compile_net.c"
-*/
 #include "compile_gfx.c"
 
 // 0 = failure
@@ -1215,33 +1256,37 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
   case BUILTIN_INKEY:
     return compile_get_key(retreg, args, required);
     break;
-/*  case BUILTIN_HELP:
-    compile_help();
-    break;*/
+  case BUILTIN_GC:
+    return compile_gc(retreg);
+    break;
+  case BUILTIN_SYMBOLS:
+    return compile_symbol_list(retreg);
+    break;
   case BUILTIN_LOAD:
     return compile_load(retreg, args, required);
     break;
   case BUILTIN_SAVE:
     return compile_save(retreg, args, required);
     break;
+
+    // TODO refactor networking
     
-/*
   case BUILTIN_UDP_POLL:
-    compile_udp_poll();
+    return compile_udp_poll(retreg, args);
     break;
   case BUILTIN_UDP_SEND:
-    compile_udp_send(cdr(list));
+    return compile_udp_send(retreg, args);
     break;
     
   case BUILTIN_TCP_CONNECT:
-    compile_tcp_connect(cdr(list));
+    return compile_tcp_connect(retreg, args);
     break;
   case BUILTIN_TCP_SEND:
-    compile_tcp_send(cdr(list));
+    return compile_tcp_send(retreg, args);
     break;
   case BUILTIN_TCP_BIND:
-    compile_tcp_bind(cdr(list));
-    break;*/
+    return compile_tcp_bind(retreg, args);
+    break;
   }
   return 0;
 }
@@ -1329,7 +1374,8 @@ void init_compiler() {
   insert_symbol(alloc_sym("blit-mono-inv"), alloc_builtin(BUILTIN_BLIT_MONO_INV), &global_env);
   insert_symbol(alloc_sym("inkey"), alloc_builtin(BUILTIN_INKEY), &global_env);
   
-  insert_symbol(alloc_sym("ls"), alloc_builtin(BUILTIN_HELP), &global_env);
+  insert_symbol(alloc_sym("gc"), alloc_builtin(BUILTIN_GC), &global_env);
+  insert_symbol(alloc_sym("symbols"), alloc_builtin(BUILTIN_SYMBOLS), &global_env);
   insert_symbol(alloc_sym("load"), alloc_builtin(BUILTIN_LOAD), &global_env);
   insert_symbol(alloc_sym("save"), alloc_builtin(BUILTIN_SAVE), &global_env);
   

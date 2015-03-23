@@ -2,20 +2,21 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define TMP_BUF_SIZE 4096
+#define TMP_BUF_SIZE 1024
 
 char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   //printf("writing %p (%d) to %p, size: %d\n",cell,cell->tag,buffer,bufsize);
-
+  bufsize--;
+  
   buffer[0]=0;
   if (cell == 0) {
-    sprintf(buffer, "null");
+    snprintf(buffer, bufsize, "null");
   } else if (cell->tag == TAG_INT) {
     snprintf(buffer, bufsize, "%lld", cell->value);
   } else if (cell->tag == TAG_CONS) {
     if (cell->addr == 0 && cell->next == 0) {
       if (!in_list) {
-        sprintf(buffer, "nil");
+        snprintf(buffer, bufsize, "nil");
       }
     } else {
       char tmpl[TMP_BUF_SIZE];
@@ -48,21 +49,22 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
     snprintf(buffer, bufsize, "%s", (char*)cell->addr);
   } else if (cell->tag == TAG_LAMBDA) {
     char tmpr[TMP_BUF_SIZE];
-    snprintf(buffer, bufsize, "(proc %p)", cell->next);
+    write_((Cell*)cell->addr, tmpr, 0, TMP_BUF_SIZE);
+    snprintf(buffer, bufsize, "(fn %s) ; assembled at %p", tmpr, cell->next);
   } else if (cell->tag == TAG_BUILTIN) {
     snprintf(buffer, bufsize, "(op %lld)", cell->value);
   } else if (cell->tag == TAG_ERROR) {
     switch (cell->value) {
-      case ERR_SYNTAX: sprintf(buffer, "<e0:syntax error.>"); break;
-      case ERR_MAX_EVAL_DEPTH: sprintf(buffer, "<e1:deepest level of evaluation reached.>"); break;
-      case ERR_UNKNOWN_OP: sprintf(buffer, "<e2:unknown operation.>"); break;
-      case ERR_APPLY_NIL: sprintf(buffer, "<e3:cannot apply nil.>"); break;
-      case ERR_INVALID_PARAM_TYPE: sprintf(buffer, "<e4:invalid or no parameter given.>"); break;
-      case ERR_OUT_OF_BOUNDS: sprintf(buffer, "<e5:out of bounds.>"); break;
-      default: sprintf(buffer, "<e%lld:unknown>", cell->value); break;
+      case ERR_SYNTAX: snprintf(buffer, bufsize, "<e0:syntax error.>"); break;
+      case ERR_MAX_EVAL_DEPTH: snprintf(buffer, bufsize, "<e1:deepest level of evaluation reached.>"); break;
+      case ERR_UNKNOWN_OP: snprintf(buffer, bufsize, "<e2:unknown operation.>"); break;
+      case ERR_APPLY_NIL: snprintf(buffer, bufsize, "<e3:cannot apply nil.>"); break;
+      case ERR_INVALID_PARAM_TYPE: snprintf(buffer, bufsize, "<e4:invalid or no parameter given.>"); break;
+      case ERR_OUT_OF_BOUNDS: snprintf(buffer, bufsize, "<e5:out of bounds.>"); break;
+      default: snprintf(buffer, bufsize, "<e%lld:unknown>", cell->value); break;
     }
   } else if (cell->tag == TAG_BYTES) {
-    char* hex_buffer = malloc(cell->size*2+1);
+    char* hex_buffer = malloc(cell->size*2+2);
     unsigned int i;
     for (i=0; i<cell->size; i++) {
       // FIXME: buffer overflow?

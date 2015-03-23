@@ -12,7 +12,7 @@
 
 typedef jit_word_t (*funcptr)();
 static jit_state_t *_jit;
-static jit_word_t stack_ptr, stack_base;
+static void *stack_ptr, *stack_base;
 
 #include "compiler.c"
 
@@ -41,7 +41,8 @@ inline int machine_video_flip() {
 
 int machine_get_key(int modifiers) {
   if (modifiers) return sdl_get_modifiers();
-  return sdl_get_key();
+  int k = sdl_get_key();
+  return k;
 }
 
 Cell* machine_save_file(Cell* cell, char* path) {
@@ -159,6 +160,8 @@ int main(int argc, char *argv[])
   int jit_inited = 0;
   int sdl_inited = 0;
 
+  stack_ptr = stack_base = malloc(4096 * sizeof(jit_word_t));
+
   while (1) {
     expr = NULL;
     
@@ -201,10 +204,11 @@ int main(int argc, char *argv[])
         jit_inited = 1;
       }
 
+      //stack_ptr = stack_base;
+        
       _jit = jit_new_state();
       jit_prolog();
-      stack_ptr = stack_base = jit_allocai(1024 * sizeof(int));
-
+      
       Cell* res;
       int success = compile_arg(JIT_R0, expr, TAG_ANY);
 

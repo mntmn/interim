@@ -24,9 +24,9 @@
 (test 12 (= 4 (do 1 2 "foo" 4)))
 (test 13 (= 3 (size (do 1 2 "foo"))))
 
-(def fib (fn n (if (lt n 3)
-                   1
-                 (+ (fib (- n 1)) (fib (- n 2))) )))
+;(def fib (fn n (if (lt n 3)
+;                   1
+;                 (+ (fib (- n 1)) (fib (- n 2))) )))
 
 (test 14 (= (fib 10) 55))
 

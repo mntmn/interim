@@ -8,6 +8,10 @@ Cell* cell_heap;
 uint32_t cells_used;
 uint32_t byte_heap_used;
 
+Cell** free_list;
+uint32_t free_list_avail;
+uint32_t free_list_consumed;
+
 Cell oom_cell;
 
 #define MAX_CELLS 100000
@@ -21,6 +25,8 @@ void init_allocator() {
 
   byte_heap_used = 0;
   cells_used = 0;
+  free_list_avail = 0;
+  free_list_consumed = 0;
 
 #ifndef SLEDGE_MALLOC
   //cell_heap = malloc(heap_bytes_max);
@@ -28,16 +34,31 @@ void init_allocator() {
   cell_heap = malloc(cell_mem_reserved);
   printf("\r\n++ cell heap at %p, %d bytes reserved\r\n",cell_heap,cell_mem_reserved);
   memset(cell_heap,0,cell_mem_reserved);
+
+  free_list = malloc(MAX_CELLS*sizeof(Cell*));
   
   byte_heap = malloc(MAX_BYTE_HEAP);
 #endif
 }
 
 Cell* cell_alloc() {
-  Cell* res = &cell_heap[cells_used];
-  cells_used++;
-  printf("++ cell_alloc: %d \r\n",cells_used);
-  return res;
+  if (free_list_avail>free_list_consumed) {
+    // serve from free list
+    int idx = free_list_consumed;
+    free_list_consumed++;
+    Cell* res = free_list[idx];
+    //printf("++ cell_alloc: recycled %d (%p)\r\n",idx,res);
+    return res;
+  } else {
+    Cell* res = &cell_heap[cells_used];
+    cells_used++;
+    if (cells_used>MAX_CELLS) {
+      printf("!! cell_alloc failed, MAX_CELLS used.\n");
+      exit(1);
+    }
+    //printf("++ cell_alloc: %d \r\n",cells_used);
+    return res;
+  }
 }
 
 void* bytes_alloc(int num_bytes) {
@@ -49,7 +70,7 @@ void* bytes_alloc(int num_bytes) {
   void* new_mem = byte_heap + byte_heap_used;
   if (byte_heap_used + num_bytes < MAX_BYTE_HEAP) {
     byte_heap_used += num_bytes;
-    printf("++ byte_alloc: %d (+%d) \r\n",byte_heap_used,num_bytes);
+    //printf("++ byte_alloc: %d (+%d) \r\n",byte_heap_used,num_bytes);
     return new_mem;
   } else {
     printf("~~ bytes_alloc: out of memory: %d (%d)\r\n",byte_heap,byte_heap_used);
@@ -59,24 +80,34 @@ void* bytes_alloc(int num_bytes) {
 }
 
 void mark_tree(Cell* c) {
+  if (!c) {
+    //printf("~! warning: mark_tree encountered NULL cell.\n");
+    return;
+  }
+  
   if (!(c->tag & TAG_MARK)) {
-    char buf[300];
+    /*char buf[300];
     lisp_write(c, buf, 299);
-    //printf("marking live: %s\n",buf);
+    printf("~~ marking live: %s\n",buf);*/
     
     c->tag |= TAG_MARK;
     
-    if (c->tag == TAG_CONS) {
+    if (c->tag & TAG_CONS) {
       if (c->addr) mark_tree((Cell*)c->addr);
       if (c->next) mark_tree((Cell*)c->next);
     }
-    else if (c->tag == TAG_SYM) {
-      if (c->next) mark_tree((Cell*)c->next);
+    else if (c->tag & TAG_SYM) {
+      // TODO: mark bytes in heap
+      // also for STR, BYTES
+    }
+    else if (c->tag & TAG_LAMBDA) {
+      //printf("~~ mark lambda args: %p\n",(Cell*)c->addr);
+      mark_tree((Cell*)c->addr); // function arguments
     }
   }
 }
 
-void collect_garbage(env_entry* global_env) {
+int collect_garbage(env_entry* global_env) {
   // mark
 
   // check all symbols in the environment
@@ -85,6 +116,9 @@ void collect_garbage(env_entry* global_env) {
 
   for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
     //printf("env entry: %s pointing to %p\n",e->name,e->cell);
+    if (!e->cell) {
+      printf("~! warning: NULL env entry %s.\n",e->name);
+    }
     mark_tree(e->cell);
   }
 
@@ -93,109 +127,44 @@ void collect_garbage(env_entry* global_env) {
   int gc = 0;
   char buf[300];
 
-  // note: all pointers can be fixed by simply subtracting
-  // one cell size from each for every memmove
+  free_list_avail = 0;
+  free_list_consumed = 0;
 
-  printf("before: \n");
-  for (int i=0; i<cells_used; i++) {
-    Cell* c = &cell_heap[i];
-    if (!(c->tag & TAG_MARK)) {
-      printf(".");
-    } else {
-      printf("o");
-    }
-  }
-  printf("\n\n");
+#ifdef DEBUG_GC
+  printf("\e[1;1H\e[2J");
+  printf("~~ cell memory: ");
+#endif
   
   for (int i=0; i<cells_used; i++) {
     Cell* c = &cell_heap[i];
     if (!(c->tag & TAG_MARK)) {
-      // garbage!
-      //lisp_write(c, buf, 299);
-      //printf("garbage: %s\n",buf);
-
-      // garbage = hole
-      // copy next contiguous block here
-      // and put it in an array for remapping
-
-      int hole_i = i;
-      int hole_size = 0;
-      int done = 0;
-      int block_size = 1;
-      do {
-        // find next with TAG_MARK
-        hole_size++;
-        if (cell_heap[hole_i+hole_size].tag & TAG_MARK) {
-          //printf("~~ end of hole at %d\n",hole_i+j);
-          // stop + copy
-          //printf("<< move %d cells from %d to %d\n",block_size,hole_i+j,hole_i);
-          //memmove(&cell_heap[hole_i], &cell_heap[hole_i+hole_size], sizeof(Cell)*block_size);
-
-          void* old_address = &cell_heap[hole_i+hole_size];
-          void* new_address = &cell_heap[hole_i];
-
-          // do we have an env entry pointing to this?
-          for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
-            if (e->cell == old_address) {
-              e->cell = new_address;
-              printf("~~ moved env cell pointer of %s to %p\n",e->name,e->cell);
-            }
-          }
-
-          // do we have a future cell pointing back to this?
-          for (int j=i; j<cells_used; j++) {
-            if (cell_heap[j].addr == old_address) {
-              cell_heap[j].addr = new_address;
-              printf("~~ rewrote ar of cell %d\n",j);
-            }
-            else if (cell_heap[j].next == old_address) {
-              cell_heap[j].next = new_address;
-              printf("~~ rewrote dr of cell %d\n",j);
-            }
-          }
-          
-          // swap
-          Cell tmp = cell_heap[hole_i];
-          cell_heap[hole_i] = cell_heap[hole_i+hole_size];
-          cell_heap[hole_i+hole_size] = tmp;
-          
-          done = 1;
-        }
-        if (hole_i+hole_size>=cells_used) {
-          //printf("~~ gc reached end of live block at %d\r\n",hole_i+j);
-          done = 1;
-        }
-      } while(!done);
-      //i+=j-block_size; // moved
       
-    } else {
-    }
-  }
-  printf("\n");
-  
-  printf("after: \n");
-  for (int i=0; i<cells_used; i++) {
-    Cell* c = &cell_heap[i];
-    if (!(c->tag & TAG_MARK)) {
+#ifdef DEBUG_GC
       printf(".");
+#endif
+      
+      c->tag = TAG_FREED;
+      free_list[free_list_avail] = c;
+      free_list_avail++;
       gc++;
     } else {
+      
+#ifdef DEBUG_GC
       printf("o");
+#endif
     }
-  }
-  printf("\n\n");
-
-  printf("~~ %d of %d cells are garbage.\r\n",gc,cells_used);
-  //cells_used -= gc;
-  
-  cells_used -= gc;
-  
-  for (int i=0; i<cells_used; i++) {
-    // unset mark bits
+    // unset mark bit
     cell_heap[i].tag &= ~TAG_MARK;
   }
+  
+#ifdef DEBUG_GC
+  printf("\n\n");
+  printf("~~ %d of %d cells were garbage.\r\n",gc,cells_used);
+#endif
+  
+  //printf("-- %d high water mark.\n\n",cells_used);
 
-  printf("-- %d live cells.\n\n",cells_used);
+  return 0;
 }
 
 void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes) {

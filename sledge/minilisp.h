@@ -4,19 +4,20 @@
 #include "lightning.h" // for jit_word_t
 #include "uthash.h"
 
+#define TAG_FREED 0
 #define TAG_INT  1
 #define TAG_CONS 2
-#define TAG_SYM  3
-#define TAG_LAMBDA  4
-#define TAG_BUILTIN 5
-#define TAG_BIGNUM 6
-#define TAG_STR 7
-#define TAG_BYTES 8
-#define TAG_VEC 9
-#define TAG_ERROR 10
-#define TAG_LET 11
-#define TAG_ANY 20
-#define TAG_VOID 666
+#define TAG_SYM  4
+#define TAG_LAMBDA  8
+#define TAG_BUILTIN 16
+#define TAG_BIGNUM 32
+#define TAG_STR 64
+#define TAG_BYTES 128
+#define TAG_VEC 256
+#define TAG_ERROR 512
+#define TAG_LET 1024
+#define TAG_ANY 2048
+#define TAG_VOID 4096
 
 #define TAG_MARK 65536
 
