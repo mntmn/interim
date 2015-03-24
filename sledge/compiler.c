@@ -118,7 +118,7 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_entry** env) {
     e->cell = cell;
     return e->cell;
   }
-  printf("++ alloc env entry (%d), symbol size %d\r\n",sizeof(env_entry),symbol->size);
+  printf("++ alloc env entry %s (%d), symbol size %d\r\n",symbol->addr,sizeof(env_entry),symbol->size);
     
   e = malloc(sizeof(env_entry));
   memcpy(e->name, (char*)symbol->addr, symbol->size);
@@ -1390,23 +1390,26 @@ void init_compiler() {
   insert_symbol(alloc_sym("tcp-connect"), alloc_builtin(BUILTIN_TCP_CONNECT), &global_env);
   insert_symbol(alloc_sym("tcp-send"), alloc_builtin(BUILTIN_TCP_SEND), &global_env);
 
-#ifdef _binary_sledge_fs_unifont_start
   extern uint8_t _binary_sledge_fs_unifont_start;
+  extern uint32_t _binary_sledge_fs_unifont_size;
   Cell* unif = alloc_bytes(16);
   unif->addr = &_binary_sledge_fs_unifont_start;
-  unif->size = 0x20c100;
+  unif->size = _binary_sledge_fs_unifont_size;
 
-  //printf("~~ unifont is at %p\r\n",unif->addr);
+  printf("~~ unifont is at %p\r\n",unif->addr);
+
   insert_symbol(alloc_sym("unifont"), unif, &global_env);
-  
+
+  /*
   extern uint8_t _binary_editor_arm_l_start;
   extern uint32_t _binary_editor_arm_l_size;
   Cell* editor = alloc_string("foo");
   editor->addr = &_binary_editor_arm_l_start;
   editor->size = _binary_editor_arm_l_size;
 
-  insert_symbol(alloc_sym("editor-source"), editor, &global_env);
-#endif
+  printf("~~ editor-source is at %p\r\n",editor->addr);
+  
+  insert_symbol(alloc_sym("editor-source"), editor, &global_env);*/
   
   int num_syms=HASH_COUNT(global_env);
   printf("sledge knows %u symbols. enter (ls) to see them.\r\n", num_syms);

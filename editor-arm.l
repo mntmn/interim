@@ -257,18 +257,21 @@
 
 (def update-statusline (fn (do
   (def memstat (load "/sys/mem"))
+  (def cellusage (/ (* 100 (car (cdr (cdr memstat)))) (car (cdr (cdr (cdr memstat))))))
   (def memusage (/ (* 100 (car memstat)) (car (cdr memstat))))
-  (write help-buf (cons (cons "k" k) (cons (cons "m" modif) (cons (cons cursor (usize buf)) (cons "mem%" memusage)))))
+  (write help-buf (cons (cons cursor (usize buf)) (cons (cons "heap%" memusage) (cons "cell%" cellusage))))
   0
 )))
 
 (blit-mono unifont 0 0 516 516 1080 0 0 0xff00ff)
 (flip)
 
+(def main (fn
 (while running (do
   (buf-render cursor buf 0 0)
   (buf-render 0 eval-buf eval-buf-x eval-buf-y)
   (buf-render 0 help-buf 0 700)
+  (update-statusline)
 
   (mut k (inkey 0))
   (mut modif (inkey 1))
@@ -279,5 +282,10 @@
 
   (if (lt cursor 0) (mut cursor 0))
   (if (gt cursor (usize buf)) (mut cursor (usize buf)))
-  ))
+
+  (gc)
+))
+))
+
+(main)
 )

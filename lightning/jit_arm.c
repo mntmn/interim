@@ -181,7 +181,7 @@ jit_get_cpu(void)
   if (!jit_cpu.vfp)
     jit_cpu.vfp = 2;
   if (!jit_cpu.version)
-    jit_cpu.version = 5;
+    jit_cpu.version = 7;
   jit_cpu.abi = 1;
 #endif
 #if defined(__thumb2__)

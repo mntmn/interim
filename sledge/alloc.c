@@ -27,9 +27,8 @@ void init_allocator() {
   cells_used = 0;
   free_list_avail = 0;
   free_list_consumed = 0;
+  byte_heap = NULL;
 
-#ifndef SLEDGE_MALLOC
-  //cell_heap = malloc(heap_bytes_max);
   uint32_t cell_mem_reserved = MAX_CELLS * sizeof(Cell);
   cell_heap = malloc(cell_mem_reserved);
   printf("\r\n++ cell heap at %p, %d bytes reserved\r\n",cell_heap,cell_mem_reserved);
@@ -37,8 +36,7 @@ void init_allocator() {
 
   free_list = malloc(MAX_CELLS*sizeof(Cell*));
   
-  byte_heap = malloc(MAX_BYTE_HEAP);
-#endif
+  //byte_heap = malloc(MAX_BYTE_HEAP);
 }
 
 Cell* cell_alloc() {
@@ -62,12 +60,12 @@ Cell* cell_alloc() {
 }
 
 void* bytes_alloc(int num_bytes) {
-#ifdef SLEDGE_MALLOC
+//#ifdef SLEDGE_MALLOC
   void* new_mem = malloc(num_bytes);
   memset(new_mem, 0, num_bytes);
   return new_mem;
-#endif
-  void* new_mem = byte_heap + byte_heap_used;
+//#endif
+    /*void* new_mem = byte_heap + byte_heap_used;
   if (byte_heap_used + num_bytes < MAX_BYTE_HEAP) {
     byte_heap_used += num_bytes;
     //printf("++ byte_alloc: %d (+%d) \r\n",byte_heap_used,num_bytes);
@@ -76,7 +74,7 @@ void* bytes_alloc(int num_bytes) {
     printf("~~ bytes_alloc: out of memory: %d (%d)\r\n",byte_heap,byte_heap_used);
     exit(1);
     return NULL;
-  }
+    }*/
 }
 
 void mark_tree(Cell* c) {
@@ -176,10 +174,10 @@ void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes
 }
 
 MemStats* alloc_stats() {
-  /*mem_stats.stack_bytes_used = stack_bytes_used;
-  mem_stats.stack_bytes_max = stack_bytes_max;
-  mem_stats.heap_bytes_used = heap_bytes_used;
-  mem_stats.heap_bytes_max = heap_bytes_max;*/
+  mem_stats.byte_heap_used = byte_heap_used;
+  mem_stats.byte_heap_max = MAX_BYTE_HEAP;
+  mem_stats.cells_used = cells_used;
+  mem_stats.cells_max = MAX_CELLS;
   return &mem_stats;
 }
 

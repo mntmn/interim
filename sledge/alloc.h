@@ -11,10 +11,10 @@ enum cell_allocator_t {
 };
 
 typedef struct MemStats {
-  unsigned long stack_bytes_used;
-  unsigned long heap_bytes_used;
-  unsigned long stack_bytes_max;
-  unsigned long heap_bytes_max;
+  unsigned long byte_heap_used;
+  unsigned long byte_heap_max;
+  unsigned long cells_used;
+  unsigned long cells_max;
 } MemStats;
 
 void init_allocator();

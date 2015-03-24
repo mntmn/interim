@@ -39,6 +39,8 @@ void uart_repl();
 void main()
 {
   enable_mmu();
+  InvalidateDataCache();
+  
   uart_puts("-- BOMBERJACKET/PI kernel_main entered.\r\n");
 
   FB = init_rpi_gfx();
@@ -53,12 +55,18 @@ void main()
   sprintf(buf, "-- stack pointer at %p\r\n", _get_stack_pointer());
   uart_puts(buf);
 
-  for (int x = 0; x<1920*1080; x++) {
-    FB[x] = 0xff00ff;
+  if (FB) {
+    for (int x = 0; x<1920*1080; x++) {
+      FB[x] = x;
+    }
   }
 
 	/*while (1) {
-		uart_putc(uart_getc());
+    int k = uart_getc();
+		uart_putc(k);
+    for (int x = 0; x<1920*1080; x++) {
+      FB[x] = (k<<16) | k;
+    }
     }*/
 
   uart_repl();
@@ -246,6 +254,22 @@ Cell* machine_poll_udp() {
   return NULL;
 }
 
+Cell* machine_send_udp(Cell* data_cell) {
+  return NULL;
+}
+
+Cell* machine_connect_tcp(Cell* host_cell, Cell* port_cell, Cell* connected_fn_cell, Cell* data_fn_cell) {
+  return NULL;
+}
+
+Cell* machine_bind_tcp(Cell* port_cell, Cell* fn_cell) {
+  return NULL;
+}
+
+Cell* machine_send_tcp(Cell* data_cell) {
+  return NULL;
+}
+
 Cell* machine_save_file(Cell* cell, char* path) {
   return alloc_int(0);
 }
@@ -256,7 +280,7 @@ Cell* machine_load_file(char* path) {
   // sysfs
   if (!strcmp(path,"/sys/mem")) {
     MemStats* mst = alloc_stats();
-    sprintf(sysfs_tmp, "(%d %d)", mst->stack_bytes_used, mst->stack_bytes_max);
+    sprintf(sysfs_tmp, "(%d %d %d %d)", mst->byte_heap_used, mst->byte_heap_max, mst->cells_used, mst->cells_max);
     return read_string(sysfs_tmp);
   }
 
@@ -267,7 +291,7 @@ Cell* machine_load_file(char* path) {
 typedef jit_word_t (*funcptr)();
 static jit_state_t *_jit;
 static jit_state_t *_jit_saved;
-static jit_word_t stack_ptr, stack_base;
+static void *stack_ptr, *stack_base;
 
 #include "compiler.c"
 
@@ -279,9 +303,13 @@ void uart_repl() {
   
   init_compiler();
 
+  uart_puts("\r\n\r\ncompiler initialized.\r\n");
+  
   memset(out_buf,0,1024*10);
   memset(in_line,0,1024*2);
   memset(in_buf,0,1024*10);
+
+  stack_ptr = stack_base = malloc(4096 * sizeof(jit_word_t));
 
   long count = 0;  
   int fullscreen = 0;
@@ -292,12 +320,13 @@ void uart_repl() {
   int linec = 0;
 
   Cell* expr;
-  char c = 13;
+  char c = 0;
 
-  strcpy(in_line,"(eval editor-source)\n");
+  //strcpy(in_line,"(eval editor-source)\n");
   
   init_jit(NULL);
 
+  uart_puts("\r\n\r\nJIT initialized.\r\n");
     
   while (1) {
     expr = NULL;
@@ -311,8 +340,8 @@ void uart_repl() {
       uart_putc(c);
       in_line[i++] = c;
       in_line[i] = 0;
-      c = 0;
     }
+    c = 0;
     
     int len = strlen(in_line);
 
@@ -358,8 +387,6 @@ void uart_repl() {
       
       jit_prolog();
       
-      stack_ptr = stack_base = jit_allocai(1024 * sizeof(jit_word_t));
-    
       int success = compile_arg(JIT_R0, expr, TAG_ANY);
 
       jit_retr(JIT_R0);

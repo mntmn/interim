@@ -1,6 +1,34 @@
 #ifndef RASPI_H
 #include <stdint.h>
 
+#ifdef RPI_1
+#define peripheral_base 0x20000000
+#else
+#define peripheral_base 0x3f000000
+
+// Cache control
+#define InvalidateInstructionCache() \
+__asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0) : "memory")
+#define FlushPrefetchBuffer() __asm volatile ("isb" ::: "memory")
+#define FlushBranchTargetCache() \
+__asm volatile ("mcr p15, 0, %0, c7, c5, 6" : : "r" (0) : "memory")
+
+void InvalidateDataCache();
+void CleanDataCache();
+
+// Barriers
+#define DataSyncBarrier() __asm volatile ("dsb" ::: "memory")
+#define DataMemBarrier() __asm volatile ("dmb" ::: "memory")
+#define InstructionSyncBarrier() __asm volatile ("isb" ::: "memory")
+#define InstructionMemBarrier() __asm volatile ("isb" ::: "memory")
+
+#endif
+
+#define mailbox peripheral_base+0xB880
+
+#define GPU_CACHED_BASE	0x40000000
+#define GPU_UNCACHED_BASE	0xC0000000
+
 #define GPIO_GPFSEL0    0
 #define GPIO_GPFSEL1    1
 #define GPIO_GPFSEL2    2
@@ -51,7 +79,7 @@
 enum
 {
     // The GPIO registers base address.
-    GPIO_BASE = 0x20200000,
+    GPIO_BASE = (peripheral_base + 0x200000),
  
     // The offsets for reach register.
  
@@ -62,7 +90,7 @@ enum
     GPPUDCLK0 = (GPIO_BASE + 0x98),
  
     // The base address for UART.
-    UART0_BASE = 0x20201000,
+    UART0_BASE = (peripheral_base + 0x201000),
  
     // The offsets for reach register for the UART.
     UART0_DR     = (UART0_BASE + 0x00),
