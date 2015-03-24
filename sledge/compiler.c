@@ -413,6 +413,10 @@ static Cell* currently_compiling_fn_sym = NULL;
 static Cell* currently_compiling_fn_op = NULL;
 static jit_node_t* currently_compiling_fn_label = NULL;
 
+void undefined_fn_stub() {
+  printf("!! undefined_fn_stub() called.\n");
+}
+
 int compile_def(int retreg, Cell* args, tag_t required) {
   //if (!car(args) || !cdr(args) || !car(cdr(args))) return argnum_error("(def symbol definition)");
   
@@ -437,7 +441,7 @@ int compile_def(int retreg, Cell* args, tag_t required) {
           
           env_entry* stub_e = intern_symbol(sym, &global_env);
           stub_e->cell = alloc_lambda(0);
-          stub_e->cell->next = (void*)0xdeadbeef;
+          stub_e->cell->next = (void*)undefined_fn_stub;
         }
       }
     }
@@ -904,9 +908,9 @@ int compile_quote(int retreg, Cell* args, tag_t requires) {
 }
 
 jit_word_t do_car(Cell* cell) {
-  if (!cell) return 0;
-  if (cell->tag != TAG_CONS) return 0;
-  return (jit_word_t)cell->addr;
+  if (!cell) return (jit_word_t)alloc_nil();
+  if (cell->tag != TAG_CONS) return (jit_word_t)alloc_nil();
+  return (jit_word_t)(cell->addr?cell->addr:alloc_nil());
 }
 
 jit_word_t do_car_int(Cell* cell) {
@@ -923,7 +927,7 @@ int compile_car(int retreg, Cell* args, tag_t requires) {
 
   // TODO check success
   
-  compile_arg(retreg, arg, TAG_CONS);
+  compile_arg(retreg, arg, TAG_ANY);
   jit_prepare();
   jit_pushargr(retreg);
   if (requires == TAG_PURE_INT) {
@@ -938,8 +942,8 @@ int compile_car(int retreg, Cell* args, tag_t requires) {
 }
 
 jit_word_t do_cdr(Cell* cell) {
-  if (!cell) return 0;
-  if (cell->tag != TAG_CONS) return 0;
+  if (!cell) return alloc_nil();
+  if (cell->tag != TAG_CONS) return alloc_nil();
   return (jit_word_t)cell->next;
 }
 
@@ -949,7 +953,7 @@ int compile_cdr(int retreg, Cell* args, tag_t requires) {
 
   // TODO check success
   
-  int success = compile_arg(retreg, arg, TAG_CONS);
+  int success = compile_arg(retreg, arg, TAG_ANY);
   if (success) {
     jit_prepare();
     jit_pushargr(retreg);

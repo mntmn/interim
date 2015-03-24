@@ -140,27 +140,27 @@
 )))
 
 (def blit-str (fn cursor str xx y colormap (do
-  (mut l (+ 1 (usize str)))
-  (mut i 0)
-  (mut x xx)
-  (mut cmi 0)
+  (def l (+ 1 (usize str)))
+  (def i 0)
+  (def x xx)
+  (def cmi 0)
   (while (lt i l) (do
-    (mut chr (uget str i))
+    (def chr (uget str i))
     
     (if (not (= chr 10))
       (do
         (blit-char-inv chr x y (item palette (get colormap i)))
-        (mut x (+ x 16)))
+        (def x (+ x 16)))
       (do
-        (mut y (+ y 16))
-        (mut x xx))
+        (def y (+ y 16))
+        (def x xx))
     )
     
     (if (gt x 1008) (do
-      (mut x xx)
-      (mut y (+ y 16))) 0)
+      (def x xx)
+      (def y (+ y 16))) 0)
       
-    (mut i (+ i 1))
+    (def i (+ i 1))
   ))
 )))
 
@@ -260,12 +260,12 @@
   (def y (+ 0 y))
   (def x (+ 0 x))
   (while (lt y (+ yy 1)) (do
-    (mut i x)
+    (def i x)
     (while (lt i (+ xx 1)) (do
       (put-tile i y tile)
-      (mut i (+ i 1))
+      (def i (+ i 1))
     ))
-    (mut y (+ y 1))
+    (def y (+ y 1))
   ))
 )))
 
@@ -301,7 +301,7 @@
     (put colormap 15 15)
 )))
 
-(def actors nil)
+(def actors (quote ()))
 
 (def make-actor (fn tile x y
   (cons tile (cons x (cons y nil)))
@@ -321,34 +321,13 @@
 
 ; keyboard -----------------------------------------------------------
 
-(def cursor-left (fn modif (do
-  (if (= modif 1)
-    (mut cursor-size (- cursor-size 1))
-    (mut cursor (- cursor 1)))
-  (if (lt cursor-size 1) (def cursor-size 1) 0)
-)))
-
-(def cursor-right (fn modif (do
-  (if (= modif 1)
-    (mut cursor-size (+ cursor-size 1))
-    (mut cursor (+ cursor 1)))
-)))
-
-(def backspace (fn (if (gt cursor 0) (do
-  (mut cursor (- cursor 1))
-  (ucopy buf cursor (- cursor 1) (- (usize buf) (+ cursor 1)))
-) 0)))
-
-(def player-west (fn (do
-  (def player-x (- player-x 1))
-)))
-
 (def move-player (fn nx ny (do
   (if (get-tile-solid nx ny)
     0
-    (def player (make-actor (actor-tile player) nx ny)))
-  (def actors nil)
-  (add-actor player)
+    (do
+      (def player (make-actor (actor-tile player) nx ny))
+      (mut actors (quote ()))
+      (add-actor player)))
 )))
 
 (def player-west (fn (do
@@ -394,17 +373,23 @@
 
 ; --------------------------------------------------------------
 
-(def actors-render (fn ox oy (do
-  (def d actors)
-  (def a (car d))
-  (while a (do
-    (blit-char-inv (actor-rune a) (* 16 (actor-x a)) (* 16 (actor-y a)) (item palette (actor-color a)))
+(def ox 0)
+(def oy 0)
 
-    (def d (cdr d))
-    (def a (car d))
+(def actors-render (fn ox oy (do
+  (def ad actors)
+  (def aa (car ad))
+  
+  (while aa (do
+    (blit-char-inv (actor-rune aa) (* 16 (actor-x aa)) (* 16 (actor-y aa)) (item palette (actor-color aa)))
+    
+    (def ad (cdr ad))
+    (def aa (car ad))
+    0
   ))
 )))
 
+(def main (fn
 (while 1 (do
 
   (if (= state state-init) (do
@@ -431,6 +416,13 @@
     (def state state-playing)
   ))
 
+  (handle-game-key (inkey 0))
   (buf-render 0 screen 0 0)
+  (actors-render 0 0)
   (flip)
+  (gc)
 ))
+))
+
+(main)
+
