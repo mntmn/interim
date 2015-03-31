@@ -1,0 +1,56 @@
+
+scene graph
+-----------
+
+(def v-text-render (fn buffer cursor x y w h scroll-x scroll-y ()))
+
+
+
+(def scene (quote
+  (rows
+    row: (h: 90 v: (columns
+      col: (w: 50 v: (text buffer: buf-1 id: text-1) id: col-1)
+      col: (w: 50 v: (text buffer: buf-2 id: text-2) id: col-2)
+      id: cols-1))
+      
+    row: (h: 10 v: (text buffer: status-text))
+  )
+))
+
+
+(<class> <params> <optional id>)
+
+; fix reader: numbers must be allowed in identifiers
+
+(for v scene (do
+  
+))
+
+(map scene (fn v (do
+  
+)))
+
+
+shorthand for do?
+{
+
+}
+---------------------
+
+env-edit
+
+live alle zellen und ihre werte editieren können
+
+1. env-entry darstellen als def-statement
+2. editieren
+3. eval
+
+(concat (concat "(def " (concat symname (concat " " (write (str->sym symname)))) ")"))
+
++--------------------+
+|text (append buffer)|
++--------------------+
+|status              |
+|> command           | <-- with history
++--------------------+
+

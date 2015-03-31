@@ -66,7 +66,7 @@ Cell* machine_load_file(char* path) {
   // sysfs
   if (!strcmp(path,"/sys/mem")) {
     MemStats* mst = alloc_stats();
-    sprintf(sysfs_tmp, "(%d %d)", mst->stack_bytes_used, mst->stack_bytes_max);
+    sprintf(sysfs_tmp, "(%d %d %d %d)", mst->byte_heap_used, mst->byte_heap_max, mst->cells_used, mst->cells_max);
     return read_string(sysfs_tmp);
   }
   

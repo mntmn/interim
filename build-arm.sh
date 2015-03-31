@@ -3,7 +3,7 @@
 set -e
 #   -mcpu=arm1176jzf-s
 #  -mfpu=vfp -mfloat-abi=hard
-GCC_OPTS=" -g -nostartfiles -nostdlib -msoft-float -ffreestanding -march=armv7-a -mtune=cortex-a7 -std=c99 -L/home/mntmn/code/newlib/arm-none-eabi/lib/ -I/home/mntmn/code/newlib/arm-none-eabi/include "
+GCC_OPTS=" -g -O3 -nostartfiles -nostdlib -msoft-float -ffreestanding -march=armv7-a -mtune=cortex-a7 -std=c99 -L/home/mntmn/code/newlib/arm-none-eabi/lib/ -I/home/mntmn/code/newlib/arm-none-eabi/include "
 OPTIMIZE=""
 
 COMPILE="arm-none-eabi-gcc $GCC_OPTS -I. -I./lightning/lightning -I./lightning/"

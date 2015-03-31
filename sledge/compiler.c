@@ -118,7 +118,7 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_entry** env) {
     e->cell = cell;
     return e->cell;
   }
-  printf("++ alloc env entry %s (%d), symbol size %d\r\n",symbol->addr,sizeof(env_entry),symbol->size);
+  //printf("++ alloc env entry %s (%d), symbol size %d\r\n",symbol->addr,sizeof(env_entry),symbol->size);
     
   e = malloc(sizeof(env_entry));
   memcpy(e->name, (char*)symbol->addr, symbol->size);
@@ -713,6 +713,80 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
   return success;
 }
 
+// args in this case is an array of Cells
+Cell* call_dynamic_lambda(Cell* fn_name, int args_on_stack) {
+
+  printf("-- dyn call to %s\n",fn_name->addr);
+  Cell* lbd = lookup_symbol(fn_name->addr, &global_env);
+
+  if (!lbd) {
+    return NULL;
+  }
+  
+  Cell* pargs = (Cell*)lbd->addr;
+
+  char buf[128];
+  lisp_write(pargs, buf, 128);
+
+  printf("-- dyn lambda formal params are %s\n",buf);
+
+  lisp_write(args, buf, 128);
+  
+  printf("-- dyn lambda supplied args are %s\n",buf);
+
+  // 1. push and clobber environment
+
+  Cell* arg = NULL;
+  for (int i=0; i<args_on_stack; i++) {
+    if (car(cdr(pargs))) {
+      Cell* parg = car(pargs);
+
+      env_entry* arge = intern_symbol(parg, env);
+
+      // TODO: push
+      //stack_push_c(arge->cell);
+      
+      // clobber
+      arge->cell = args[i];
+      stack_pop_c();
+    } else {
+      printf("-! too many args supplied\n");
+      break;
+    }
+    pargs = cdr(pargs);
+  }
+  
+  // 2. dispatch
+
+  return (Cell*)((funcptr)lbd->next)();
+
+  // 3. pop clobbered environment
+}
+
+int compile_dynamic_lambda(int retreg, Cell* fn_name, Cell* args, tag_t requires, env_entry** env) {
+  // apply a function whose parameters we only learn at runtime
+
+  while (i<10 && car(args)) {
+    int res = compile_arg(JIT_R0, car(args), TAG_ANY);
+      
+    if (!res) {
+      printf("<could not compile dynamic fn arg %d\n>",i);
+      success = 0;
+      // store new value
+    }
+
+    stack_push(JIT_R0, &stack_ptr);
+    i++;
+    args = cdr(args);
+  }
+
+  jit_prepare();
+  jit_pushargi((jit_word_t)fn_name);
+  jit_pushargi((jit_word_t)i);
+  jit_finishi(call_dynamic_lambda);
+  jit_retval(retreg);
+}
+
 // compile application of a compiled function
 int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry** env, int recursion) {
   jit_node_t* ret_label = jit_note(__FILE__, __LINE__);
@@ -726,9 +800,6 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
   env_entry* arges[10]; // max args 10
 
   int i = 0;
-
-  // FIXME: this fails if prototype parameter name is used inside of an argument expression
-
   int success = 1;
 
   // pass 0: save old symbol values
@@ -942,8 +1013,8 @@ int compile_car(int retreg, Cell* args, tag_t requires) {
 }
 
 jit_word_t do_cdr(Cell* cell) {
-  if (!cell) return alloc_nil();
-  if (cell->tag != TAG_CONS) return alloc_nil();
+  if (!cell) return ((jit_word_t)alloc_nil());
+  if (cell->tag != TAG_CONS) return ((jit_word_t)alloc_nil());
   return (jit_word_t)cell->next;
 }
 
@@ -1107,9 +1178,12 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
     }
     
     if (!op_cell) {
-      printf("<compile_applic: undefined symbol %s>\n",fn_name);
+      // dynamic call?
+      return compile_dynamic_lambda(retreg, car(list), cdr(list), required, &global_env);
+
+      /*printf("<compile_applic: undefined symbol %s>\n",fn_name);
       jit_movi(JIT_R0, 0);
-      return TAG_PURE_INT;
+      return 0;*/
     }
   }
   else if (op_cell->tag == TAG_LAMBDA) {
@@ -1237,24 +1311,19 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
     break;
 
   case BUILTIN_PIXEL:
-    compile_pixel(cdr(list));
-    return 1;
+    return compile_pixel(retreg, args);
     break;
   case BUILTIN_RECTFILL:
-    compile_rect_fill(cdr(list));
-    return 1;
+    return compile_rect_fill(retreg, args);
     break;
   case BUILTIN_FLIP:
-    compile_flip();
-    return 1;
+    return compile_flip(retreg);
     break;
   case BUILTIN_BLIT_MONO:
-    compile_blit_mono(cdr(list));
-    return 1;
+    return compile_blit_mono(retreg, args);
     break;
   case BUILTIN_BLIT_MONO_INV:
-    compile_blit_mono_inv(cdr(list));
-    return 1;
+    return compile_blit_mono_inv(retreg, args);
     break;
 
   case BUILTIN_INKEY:
@@ -1390,7 +1459,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("tcp-connect"), alloc_builtin(BUILTIN_TCP_CONNECT), &global_env);
   insert_symbol(alloc_sym("tcp-send"), alloc_builtin(BUILTIN_TCP_SEND), &global_env);
 
-  extern uint8_t _binary_sledge_fs_unifont_start;
+  /*extern uint8_t _binary_sledge_fs_unifont_start;
   extern uint32_t _binary_sledge_fs_unifont_size;
   Cell* unif = alloc_bytes(16);
   unif->addr = &_binary_sledge_fs_unifont_start;
@@ -1400,17 +1469,16 @@ void init_compiler() {
 
   insert_symbol(alloc_sym("unifont"), unif, &global_env);
 
-  /*
   extern uint8_t _binary_editor_arm_l_start;
   extern uint32_t _binary_editor_arm_l_size;
   Cell* editor = alloc_string("foo");
   editor->addr = &_binary_editor_arm_l_start;
-  editor->size = _binary_editor_arm_l_size;
+  //editor->size = _binary_editor_arm_l_size;
 
   printf("~~ editor-source is at %p\r\n",editor->addr);
   
   insert_symbol(alloc_sym("editor-source"), editor, &global_env);*/
   
   int num_syms=HASH_COUNT(global_env);
-  printf("sledge knows %u symbols. enter (ls) to see them.\r\n", num_syms);
+  printf("sledge knows %u symbols. enter (symbols) to see them.\r\n", num_syms);
 }

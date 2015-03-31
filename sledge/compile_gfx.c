@@ -7,7 +7,7 @@
 #define push_stack_arg(); stack_pop(JIT_R0, &stack_ptr);\
   jit_pushargr(JIT_R0);
 
-int compile_rect_fill(Cell* args) {
+int compile_rect_fill(int retreg, Cell* args) {
   Cell* arg_x = car(args);
   if (!arg_x) return argnum_error("(rectfill x y w h color)");
   args = cdr(args);
@@ -47,10 +47,12 @@ int compile_rect_fill(Cell* args) {
   jit_pushargr(JIT_R0);
   jit_finishi(machine_video_rect);
 
+  jit_movi(retreg, 0);
+
   return 1;
 }
 
-int compile_pixel(Cell* args) {
+int compile_pixel(int retreg, Cell* args) {
   Cell* arg_x = car(args);
   if (!arg_x) return argnum_error("(pixel x y color)");
   args = cdr(args);
@@ -76,21 +78,31 @@ int compile_pixel(Cell* args) {
   jit_pushargr(JIT_R0);
   jit_finishi(machine_video_set_pixel);
 
+  jit_movi(retreg, 0);
+  
   return 1;
 }
 
-void compile_flip() {
+int compile_flip(int retreg) {
   jit_prepare();
   jit_finishi(machine_video_flip);
+  
+  jit_movi(retreg, 0);
+
+  return 1;
 }
 
-void compile_blit(Cell* args) {
+int compile_blit(int retreg, Cell* args) {
   jit_prepare();
   jit_pushargr(JIT_R0);
   jit_finishi(blit_vector32);
+  
+  jit_movi(retreg, 0);
+
+  return 1;
 }
 
-int compile_blit_mono(Cell* args) {
+int compile_blit_mono(int retreg, Cell* args) {
   compile_arg(JIT_R0, car(args), TAG_BYTES);
   jit_ldr(JIT_R0, JIT_R0); // load bytes addr
   stack_push(JIT_R0, &stack_ptr);
@@ -115,12 +127,13 @@ int compile_blit_mono(Cell* args) {
   push_stack_arg();
   push_stack_arg(); // pop bytes addr
   jit_finishi(blit_vector1);
-  jit_retval(JIT_R0);
+  
+  jit_movi(retreg, 0);
 
   return 1;
 }
 
-int compile_blit_mono_inv(Cell* args) {
+int compile_blit_mono_inv(int retreg, Cell* args) {
   compile_arg(JIT_R0, car(args), TAG_BYTES);
   jit_ldr(JIT_R0, JIT_R0); // load bytes addr
   stack_push(JIT_R0, &stack_ptr);
@@ -145,7 +158,8 @@ int compile_blit_mono_inv(Cell* args) {
   push_stack_arg();
   push_stack_arg(); // pop bytes addr
   jit_finishi(blit_vector1_invert);
-  jit_retval(JIT_R0);
+  
+  jit_movi(retreg, 0);
 
   return 1;
 }

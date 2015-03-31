@@ -42,6 +42,7 @@ void main()
   InvalidateDataCache();
   
   uart_puts("-- BOMBERJACKET/PI kernel_main entered.\r\n");
+  setbuf(stdout, NULL);
 
   FB = init_rpi_gfx();
   FB_MEM = FB; //malloc(1920*1080*4);
@@ -56,18 +57,8 @@ void main()
   uart_puts(buf);
 
   if (FB) {
-    for (int x = 0; x<1920*1080; x++) {
-      FB[x] = x;
-    }
+    memset(FB, 0xff00ff, 1920*1080*4);
   }
-
-	/*while (1) {
-    int k = uart_getc();
-		uart_putc(k);
-    for (int x = 0; x<1920*1080; x++) {
-      FB[x] = (k<<16) | k;
-    }
-    }*/
 
   uart_repl();
 }
@@ -223,7 +214,7 @@ int machine_video_set_pixel(uint32_t x, uint32_t y, uint32_t color) {
   if (x>=1920 || y>=1080) return 0;
   FB_MEM[y*1920+x] = color;
   
-  return 1;
+  return 0;
 }
 
 int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color) {
@@ -238,11 +229,13 @@ int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t 
     }
     off+=1920;
   }
+
+  return 0;
 }
 
 int machine_video_flip() {
   memset(FB_MEM, 0xffffff, 1920*1080*4);
-  return 1;
+  return 0;
 }
 
 int machine_get_key(int modifiers) {
@@ -320,9 +313,9 @@ void uart_repl() {
   int linec = 0;
 
   Cell* expr;
-  char c = 0;
+  char c = 13;
 
-  //strcpy(in_line,"(eval editor-source)\n");
+  strcpy(in_line,"(eval editor-source)\n");
   
   init_jit(NULL);
 

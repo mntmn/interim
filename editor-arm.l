@@ -4,10 +4,6 @@
 (def and (fn a b (if a (if b 1 0) 0)))
 (def or (fn a b (if a 1 (if b 1 0) 0)))
 
-; fix comments in reader
-; write automated system image integrity analyzer
-; check all data structures etc
-
 (def item (fn lst idx (do
   (def i 0)
   (while (gt idx i) (do
@@ -137,9 +133,9 @@
     (mut chr (uget str i))
     (if (= i cursor)
       (blit-char-inv chr x y color)
-      (if (= chr 13) 0 (blit-char chr x y color)))
+      (if (= chr 32) 0 (blit-char chr x y color)))
     (mut x (+ x 8))
-    (if (= chr 13)
+    (if (= chr 10)
       (do
         (mut y (+ y 16))
         (mut x xx)))
@@ -151,7 +147,7 @@
 (def running 1)
 (def cmd-mode 0)
 
-(def eval-buf "welcome to bomber jacket OS (armv6/32bit) ☕ ☕ ☕    ")
+(def eval-buf "welcome to bomber jacket OS (arm7/32bit) ☕ ☕ ☕    ")
 
 (def help-buf (alloc-str 80))
 
@@ -191,46 +187,47 @@
   (mut cursor (- cursor 1))
 ) 0)))
 
-(def cursor-left (fn modif (do
-  (if (= modif 1)
-    (mut cursor-size (- cursor-size 1))
-    (mut cursor (- cursor 1)))
-  (if (lt cursor-size 1) (def cursor-size 1) 0)
+(def cursor-left (fn (do
+  (mut cursor (- cursor 1))
 )))
 
-(def cursor-right (fn modif (do
-  (if (= modif 1)
-    (mut cursor-size (+ cursor-size 1))
-    (mut cursor (+ cursor 1)))
+(def cursor-right (fn (do
+  (mut cursor (+ cursor 1))
+  0
 )))
 
 (def cursor-up (fn (do
   (mut cursor (ufind-prev buf 13 (- cursor 1)))
+  0
 )))
 
 (def cursor-down (fn (do
   (mut cursor (ufind-next buf 13 (+ cursor 1)))
+  0
 )))
 
 (def handle-command-key (fn k (do
-
-  (flip)
                                   
-  (if (= k 5) (do
+  (if (= k 11) (do
     (def eval-tmp (eval buf))
     (write eval-buf eval-tmp)
     0
   ))
 
-  (if (= k 6) (do
+  (if (= k 12) (do
     (plumb (word-at buf cursor))
   ))
 
   (if (= k 127) (backspace))
-  (if (= k 8) (cursor-left 0))
-  (if (= k 10) (cursor-up 0))
-  (if (= k 11) (cursor-down 0))
-  (if (= k 12) (cursor-right 0))
+  (if (= k 130) (cursor-left))
+  (if (= k 132) (cursor-up))
+  (if (= k 133) (cursor-down))
+  (if (= k 131) (cursor-right))
+
+  (if (= k 10) (do
+                   (uput buf cursor 10)
+                   (mut cursor (+ cursor 1))
+                   (flip)))
   
   0
 )))
@@ -246,9 +243,19 @@
   0
   )))
 
-(def demo (fn
-     (do (mut c 0)    (def a 1024)  (while 1 (do    (mut c (+ 1 c))    (mut b 1079)    (while (mut b (- b 1))      (do        (mut a 1919)    (mut c (+ 1 c))          (while (mut a (- a 1))          (pixel a b (* (- (- a b) c) c)))))    )))
-))
+(def demo (fn (do
+  (mut c 0)
+  (def a 1024)
+  (while (not (inkey 0)) (do
+    (mut c (+ 1 c))
+    (mut b 1079)
+    (while (mut b (- b 1)) (do
+      (mut a 1919)
+      (mut c (+ 1 c))
+      (while (mut a (- a 1))
+        (pixel a b (* (- (- a b) c) c)))))
+  ))
+)))
 
 (def buf-load (fn path (def buf (load path))))
 
@@ -263,7 +270,6 @@
   0
 )))
 
-(blit-mono unifont 0 0 516 516 1080 0 0 0xff00ff)
 (flip)
 
 (def main (fn
@@ -276,9 +282,7 @@
   (mut k (inkey 0))
   (mut modif (inkey 1))
 
-  (if (= modif 1024)
-    (handle-command-key k modif)
-    (handle-editor-key k modif))
+  (handle-editor-key k modif)
 
   (if (lt cursor 0) (mut cursor 0))
   (if (gt cursor (usize buf)) (mut cursor (usize buf)))

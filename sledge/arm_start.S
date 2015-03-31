@@ -2,7 +2,7 @@
 .global _get_stack_pointer
  
 _start:
-  mov     sp, #0x200000
+  ldr     sp, =stack_top
   sub     sp, sp, #0x4
 
   // clear bss segment
