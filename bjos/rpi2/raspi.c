@@ -1,6 +1,7 @@
 #include "raspi.h"
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 // from https://github.com/rsta2/uspi/blob/ebc7cbe9cbc637c9cd54b5362764581990f41d00/env/lib/synchronize.c
 //
@@ -204,8 +205,6 @@ uint32_t* init_rpi_gfx()
   CleanDataCache();
   DataSyncBarrier();
 
-  uint32_t* gfx_message_base = GPU_UNCACHED_BASE + (uint32_t*)0x1000000;
-
   volatile uint32_t gfx_message[] __attribute__ ((aligned (16))) = {
     27*4, // size
     0,
@@ -243,19 +242,79 @@ uint32_t* init_rpi_gfx()
   };
 
   // https://github.com/PeterLemon/RaspberryPi/blob/master/HelloWorld/CPU/LIB/R_PI2.INC
-
   *((volatile uint32_t*)(peripheral_base + 0xb880 + 0x20 + 0x8)) = (uint32_t)gfx_message + 0x8; // MAIL_TAGS = 8
   
-  //mailbox_write(gfx_message_base,1);
-  //mailbox_read(1);
   uint32_t* framebuffer = 0;
   
   do {
     framebuffer = (uint32_t*)gfx_message[24];
+    printf("-- waiting for framebuffer…\r\n");
   } while (!framebuffer);
   
-  //InvalidateDataCache();
-
-
   return framebuffer;
+}
+
+
+void init_rpi_qpu() {
+  volatile uint32_t gfx_message[] __attribute__ ((aligned (16))) = {
+    12*4, // size
+    0,
+
+    SET_CLOCK_RATE,
+    8,
+    8,
+    CLK_V3D_ID,
+    250*1000*1000, // 250 mhz
+
+    ENABLE_QPU,
+    4,
+    4,
+    1,
+    
+    0
+  };
+
+  *((volatile uint32_t*)(peripheral_base + 0xb880 + 0x20 + 0x8)) = (uint32_t)gfx_message + 0x8; // MAIL_TAGS = 8
+
+  do {
+    printf("-- waiting for qpu ack…\r\n");
+  } while (!gfx_message[1]);
+}
+
+// TODO: read https://github.com/mrvn/test/blob/master/mmu.cc
+// from http://stackoverflow.com/a/5800238
+
+#define NUM_PAGE_TABLE_ENTRIES 4096 /* 1 entry per 1MB, so this covers 4G address space */
+#define CACHE_DISABLED    0x12
+#define SDRAM_START       0x80000000
+#define SDRAM_END         0x8fffffff
+#define CACHE_WRITEBACK   0x1e
+
+static uint32_t __attribute__((aligned(16384))) page_table[NUM_PAGE_TABLE_ENTRIES];
+
+void enable_mmu(void)
+{
+  int i;
+  uint32_t reg;
+
+  /* Set up an identity-mapping for all 4GB, rw for everyone */
+  for (i = 0; i < NUM_PAGE_TABLE_ENTRIES; i++)
+    page_table[i] = i << 20 | (3 << 10) | CACHE_DISABLED;
+  /* Then, enable cacheable and bufferable for RAM only */
+  for (i = SDRAM_START >> 20; i < SDRAM_END >> 20; i++)
+  {
+    page_table[i] = i << 20 | (3 << 10) | CACHE_WRITEBACK;
+  }
+
+  /* Copy the page table address to cp15 */
+  __asm("mcr p15, 0, %0, c2, c0, 0"
+               : : "r" (page_table) : "memory");
+  /* Set the access control to all-supervisor */
+  __asm("mcr p15, 0, %0, c3, c0, 0" : : "r" (~0));
+
+  /* Enable the MMU */
+  __asm("mrc p15, 0, %0, c1, c0, 0" : "=r" (reg) : : "cc");
+  reg|=0x1;
+  
+  __asm("mcr p15, 0, %0, c1, c0, 0" : : "r" (reg) : "cc");
 }

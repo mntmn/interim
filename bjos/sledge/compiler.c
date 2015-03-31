@@ -730,9 +730,9 @@ Cell* call_dynamic_lambda(Cell* fn_name, int args_on_stack) {
 
   printf("-- dyn lambda formal params are %s\n",buf);
 
-  lisp_write(args, buf, 128);
+  //lisp_write(args, buf, 128);
   
-  printf("-- dyn lambda supplied args are %s\n",buf);
+  //printf("-- dyn lambda supplied args are %s\n",buf);
 
   // 1. push and clobber environment
 
@@ -741,14 +741,14 @@ Cell* call_dynamic_lambda(Cell* fn_name, int args_on_stack) {
     if (car(cdr(pargs))) {
       Cell* parg = car(pargs);
 
-      env_entry* arge = intern_symbol(parg, env);
+      env_entry* arge = intern_symbol(parg, &global_env);
 
       // TODO: push
       //stack_push_c(arge->cell);
       
       // clobber
-      arge->cell = args[i];
-      stack_pop_c();
+      //arge->cell = args[i];
+      //stack_pop_c();
     } else {
       printf("-! too many args supplied\n");
       break;
@@ -766,6 +766,9 @@ Cell* call_dynamic_lambda(Cell* fn_name, int args_on_stack) {
 int compile_dynamic_lambda(int retreg, Cell* fn_name, Cell* args, tag_t requires, env_entry** env) {
   // apply a function whose parameters we only learn at runtime
 
+  int success = 0;
+  
+  int i = 0;
   while (i<10 && car(args)) {
     int res = compile_arg(JIT_R0, car(args), TAG_ANY);
       
@@ -785,6 +788,9 @@ int compile_dynamic_lambda(int retreg, Cell* fn_name, Cell* args, tag_t requires
   jit_pushargi((jit_word_t)i);
   jit_finishi(call_dynamic_lambda);
   jit_retval(retreg);
+  success = 1;
+
+  return success;
 }
 
 // compile application of a compiled function
@@ -1458,26 +1464,6 @@ void init_compiler() {
   insert_symbol(alloc_sym("tcp-bind"), alloc_builtin(BUILTIN_TCP_BIND), &global_env);
   insert_symbol(alloc_sym("tcp-connect"), alloc_builtin(BUILTIN_TCP_CONNECT), &global_env);
   insert_symbol(alloc_sym("tcp-send"), alloc_builtin(BUILTIN_TCP_SEND), &global_env);
-
-  /*extern uint8_t _binary_sledge_fs_unifont_start;
-  extern uint32_t _binary_sledge_fs_unifont_size;
-  Cell* unif = alloc_bytes(16);
-  unif->addr = &_binary_sledge_fs_unifont_start;
-  unif->size = _binary_sledge_fs_unifont_size;
-
-  printf("~~ unifont is at %p\r\n",unif->addr);
-
-  insert_symbol(alloc_sym("unifont"), unif, &global_env);
-
-  extern uint8_t _binary_editor_arm_l_start;
-  extern uint32_t _binary_editor_arm_l_size;
-  Cell* editor = alloc_string("foo");
-  editor->addr = &_binary_editor_arm_l_start;
-  //editor->size = _binary_editor_arm_l_size;
-
-  printf("~~ editor-source is at %p\r\n",editor->addr);
-  
-  insert_symbol(alloc_sym("editor-source"), editor, &global_env);*/
   
   int num_syms=HASH_COUNT(global_env);
   printf("sledge knows %u symbols. enter (symbols) to see them.\r\n", num_syms);

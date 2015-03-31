@@ -1,15 +1,12 @@
-//#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-//#include <string.h>
-//#include <stdlib.h>
-#include "minilisp.h"
-#include "alloc.h"
+#include "sledge/minilisp.h"
+#include "sledge/alloc.h"
+#include "rpi2/raspi.h"
+#include "rpi2/r3d.h"
 
 #include <lightning.h>
-
-#include "raspi.h"
 
 void main();
 
@@ -44,6 +41,9 @@ void main()
   uart_puts("-- BOMBERJACKET/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
 
+  init_rpi_qpu();
+  uart_puts("-- QPU enabled\r\n");
+
   FB = init_rpi_gfx();
   FB_MEM = FB; //malloc(1920*1080*4);
   
@@ -56,62 +56,9 @@ void main()
   sprintf(buf, "-- stack pointer at %p\r\n", _get_stack_pointer());
   uart_puts(buf);
 
-  if (FB) {
-    memset(FB, 0xff00ff, 1920*1080*4);
-  }
+  memset(FB, 0x88, 1920*1080*4);
 
   uart_repl();
-}
-
-// TODO: read https://github.com/mrvn/test/blob/master/mmu.cc
-// from http://stackoverflow.com/a/5800238
-
-#define NUM_PAGE_TABLE_ENTRIES 4096 /* 1 entry per 1MB, so this covers 4G address space */
-#define CACHE_DISABLED    0x12
-#define SDRAM_START       0x80000000
-#define SDRAM_END         0x8fffffff
-#define CACHE_WRITEBACK   0x1e
-
-static uint32_t __attribute__((aligned(16384))) page_table[NUM_PAGE_TABLE_ENTRIES];
-
-void enable_mmu(void)
-{
-  int i;
-  uint32_t reg;
-
-  /* Set up an identity-mapping for all 4GB, rw for everyone */
-  for (i = 0; i < NUM_PAGE_TABLE_ENTRIES; i++)
-    page_table[i] = i << 20 | (3 << 10) | CACHE_DISABLED;
-  /* Then, enable cacheable and bufferable for RAM only */
-  for (i = SDRAM_START >> 20; i < SDRAM_END >> 20; i++)
-  {
-    page_table[i] = i << 20 | (3 << 10) | CACHE_WRITEBACK;
-  }
-
-  /* Copy the page table address to cp15 */
-  __asm("mcr p15, 0, %0, c2, c0, 0"
-               : : "r" (page_table) : "memory");
-  /* Set the access control to all-supervisor */
-  __asm("mcr p15, 0, %0, c3, c0, 0" : : "r" (~0));
-
-  /* Enable the MMU */
-  __asm("mrc p15, 0, %0, c1, c0, 0" : "=r" (reg) : : "cc");
-  reg|=0x1;
-  
-  __asm("mcr p15, 0, %0, c1, c0, 0" : : "r" (reg) : "cc");
-}
-
-void _exit(int status) {
-  uart_puts("-- clib exit called. hanging.\r\n");
-
-  memcpy(FB, (uint32_t*)0x200000, 1920*1080*4);
-
-  //uint32_t fp;
-  //READ_REGISTER(fp, fp);
-  //sprintf(buf, "-- FP: %x\n",fp);
-  
-	while (1)
-		uart_putc(uart_getc());
 }
 
 void printhex(uint32_t num) {
@@ -142,73 +89,7 @@ void printhex_signed(int32_t num) {
   uart_puts(buf);
 }
 
-void* _sbrk(int incr)
-{
-  uart_puts("-- sbrk: ");
-  printhex((uint32_t)heap_end);
-  uart_puts(" ");
-  printhex_signed(incr);
-  uart_puts("\r\n");
-  
-  uint8_t* prev_heap_end;
-
-  prev_heap_end = heap_end;
-
-  heap_end += incr;
-  return (void*)prev_heap_end;
-}
-
-void _kill() {
-  uart_puts("-- clib kill called. not implemented.\r\n");
-}
-
-int _getpid() {
-  uart_puts("-- clib getpid_r called. stubbed.\r\n");
-  return 1;
-}
-
-int _isatty_r() {
-  uart_puts("-- clib isatty_r called. stubbed.\r\n");
-  return 1;
-}
-
-int _close() {
-  uart_puts("-- clib close called. stubbed.\r\n");
-  return 1;
-}
-
-int _fstat() {
-  //uart_puts("-- clib fstat called. stubbed.\n");
-  return 0;
-}
-
-int _fseek() {
-  //uart_puts("-- clib fseek called. stubbed.\n");
-  return 0;
-}
-
-int _lseek() {
-  //uart_puts("-- clib lseek called. stubbed.\n");
-  return 0;
-}
-
-int _read() {
-  //uart_puts("-- clib read called. stubbed.\n");
-  return 0;
-}
-
-size_t _write(int fildes, const void *buf, size_t nbytes) {
-  //uart_puts("-- clib write called:\n");
-  for (int i=0; i<nbytes; i++) {
-    uart_putc(((char*)buf)[i]);
-  }
-  return nbytes;
-}
-
-int _fini() {
-  uart_puts("-- clib _fini called. stubbed.\n");
-  return 0;
-}
+#include "libc_glue.c"
 
 int machine_video_set_pixel(uint32_t x, uint32_t y, uint32_t color) {
   if (x>=1920 || y>=1080) return 0;
@@ -286,7 +167,32 @@ static jit_state_t *_jit;
 static jit_state_t *_jit_saved;
 static void *stack_ptr, *stack_base;
 
-#include "compiler.c"
+#include "sledge/compiler.c"
+
+void insert_rootfs_symbols() {
+  // until we have a file system, inject binaries that are compiled in the kernel
+  // into the environment
+  
+  extern uint8_t _binary_bjos_rootfs_unifont_start;
+  extern uint32_t _binary_bjos_rootfs_unifont_size;
+  Cell* unif = alloc_bytes(16);
+  unif->addr = &_binary_bjos_rootfs_unifont_start;
+  unif->size = _binary_bjos_rootfs_unifont_size;
+
+  printf("~~ unifont is at %p\r\n",unif->addr);
+
+  insert_symbol(alloc_sym("unifont"), unif, &global_env);
+
+  extern uint8_t _binary_bjos_rootfs_editor_l_start;
+  extern uint32_t _binary_bjos_rootfs_editor_l_size;
+  Cell* editor = alloc_string("editor");
+  editor->addr = &_binary_bjos_rootfs_editor_l_start;
+  editor->size = 0x175d; //_binary_bjos_rootfs_editor_l_size;
+
+  printf("~~ editor-source is at %p\r\n",editor->addr);
+  
+  insert_symbol(alloc_sym("editor-source"), editor, &global_env);
+}
 
 void uart_repl() {
   char* out_buf = malloc(1024*10);
@@ -295,6 +201,7 @@ void uart_repl() {
   uart_puts("\r\n\r\nwelcome to sledge arm/32 (c)2015 mntmn.\r\n");
   
   init_compiler();
+  insert_rootfs_symbols();
 
   uart_puts("\r\n\r\ncompiler initialized.\r\n");
   
@@ -302,6 +209,7 @@ void uart_repl() {
   memset(in_line,0,1024*2);
   memset(in_buf,0,1024*10);
 
+  // jit stack
   stack_ptr = stack_base = malloc(4096 * sizeof(jit_word_t));
 
   long count = 0;  
