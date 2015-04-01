@@ -24,7 +24,7 @@ fi
 arm-none-eabi-objcopy -I binary -O elf32-littlearm -B arm  bjos/rootfs/unifont  obj/unifont.o
 arm-none-eabi-objcopy -I binary -O elf32-littlearm -B arm  bjos/rootfs/editor.l obj/editor.o
 
-$COMPILE -o build/bomberjacket-arm.elf bjos/rpi2/arm_start.S bjos/main_rpi2.c bjos/rpi2/raspi.c bjos/rpi2/r3d.c -T bjos/arm.ld  obj/lightning.o obj/jit_names.o obj/jit_note.o obj/jit_size.o obj/jit_memory.o obj/glue.o obj/reader.o obj/alloc.o obj/blit.o obj/writer.o -lc -lgcc -lm obj/unifont.o obj/editor.o
+$COMPILE -o build/bomberjacket-arm.elf bjos/rpi2/arm_start.S bjos/main_rpi2.c bjos/rpi2/raspi.c bjos/rpi2/r3d.c bjos/barrier.S -T bjos/arm.ld  obj/lightning.o obj/jit_names.o obj/jit_note.o obj/jit_size.o obj/jit_memory.o obj/glue.o obj/reader.o obj/alloc.o obj/blit.o obj/writer.o -lc -lgcc -lm obj/unifont.o obj/editor.o
 
 arm-none-eabi-objcopy build/bomberjacket-arm.elf -O binary build/kernel7.img
 

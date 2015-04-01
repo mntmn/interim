@@ -6,6 +6,8 @@
 #include "machine.h"
 #include "blit.h"
 
+#include <math.h>
+
 void memdump(jit_word_t start,uint32_t len,int raw);
 
 typedef enum builtin_t {
@@ -69,7 +71,11 @@ typedef enum builtin_t {
   BUILTIN_UDP_SEND,
   BUILTIN_TCP_CONNECT,
   BUILTIN_TCP_BIND,
-  BUILTIN_TCP_SEND
+  BUILTIN_TCP_SEND,
+
+  BUILTIN_SIN,
+  BUILTIN_COS,
+  BUILTIN_SQRT
 } builtin_t;
 
 
@@ -217,7 +223,7 @@ int argnum_error(char* usage) {
   char tmp[1024];
   lisp_write(debug_current_expr,tmp,1023);
 
-  printf("argument error in %s (%p). correct usage: %s.\n",debug_current_expr,debug_current_expr,usage);
+  printf("argument error in %s (%p). correct usage: %s.\n",tmp,debug_current_expr,usage);
   jit_movi(JIT_R0, (jit_word_t)error_cell);
   return 0;
 }
@@ -1154,6 +1160,7 @@ int compile_write(int retreg, Cell* args, tag_t requires) {
 #include "compile_eval.c"
 #include "compile_net.c"
 #include "compile_gfx.c"
+#include "compile_math.c"
 
 // 0 = failure
 // 1 = success
@@ -1339,6 +1346,16 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
     return compile_blit_mono_inv(retreg, args);
     break;
 
+  case BUILTIN_SIN:
+    return compile_sin(retreg, args, required);
+    break;
+  case BUILTIN_COS:
+    return compile_cos(retreg, args, required);
+    break;
+  case BUILTIN_SQRT:
+    return compile_sqrt(retreg, args, required);
+    break;
+
   case BUILTIN_INKEY:
     return compile_get_key(retreg, args, required);
     break;
@@ -1471,7 +1488,11 @@ void init_compiler() {
   insert_symbol(alloc_sym("tcp-bind"), alloc_builtin(BUILTIN_TCP_BIND), &global_env);
   insert_symbol(alloc_sym("tcp-connect"), alloc_builtin(BUILTIN_TCP_CONNECT), &global_env);
   insert_symbol(alloc_sym("tcp-send"), alloc_builtin(BUILTIN_TCP_SEND), &global_env);
-  
+
+  insert_symbol(alloc_sym("sin"), alloc_builtin(BUILTIN_SIN), &global_env);
+  insert_symbol(alloc_sym("cos"), alloc_builtin(BUILTIN_COS), &global_env);
+  insert_symbol(alloc_sym("sqrt"), alloc_builtin(BUILTIN_SQRT), &global_env);
+
   int num_syms=HASH_COUNT(global_env);
   printf("sledge knows %u symbols. enter (symbols) to see them.\r\n", num_syms);
 }

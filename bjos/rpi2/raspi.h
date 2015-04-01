@@ -7,20 +7,16 @@
 #define peripheral_base 0x3f000000
 
 // Cache control
-#define InvalidateInstructionCache() \
-__asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0) : "memory")
-#define FlushPrefetchBuffer() __asm volatile ("isb" ::: "memory")
-#define FlushBranchTargetCache() \
-__asm volatile ("mcr p15, 0, %0, c7, c5, 6" : : "r" (0) : "memory")
+#define arm_invalidate_instruction_cache() __asm volatile ("mcr p15, 0, %0, c7, c5, 0" : : "r" (0) : "memory")
+#define arm_flush_branch_target_cache()     __asm volatile ("mcr p15, 0, %0, c7, c5, 6" : : "r" (0) : "memory")
 
-void InvalidateDataCache();
-void CleanDataCache();
+void arm_invalidate_data_caches();
+void arm_clear_data_caches();
 
 // Barriers
-#define DataSyncBarrier() __asm volatile ("dsb" ::: "memory")
-#define DataMemBarrier() __asm volatile ("dmb" ::: "memory")
-#define InstructionSyncBarrier() __asm volatile ("isb" ::: "memory")
-#define InstructionMemBarrier() __asm volatile ("isb" ::: "memory")
+#define arm_dsb() __asm volatile ("dsb" ::: "memory")
+#define arm_dmb() __asm volatile ("dmb" ::: "memory")
+#define arm_isb() __asm volatile ("isb" ::: "memory")
 
 #endif
 

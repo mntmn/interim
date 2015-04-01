@@ -37,7 +37,7 @@ void uart_repl();
 void main()
 {
   enable_mmu();
-  InvalidateDataCache();
+  arm_invalidate_data_caches();
   
   uart_puts("-- BOMBERJACKET/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
@@ -183,7 +183,7 @@ int machine_video_flip() {
   triangles[5].b = 1.0f;
   
   r3d_triangles(2, triangles);
-  r3d_render_frame();
+  r3d_render_frame(0xffffffff);
   
   //memset(FB_MEM, 0xffffff, 1920*1080*4);
   //r3d_debug_gpu();
@@ -261,7 +261,7 @@ void insert_rootfs_symbols() {
   extern uint32_t _binary_bjos_rootfs_editor_l_size;
   Cell* editor = alloc_string("editor");
   editor->addr = &_binary_bjos_rootfs_editor_l_start;
-  editor->size = 0x175d; //_binary_bjos_rootfs_editor_l_size;
+  editor->size = 0x1866; //_binary_bjos_rootfs_editor_l_size;
 
   printf("~~ editor-source is at %p\r\n",editor->addr);
   
@@ -307,7 +307,7 @@ void uart_repl() {
   init_jit(NULL);
   uart_puts("\r\n\r\n~~ JIT initialized.\r\n");
 
-  r3d_init(0xffffffff, FB);
+  r3d_init(FB);
   uart_puts("-- R3D initialized.\r\n");
   
   while (1) {
