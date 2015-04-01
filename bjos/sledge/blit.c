@@ -19,7 +19,7 @@ int blit_vector32(uint32_t* pixels, uint sx, uint sy, uint pitch, uint w, uint h
 
 // blits b+w bitmaps 
 //int blit_vector1(void* pixels, uint sx, uint sy, uint pitch, uint w, uint h, uint dx, uint dy, uint color)
-int blit_vector1(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
+/*int blit_vector1(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
 {
   for (unsigned int y=0; y<h; y++) {
     unsigned int ty = dy+y;
@@ -40,7 +40,52 @@ int blit_vector1(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint 
   }
   
   return 0;
+}*/
+
+static uint32_t* FB;
+void init_blitter(uint32_t* fb) {
+  FB = fb;
 }
+
+#define T_PITCH 1920
+
+int blit_vector1(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
+{
+  uint32_t s_offset = sy*pitch+sx;
+  uint32_t t_offset = dy*T_PITCH+dx;
+  
+  for (unsigned int y=0; y<h; y++) {
+    uint32_t* tfb = FB+t_offset;
+    for (unsigned int x=0; x<w; x++) {
+      unsigned int px = pixels[s_offset+x];
+      tfb+=8;
+      
+      *(tfb--) = (px&1)*color;
+      px>>=1;
+      *(tfb--) = (px&1)*color;
+      px>>=1;
+      *(tfb--) = (px&1)*color;
+      px>>=1;
+      *(tfb--) = (px&1)*color;
+      px>>=1;
+      *(tfb--) = (px&1)*color;
+      px>>=1;
+      *(tfb--) = (px&1)*color;
+      px>>=1;
+      *(tfb--) = (px&1)*color;
+      px>>=1;
+      *(tfb--) = (px&1)*color;
+      
+      tfb+=8;
+    }
+    
+    s_offset += pitch;
+    t_offset += T_PITCH;
+  }
+  
+  return 0;
+}
+
 
 int blit_vector1_invert(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
 {

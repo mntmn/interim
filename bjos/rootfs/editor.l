@@ -227,7 +227,7 @@
   (if (= k 10) (do
                    (uput buf cursor 10)
                    (mut cursor (+ cursor 1))
-                   (flip)))
+               ))
   
   0
 )))
@@ -270,8 +270,6 @@
   0
 )))
 
-(flip)
-
 (def main (fn
 (while running (do
   (buf-render cursor buf 0 0)
@@ -288,6 +286,7 @@
   (if (gt cursor (usize buf)) (mut cursor (usize buf)))
 
   (gc)
+  (flip)
 ))
 ))
 

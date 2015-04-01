@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "sledge/minilisp.h"
 #include "sledge/alloc.h"
+#include "sledge/blit.h"
 #include "rpi2/raspi.h"
 #include "rpi2/r3d.h"
 
@@ -42,18 +43,20 @@ void main()
   setbuf(stdout, NULL);
 
   init_rpi_qpu();
-  uart_puts("-- QPU enabled\r\n");
+  uart_puts("-- QPU enabled.\r\n");
 
   FB = init_rpi_gfx();
   FB_MEM = FB; //malloc(1920*1080*4);
+
+  init_blitter(FB);
   
-  sprintf(buf, "-- framebuffer at %p\r\n",FB);
+  sprintf(buf, "-- framebuffer at %p.\r\n",FB);
   uart_puts(buf);
   
-  sprintf(buf, "-- heap starts at %p\r\n", heap_end);
+  sprintf(buf, "-- heap starts at %p.\r\n", heap_end);
   uart_puts(buf);
   
-  sprintf(buf, "-- stack pointer at %p\r\n", _get_stack_pointer());
+  sprintf(buf, "-- stack pointer at %p.\r\n", _get_stack_pointer());
   uart_puts(buf);
 
   memset(FB, 0x88, 1920*1080*4);
@@ -103,6 +106,8 @@ int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t 
   uint32_t y2=y+h;
   uint32_t x2=x+w;
   uint32_t off = y1*1920;
+
+  // FIXME: clip!
   
   for (; y1<y2; y1++) {
     for (uint32_t x1=x; x1<x2; x1++) {
@@ -114,8 +119,77 @@ int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t 
   return 0;
 }
 
+Cell* lookup_global_symbol(char* name);
+
 int machine_video_flip() {
-  memset(FB_MEM, 0xffffff, 1920*1080*4);
+  nv_vertex_t* triangles = r3d_init_frame();
+
+  Cell* c_x1 = lookup_global_symbol("tx1");
+  Cell* c_x2 = lookup_global_symbol("tx2");
+  Cell* c_y1 = lookup_global_symbol("ty1");
+  Cell* c_y2 = lookup_global_symbol("ty2");
+  
+  int x1 = c_x1->value*16;
+  int y1 = c_y1->value*16;
+  int x2 = c_x2->value*16;
+  int y2 = c_y2->value*16;
+
+  triangles[0].x = x1;
+  triangles[0].y = y1;
+  triangles[0].z = 1.0f;
+  triangles[0].w = 1.0f;
+  triangles[0].r = 1.0f;
+  triangles[0].g = 0.0f;
+  triangles[0].b = 1.0f;
+  
+  triangles[1].x = x2;
+  triangles[1].y = y1;
+  triangles[1].z = 1.0f;
+  triangles[1].w = 1.0f;
+  triangles[1].r = 1.0f;
+  triangles[1].g = 1.0f;
+  triangles[1].b = 1.0f;
+  
+  triangles[2].x = x1;
+  triangles[2].y = y2;
+  triangles[2].z = 1.0f;
+  triangles[2].w = 1.0f;
+  triangles[2].r = 1.0f;
+  triangles[2].g = 1.0f;
+  triangles[2].b = 1.0f;
+  
+  triangles[3].x = x2;
+  triangles[3].y = y1;
+  triangles[3].z = 1.0f;
+  triangles[3].w = 1.0f;
+  triangles[3].r = 1.0f;
+  triangles[3].g = 0.0f;
+  triangles[3].b = 1.0f;
+  
+  triangles[4].x = x2;
+  triangles[4].y = y2;
+  triangles[4].z = 1.0f;
+  triangles[4].w = 1.0f;
+  triangles[4].r = 1.0f;
+  triangles[4].g = 1.0f;
+  triangles[4].b = 1.0f;
+  
+  triangles[5].x = x1;
+  triangles[5].y = y2;
+  triangles[5].z = 1.0f;
+  triangles[5].w = 1.0f;
+  triangles[5].r = 1.0f;
+  triangles[5].g = 1.0f;
+  triangles[5].b = 1.0f;
+  
+  r3d_triangles(2, triangles);
+  r3d_render_frame();
+  
+  //memset(FB_MEM, 0xffffff, 1920*1080*4);
+  //r3d_debug_gpu();
+
+  printf("-- r3d frame submitted.\r\n");
+  
   return 0;
 }
 
@@ -192,6 +266,11 @@ void insert_rootfs_symbols() {
   printf("~~ editor-source is at %p\r\n",editor->addr);
   
   insert_symbol(alloc_sym("editor-source"), editor, &global_env);
+  
+  insert_symbol(alloc_sym("tx1"), alloc_int(800), &global_env);
+  insert_symbol(alloc_sym("tx2"), alloc_int(900), &global_env);
+  insert_symbol(alloc_sym("ty1"), alloc_int(800), &global_env);
+  insert_symbol(alloc_sym("ty2"), alloc_int(900), &global_env);
 }
 
 void uart_repl() {
@@ -226,9 +305,11 @@ void uart_repl() {
   strcpy(in_line,"(eval editor-source)\n");
   
   init_jit(NULL);
+  uart_puts("\r\n\r\n~~ JIT initialized.\r\n");
 
-  uart_puts("\r\n\r\nJIT initialized.\r\n");
-    
+  r3d_init(0xffffffff, FB);
+  uart_puts("-- R3D initialized.\r\n");
+  
   while (1) {
     expr = NULL;
     

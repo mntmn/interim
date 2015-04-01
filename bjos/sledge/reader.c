@@ -146,6 +146,8 @@ ReaderState* read_char(char c, ReaderState* rs) {
           rs->state = PST_NUM_NEG;
           vcell->tag = TAG_INT;
           vcell->value = -(c-'0');
+        } else {
+          append = 1;
         }
       } else {
         append = 1;

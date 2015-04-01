@@ -139,5 +139,6 @@ unsigned char uart_getc();
 
 uint32_t* init_rpi_gfx();
 void init_rpi_qpu();
+void delay(int32_t count);
 
 #endif

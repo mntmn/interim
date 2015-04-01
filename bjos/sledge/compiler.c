@@ -82,6 +82,13 @@ static Cell* error_cell; // recycled cell used to return errors
 static size_t* jit_state_stack;
 int jit_state_stack_usage = 0;
 
+Cell* lookup_global_symbol(char* name) {
+  env_entry* res;
+  HASH_FIND_STR(global_env, name, res);
+  if (!res) return NULL;
+  return res->cell;
+}
+
 Cell* lookup_symbol(char* name, env_entry** env) {
   env_entry* res;
   HASH_FIND_STR(*env, name, res);
@@ -435,7 +442,7 @@ int compile_def(int retreg, Cell* args, tag_t required) {
           // we are binding a function
           currently_compiling_fn_sym = sym;
           detect_fn = 1;
-          printf("-- compiling fn %s\n",currently_compiling_fn_sym->addr);
+          printf("-- compiling fn %s\r\n",currently_compiling_fn_sym->addr);
 
           // FIXME: recursion is broken
           
@@ -498,7 +505,7 @@ int compile_mut(int retreg, Cell* args, tag_t required) {
   int success = 0;
 
   if (!e->cell) {
-    printf("++ defaulting mut symbol %s\n",sym->addr);
+    printf("++ defaulting mut symbol %s\r\n",sym->addr);
     e->cell = alloc_int(0);
   }
   
@@ -509,7 +516,7 @@ int compile_mut(int retreg, Cell* args, tag_t required) {
   }
   
   if (!success) {
-    printf("<return type mismatch in mut>\n");
+    printf("<return type mismatch in mut>\r\n");
     return 0;
   }
   
@@ -524,7 +531,7 @@ int compile_mut(int retreg, Cell* args, tag_t required) {
     }
     else if (required != TAG_PURE_INT && required != TAG_VOID) {
       jit_movi(retreg, 0);
-      printf("<return type mismatch in mut in the end>\n");
+      printf("<return type mismatch in mut in the end>\r\n");
       return 0;
     }
   } else {
@@ -553,7 +560,7 @@ int compile_print(int retreg, Cell* args, tag_t required) {
 
   int r = compile_arg(retreg, arg, TAG_ANY);
   if (!r) {
-    printf("<could not convert print arg to TAG_ANY>\n");
+    printf("<could not convert print arg to TAG_ANY>\r\n");
     return 0;
   }
 
@@ -638,9 +645,9 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
 
 #ifdef DEBUG
   if (currently_compiling_fn_sym) {
-    printf("-- compile_fn %s\n",currently_compiling_fn_sym->addr);
+    printf("-- compile_fn %s\r\n",currently_compiling_fn_sym->addr);
   } else {
-    printf("-- compile_fn (closure)\n");
+    printf("-- compile_fn (closure)\r\n");
   }
 #endif
   
@@ -656,7 +663,7 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
   //printf("body: %p %d %p\n",args,args->tag,args->addr);
 
   if (jit_state_stack_usage>=49) {
-    printf("<compile_fn error: jit_state_stack overflow.>\n");
+    printf("<compile_fn error: jit_state_stack overflow.>\r\n");
     return 0;
   }
 
@@ -716,7 +723,7 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
 // args in this case is an array of Cells
 Cell* call_dynamic_lambda(Cell* fn_name, int args_on_stack) {
 
-  printf("-- dyn call to %s\n",fn_name->addr);
+  printf("-- dyn call to %s\r\n",fn_name->addr);
   Cell* lbd = lookup_symbol(fn_name->addr, &global_env);
 
   if (!lbd) {
