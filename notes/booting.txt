@@ -1,0 +1,3 @@
+
+- download new kernel.img from raw socket server / http
+- save to boot partition (fat)

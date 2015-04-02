@@ -128,6 +128,7 @@ enum
 void mmio_write(uint32_t reg, uint32_t data);
 uint32_t mmio_read(uint32_t reg);
 
+void uart_init();
 void uart_putc(unsigned char byte);
 void uart_write(const unsigned char* buffer, uint32_t size);
 void uart_puts(const char* str);

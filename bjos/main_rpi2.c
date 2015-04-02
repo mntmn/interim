@@ -6,6 +6,8 @@
 #include "sledge/blit.h"
 #include "rpi2/raspi.h"
 #include "rpi2/r3d.h"
+#include "rpi2/rpi-boot/fs.h"
+#include "rpi2/rpi-boot/dirent.h"
 
 #include <lightning.h>
 
@@ -34,13 +36,19 @@ void enable_mmu(void);
 extern void* _get_stack_pointer();
 void uart_repl();
 
+extern void libfs_init();
+
 void main()
 {
   enable_mmu();
   arm_invalidate_data_caches();
+
+  uart_init(); // gpio setup also affects emmc TODO: document
   
   uart_puts("-- BOMBERJACKET/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
+  
+  libfs_init();
 
   init_rpi_qpu();
   uart_puts("-- QPU enabled.\r\n");
@@ -62,6 +70,20 @@ void main()
   memset(FB, 0x88, 1920*1080*4);
 
   uart_repl();
+}
+
+static struct fs* fat_fs;
+
+void vfs_register(struct fs *fs) {
+  printf("~~ vfs_register: %s/%s block_size: %d\r\n",fs->parent->device_name,fs->fs_name,fs->block_size);
+  printf("~~ read_directory: %p fopen: %p\r\n",fs->read_directory,fs->fopen);
+
+  //char* name = "/";
+
+  //struct dirent* dir = fs->read_directory(fs,&name);
+
+  //printf("~~ dirent: %p name: %s\r\n",dir,dir->name);
+  fat_fs = fs;
 }
 
 void printhex(uint32_t num) {
@@ -163,7 +185,7 @@ int machine_video_flip() {
   triangles[3].z = 1.0f;
   triangles[3].w = 1.0f;
   triangles[3].r = 1.0f;
-  triangles[3].g = 0.0f;
+  triangles[3].g = 1.0f;
   triangles[3].b = 1.0f;
   
   triangles[4].x = x2;
@@ -171,7 +193,7 @@ int machine_video_flip() {
   triangles[4].z = 1.0f;
   triangles[4].w = 1.0f;
   triangles[4].r = 1.0f;
-  triangles[4].g = 1.0f;
+  triangles[4].g = 0.0f;
   triangles[4].b = 1.0f;
   
   triangles[5].x = x1;
@@ -232,7 +254,55 @@ Cell* machine_load_file(char* path) {
     return read_string(sysfs_tmp);
   }
 
-  Cell* result_cell = alloc_num_bytes(2*1024*1024);
+  if (!strncmp(path,"/sd/",4) && fat_fs) {
+    char* name = NULL;
+    struct dirent* dir = fat_fs->read_directory(fat_fs,&name);
+
+    char* filename = NULL;
+    if (strlen(path)>4) {
+      filename = path+4;
+    }
+    
+    printf("~~ dirent: %p name: %s\r\n",dir,dir->name);
+
+    if (filename) {
+      // look for the file
+      printf("FAT looking for %s...\r\n",filename);
+      while (dir) {
+        if (!strcmp(filename, dir->name)) {
+          // found it
+          printf("FAT found file. opening...\r\n");
+          fs_file* f = fat_fs->fopen(fat_fs, dir, "r");
+          if (f) {
+            printf("FAT trying to read file of len %d...\r\n",f->len);
+            Cell* res = alloc_num_string(f->len);
+            int len = fat_fs->fread(fat_fs, res->addr, f->len, f);
+            printf("FAT bytes read: %d\r\n",len);
+            // TODO: close?
+            return res;
+          } else {
+            // TODO should return error
+            printf("FAT could not open file :(\r\n");
+            return alloc_string_copy("<error: couldn't open file.>");
+          }
+        }
+        dir = dir->next;
+      }
+      return alloc_string_copy("<error: file not found.>");
+    } else {
+      Cell* res = alloc_num_string(4096);
+      char* ptr = (char*)res->addr;
+      while (dir) {
+        int len = sprintf(ptr,"%s",dir->name);
+        ptr[len] = '\n';
+        ptr+=len+1;
+        dir = dir->next;
+      }
+      return res;
+    }
+  }
+
+  Cell* result_cell = alloc_int(0);
   return result_cell;
 }
 
@@ -261,16 +331,16 @@ void insert_rootfs_symbols() {
   extern uint32_t _binary_bjos_rootfs_editor_l_size;
   Cell* editor = alloc_string("editor");
   editor->addr = &_binary_bjos_rootfs_editor_l_start;
-  editor->size = 0x1866; //_binary_bjos_rootfs_editor_l_size;
+  editor->size = 0x194b; //_binary_bjos_rootfs_editor_l_size;
 
   printf("~~ editor-source is at %p\r\n",editor->addr);
   
   insert_symbol(alloc_sym("editor-source"), editor, &global_env);
   
-  insert_symbol(alloc_sym("tx1"), alloc_int(800), &global_env);
-  insert_symbol(alloc_sym("tx2"), alloc_int(900), &global_env);
-  insert_symbol(alloc_sym("ty1"), alloc_int(800), &global_env);
-  insert_symbol(alloc_sym("ty2"), alloc_int(900), &global_env);
+  insert_symbol(alloc_sym("tx1"), alloc_int(0), &global_env);
+  insert_symbol(alloc_sym("tx2"), alloc_int(0), &global_env);
+  insert_symbol(alloc_sym("ty1"), alloc_int(100), &global_env);
+  insert_symbol(alloc_sym("ty2"), alloc_int(100), &global_env);
 }
 
 void uart_repl() {

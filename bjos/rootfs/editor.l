@@ -13,6 +13,7 @@
 )))
 
 (def buf (alloc-str 1024))
+(def minibuf (alloc-str 1024))
 
 (def uchr (fn s (uget s 0)))
 
@@ -147,9 +148,7 @@
 (def running 1)
 (def cmd-mode 0)
 
-(def eval-buf "welcome to bomber jacket OS (arm7/32bit) ☕ ☕ ☕    ")
-
-(def help-buf (alloc-str 80))
+(def buf-append (fn str (def buf (concat buf (concat str [0a])))))
 
 (def focus-buffer buf)
 (def padding 20)
@@ -160,7 +159,7 @@
 )))
 
 (def clear (fn (do
-  (rectfill 0 0 1024 768 color)
+  (def buf "cleared.")
 )))
 
 (def toggle-command (fn (do
@@ -177,12 +176,12 @@
 )))
 
 (def plumb (fn word (do
-  (write eval-buf (cons "plumb" word))
+  (write buf (cons "plumb" word))
   (if (= (uget word 0) (uchr "/"))
     (def buf (load word)))
 )))
 
-(def backspace (fn (if (gt cursor 0) (do
+(def backspace (fn buf (if (gt cursor 0) (do
   (uremove buf cursor)
   (mut cursor (- cursor 1))
 ) 0)))
@@ -206,11 +205,14 @@
   0
 )))
 
-(def handle-command-key (fn k (do
-                                  
-  (if (= k 11) (do
-    (def eval-tmp (eval buf))
-    (write eval-buf eval-tmp)
+(def eval-tmp-buf (alloc-str 1024))
+
+(def handle-command-key (fn k modif (do
+  (if (= k 10) (do
+    (def eval-tmp (eval minibuf))
+    (print (cons "eval-tmp:" eval-tmp))
+    (write eval-tmp-buf eval-tmp)
+    (buf-append eval-tmp-buf)
     0
   ))
 
@@ -218,16 +220,11 @@
     (plumb (word-at buf cursor))
   ))
 
-  (if (= k 127) (backspace))
+  (if (= k 127) (if modif (do (def minibuf (alloc-str 1024)) (mut cursor 0)) (backspace minibuf)))
   (if (= k 130) (cursor-left))
   (if (= k 132) (cursor-up))
   (if (= k 133) (cursor-down))
   (if (= k 131) (cursor-right))
-
-  (if (= k 10) (do
-                   (uput buf cursor 10)
-                   (mut cursor (+ cursor 1))
-               ))
   
   0
 )))
@@ -235,18 +232,18 @@
 (def handle-editor-key (fn k modif (do
   (if (and (gt k 12) (lt k 127))
     (do
-      (uput buf cursor k)
+      (uinsert minibuf cursor k)
       (mut cursor (+ cursor 1))
     )
-    (handle-command-key k)
+    (handle-command-key k modif)
   )
   0
-  )))
+)))
 
 (def demo (fn (do
   (mut c 0)
   (def a 1024)
-  (while (not (inkey 0)) (do
+  (while 1 (do
     (mut c (+ 1 c))
     (mut b 1079)
     (while (mut b (- b 1)) (do
@@ -254,6 +251,8 @@
       (mut c (+ 1 c))
       (while (mut a (- a 1))
         (pixel a b (* (- (- a b) c) c)))))
+    (flip)
+    (gc)
   ))
 )))
 
@@ -268,10 +267,8 @@
   (gc)
 )))
 
-(def buf-load (fn path (def buf (load path))))
-
-(def eval-buf-x 0)
-(def eval-buf-y 600)
+(def minibuf-x 0)
+(def minibuf-y 600)
 
 (def update-statusline (fn (do
   (def memstat (load "/sys/mem"))
@@ -281,25 +278,31 @@
   0
 )))
 
-(def main (fn
-(while running (do
-  (buf-render cursor buf 0 0)
-  (buf-render 0 eval-buf eval-buf-x eval-buf-y)
-  (buf-render 0 help-buf 0 700)
-  (update-statusline)
+(def main (fn (do
+  (buf-append "welcome to bomber jacket OS (arm7/32bit) ☕ ☕ ☕ ")
+  (while running (do    
+    (buf-render 0 buf 0 0)
+    (buf-render cursor minibuf minibuf-x minibuf-y)
+  
+    (mut k (inkey 0))
+    (mut modif (inkey 1))
 
-  (mut k (inkey 0))
-  (mut modif (inkey 1))
+    (if k (do 
+      (print (cons "before" k))
+      (if keymap (if modif (mut k (get keymap (+ 128 k))) (mut k (get keymap k))))
+      (print (cons "after" k))
+    ))
+    
+    (if (not (= k 0))
+      (handle-editor-key k modif))
+ 
+    (if (lt cursor 0) (mut cursor 0))
+    (if (gt cursor (usize buf)) (mut cursor (usize buf)))
 
-  (handle-editor-key k modif)
-
-  (if (lt cursor 0) (mut cursor 0))
-  (if (gt cursor (usize buf)) (mut cursor (usize buf)))
-
-  (gc)
-  (flip)
-))
-))
+    (gc)
+    (flip)
+  ))
+)))
 
 (main)
 )

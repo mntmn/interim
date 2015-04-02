@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include "rpi-boot/timer.h"
 
 // from https://github.com/rsta2/uspi/blob/ebc7cbe9cbc637c9cd54b5362764581990f41d00/env/lib/synchronize.c
 //
@@ -121,6 +122,7 @@ void uart_puts(const char* str)
 	uart_write((const unsigned char*) str, strlen(str));
 }
 
+/*
 void uart_init()
 {
 	// Disable UART0.
@@ -160,7 +162,35 @@ void uart_init()
  
 	// Enable UART0, receive & transfer part of UART.
 	mmio_write(UART0_CR, (1 << 0) | (1 << 8) | (1 << 9));
+}*/
+
+
+void uart_init()
+{
+	mmio_write(UART0_CR, 0x0);
+
+	mmio_write(GPPUD, 0x0);
+	usleep(150000);
+
+	mmio_write(GPPUDCLK0, (1 << 14) | (1 << 15));
+	usleep(150000);
+
+	mmio_write(GPPUDCLK0, 0x0);
+
+	mmio_write(UART0_ICR, 0x7ff);
+
+	mmio_write(UART0_IBRD, 1);
+	mmio_write(UART0_FBRD, 40);
+
+	mmio_write(UART0_LCRH, (1 << 4) | (1 << 5) | (1 << 6));
+
+	mmio_write(UART0_IMSC, (1 << 1) | (1 << 4) | (1 << 5) | (1 << 6) | (1 << 7) |
+				(1 << 8) | (1 << 9) | (1 << 10));
+
+	mmio_write(UART0_CR, (1 << 0) | (1 << 8) | (1 << 9));
 }
+
+
 
 void mailbox_write(uint32_t* fbinfo_addr, unsigned int channel)
 {

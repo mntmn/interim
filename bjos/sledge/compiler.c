@@ -285,7 +285,7 @@ int compile_arg(int retreg, Cell* arg, tag_t required) {
     if (!e->cell) {
       // undefined symbol
       if (required == TAG_INT || required == TAG_PURE_INT || required == TAG_ANY || required == TAG_VOID) {
-        // FIXME wat
+        // return non-existence (zero)
         e->cell = alloc_int(0);
       } else if (required == TAG_CONS) {
         // FIXME adhoc
@@ -350,9 +350,9 @@ int compile_arg(int retreg, Cell* arg, tag_t required) {
   }
   else {
     if (required == TAG_PURE_INT) {
-      // other cells can't be coerced to pure integers
-      printf("<type mismatch. got %d, need unboxed int>\n",tag);
-      return 0;
+      // other cells can't be coerced to pure integers, so we return existence, 1
+      jit_movi(retreg, 1);
+      return 1;
     }
     if (required == TAG_ANY || required == TAG_VOID || tag == required) {
       return 1;

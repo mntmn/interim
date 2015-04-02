@@ -1,6 +1,7 @@
 #include "minilisp.h"
 #include "blit.h"
 #include "machine.h"
+#include <stdio.h>
 
 #define CPU_ARM
 
@@ -19,7 +20,7 @@ int blit_vector32(uint32_t* pixels, uint sx, uint sy, uint pitch, uint w, uint h
 
 // blits b+w bitmaps 
 //int blit_vector1(void* pixels, uint sx, uint sy, uint pitch, uint w, uint h, uint dx, uint dy, uint color)
-/*int blit_vector1(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
+int blit_vector1(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
 {
   for (unsigned int y=0; y<h; y++) {
     unsigned int ty = dy+y;
@@ -40,13 +41,13 @@ int blit_vector32(uint32_t* pixels, uint sx, uint sy, uint pitch, uint w, uint h
   }
   
   return 0;
-}*/
+}
 
 static uint32_t* FB;
 void init_blitter(uint32_t* fb) {
   FB = fb;
 }
-
+/*
 #define T_PITCH 1920
 
 int blit_vector1(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
@@ -85,7 +86,7 @@ int blit_vector1(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint 
   
   return 0;
 }
-
+*/
 
 int blit_vector1_invert(uint color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
 {

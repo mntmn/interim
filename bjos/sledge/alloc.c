@@ -140,8 +140,11 @@ int collect_garbage(env_entry* global_env) {
 #ifdef DEBUG_GC
       printf(".");
 #endif
-      
+      if (c->tag == TAG_BYTES || c->tag == TAG_STR) {
+        free(c->addr);
+      }
       c->tag = TAG_FREED;
+      
       free_list[free_list_avail] = c;
       free_list_avail++;
       gc++;

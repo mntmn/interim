@@ -36,6 +36,7 @@ inline int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, ui
 
 inline int machine_video_flip() {
   sdl_mainloop();
+  machine_video_rect(0,0,1024,768,0xffffff);
   return 1;
 }
 
