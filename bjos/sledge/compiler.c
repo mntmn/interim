@@ -31,6 +31,7 @@ typedef enum builtin_t {
   BUILTIN_CAR,
   BUILTIN_CDR,
   BUILTIN_CONS,
+  BUILTIN_LIST,
 
   BUILTIN_ALLOC,
   BUILTIN_ALLOC_STR,
@@ -238,14 +239,6 @@ int box_int(int retreg, tag_t required) {
     return 0;
   }
   //printf("-- box_int retreg: %d\n",retreg);
-
-  //jit_sti(&int_cell_regs[retreg].value, retreg);
-  //jit_movi(retreg, (jit_word_t)&int_cell_regs[retreg]);
-
-  
-  /*char tmp[1024];
-  lisp_write(debug_current_expr,tmp,1023);
-  printf("++ box_int int allocation for %s\n",tmp);*/
 
   jit_prepare();
   jit_pushargr(retreg);  
@@ -1074,6 +1067,48 @@ int compile_cons(int retreg, Cell* args, tag_t requires) {
   return 1;
 }
 
+int compile_list(int retreg, Cell* args, tag_t requires) {
+  // (list 1)
+  // compile_arg -> R0
+  // nil -> R1
+
+  int num_items = 0;
+  while (car(args)) {
+    int success = compile_arg(JIT_R0, car(args), TAG_ANY);
+    
+    if (success) {
+      stack_push(JIT_R0, &stack_ptr);
+    } else {
+      while (num_items--) {
+        // unwind stack
+        stack_pop(JIT_R1, &stack_ptr);
+      }
+      printf("<error compiling list item %d>\r\n",num_items);
+      jit_movi(retreg, 0);
+      return 0;
+    }
+    
+    args = cdr(args);
+    num_items++;
+  }
+
+  jit_prepare();
+  jit_finishi(alloc_nil);
+  jit_retval(JIT_R1);
+  
+  while (num_items--) {
+    jit_prepare();
+    stack_pop(JIT_R0, &stack_ptr);
+    jit_pushargr(JIT_R0);
+    jit_pushargr(JIT_R1);
+    jit_finishi(alloc_cons);
+    jit_retval(JIT_R1);
+  }
+  
+  jit_movr(retreg, JIT_R0);
+  return 1;
+}
+
 // alloc allocates a bytes object with specified size
 // will contain zeroes
 int compile_alloc(int retreg, Cell* args, tag_t requires) {
@@ -1287,6 +1322,9 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
   case BUILTIN_CONS:
     return compile_cons(retreg, args, required);
     break;
+  case BUILTIN_LIST:
+    return compile_list(retreg, args, required);
+    break;
     
   case BUILTIN_ALLOC:
     return compile_alloc(retreg, args, required);
@@ -1455,6 +1493,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("car"), alloc_builtin(BUILTIN_CAR), &global_env);
   insert_symbol(alloc_sym("cdr"), alloc_builtin(BUILTIN_CDR), &global_env);
   insert_symbol(alloc_sym("cons"), alloc_builtin(BUILTIN_CONS), &global_env);
+  insert_symbol(alloc_sym("list"), alloc_builtin(BUILTIN_LIST), &global_env);
 
   insert_symbol(alloc_sym("concat"), alloc_builtin(BUILTIN_CONCAT), &global_env);
   insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC), &global_env);
