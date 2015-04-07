@@ -82,11 +82,11 @@ void mark_tree(Cell* c) {
     //printf("~! warning: mark_tree encountered NULL cell.\n");
     return;
   }
-  
+
   if (!(c->tag & TAG_MARK)) {
-    /*char buf[300];
-    lisp_write(c, buf, 299);
-    printf("~~ marking live: %s\n",buf);*/
+    /*char buf[80];
+    lisp_write(c, buf, 79);
+    printf("~~ marking live: %p %s\n",c,buf);*/
     
     c->tag |= TAG_MARK;
     
@@ -99,7 +99,9 @@ void mark_tree(Cell* c) {
       // also for STR, BYTES
     }
     else if (c->tag & TAG_LAMBDA) {
-      //printf("~~ mark lambda args: %p\n",(Cell*)c->addr);
+      /*static char buf[512];
+      lisp_write((Cell*)c->addr, buf, 511);
+      printf("~~ mark lambda args: %s\n",buf);*/
       mark_tree((Cell*)c->addr); // function arguments
     }
   }
@@ -115,7 +117,7 @@ int collect_garbage(env_entry* global_env) {
   for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
     //printf("env entry: %s pointing to %p\n",e->name,e->cell);
     if (!e->cell) {
-      printf("~! warning: NULL env entry %s.\n",e->name);
+      //printf("~! warning: NULL env entry %s.\n",e->name);
     }
     mark_tree(e->cell);
   }
@@ -135,7 +137,10 @@ int collect_garbage(env_entry* global_env) {
   
   for (int i=0; i<cells_used; i++) {
     Cell* c = &cell_heap[i];
-    if (!(c->tag & TAG_MARK)) {
+    // FIXME: we cannot free LAMBDAS currently
+    // because nobody points to anonymous closures.
+    // this has to be fixed by introducing metadata to their callers. (?)
+    if (!(c->tag & TAG_MARK) && c->tag!=TAG_LAMBDA) {
       
 #ifdef DEBUG_GC
       printf(".");
@@ -171,7 +176,7 @@ int collect_garbage(env_entry* global_env) {
 void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes) {
   // FIXME
   //cell_free(old_addr, old_size);
-  void* new = bytes_alloc(num_bytes);
+  void* new = bytes_alloc(num_bytes+1);
   memcpy(new, old_addr, old_size);
   return new;
 }
@@ -207,7 +212,7 @@ Cell* alloc_sym(char* str) {
     //printf("alloc_sym: %s (%d)\r\n",str,sz);
     //memdump(sym,sizeof(Cell),0);
     
-    sym->addr = bytes_alloc(sz);
+    sym->addr = bytes_alloc(sz+1);
 
     //memdump(sym,sizeof(Cell),0);
     
@@ -231,8 +236,7 @@ Cell* alloc_int(int i) {
 
 Cell* alloc_num_bytes(unsigned int num_bytes) {
   Cell* cell = cell_alloc();
-  cell->addr = bytes_alloc(num_bytes);
-  memset(cell->addr, 0, num_bytes);
+  cell->addr = bytes_alloc(num_bytes+1); // 1 zeroed byte more to defeat clib-str overflows
   cell->tag = TAG_BYTES;
   cell->size = num_bytes;
   return cell;
@@ -244,8 +248,7 @@ Cell* alloc_bytes() {
 
 Cell* alloc_num_string(unsigned int num_bytes) {
   Cell* cell = cell_alloc();
-  cell->addr = bytes_alloc(num_bytes);
-  memset(cell->addr, 0, num_bytes);
+  cell->addr = bytes_alloc(num_bytes+1); // 1 zeroed byte more to defeat clib-str overflows
   cell->tag = TAG_STR;
   cell->size = num_bytes;
   return cell;
@@ -265,9 +268,12 @@ Cell* alloc_string_copy(char* str) {
 }
 
 Cell* alloc_concat(Cell* str1, Cell* str2) {
+  if (str1->tag!=TAG_BYTES && str1->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  if (str2->tag!=TAG_BYTES && str2->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  
   Cell* cell = cell_alloc();
   unsigned int newsize = strlen(str1->addr)+strlen(str2->addr)+1;
-  cell->addr = bytes_alloc(newsize);
+  cell->addr = bytes_alloc(newsize+1);
   strcpy(cell->addr, str1->addr);
   strcpy(cell->addr+strlen(str1->addr), str2->addr);
   cell->tag = TAG_STR;
@@ -317,9 +323,9 @@ Cell* alloc_clone(Cell* orig) {
 
   //printf("cloning a %d (value %d)\n",orig->tag,orig->value);
   
-  if (orig->tag == TAG_SYM || orig->tag == TAG_STR) {
+  if (orig->tag == TAG_SYM || orig->tag == TAG_STR || orig->tag == TAG_BYTES) {
     clone->addr = bytes_alloc(orig->size+1);
-    memcpy(clone->addr, orig->addr, orig->size+1);
+    memcpy(clone->addr, orig->addr, orig->size);
   /*} else if (orig->tag == TAG_BYTES) {
     clone->addr = bytes_alloc(orig->size);
     memcpy(clone->addr, orig->addr, orig->size);*/

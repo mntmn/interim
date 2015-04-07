@@ -163,3 +163,36 @@ int compile_blit_mono_inv(int retreg, Cell* args) {
 
   return 1;
 }
+
+int compile_blit_string(int retreg, Cell* args, int requires) {
+  compile_arg(JIT_R0, car(args), TAG_BYTES); // font
+  stack_push(JIT_R0, &stack_ptr);
+
+  args = cdr(args);
+  compile_arg(JIT_R0, car(args), TAG_ANY); // string
+  stack_push(JIT_R0, &stack_ptr);
+  
+  compile_int_arg();
+  compile_int_arg();
+  compile_int_arg();
+  compile_int_arg();
+  compile_int_arg();
+  compile_int_arg();
+
+  jit_prepare();
+  push_stack_arg(); // color
+  push_stack_arg(); // h
+  push_stack_arg(); // w
+  push_stack_arg(); // y
+  push_stack_arg(); // x
+  push_stack_arg(); // cursor_pos (or -1)
+  
+  push_stack_arg(); // string
+  push_stack_arg(); // font
+  jit_finishi(blit_string1);
+  jit_retval(retreg);
+
+  box_int(retreg, requires);
+  
+  return 1;
+}

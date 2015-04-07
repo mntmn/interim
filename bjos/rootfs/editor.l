@@ -4,6 +4,8 @@
 (def and (fn a b (if a (if b 1 0) 0)))
 (def or (fn a b (if a 1 (if b 1 0) 0)))
 
+(def buf "")
+
 (def item (fn lst idx (do
   (def i 0)
   (while (gt idx i) (do
@@ -11,9 +13,6 @@
     (def i (+ i 1))))
   (car lst)
 )))
-
-(def buf (alloc-str 1024))
-(def minibuf (alloc-str 1024))
 
 (def uchr (fn s (uget s 0)))
 
@@ -30,25 +29,26 @@
 (def ufind-prev (fn buf rune pos (do
   (while (and (gt pos 0) (not (= rune (uget buf pos))))
     (def pos (- pos 1)))
-  (+ pos 0)
+  pos
 )))
 
 (def ufind-next (fn buf rune pos (do
-  (while (and (lt pos (usize buf)) (not (= rune (uget buf pos))))
+  (def sz (usize buf))
+  (while (and (lt pos sz) (not (= rune (uget buf pos))))
     (def pos (+ pos 1)))
-  (+ pos 0)
+  pos
 )))
 
 (def ufind-prev-ws (fn buf pos (do
   (while (and (gt pos 0) (not (or (= 10 (uget buf pos)) (= 32 (uget buf pos)))))
     (def pos (- pos 1)))
-  (if (= pos 0) 0 (+ pos 1))
+  (if (= pos 0) 0 pos)
 )))
 
 (def ufind-next-ws (fn buf pos (do
   (while (and (lt pos (usize buf)) (not (or (= 10 (uget buf pos)) (= 32 (uget buf pos)))))
     (def pos (+ pos 1)))
-  (+ pos 0)
+  pos
 )))
 
 (def ucopy (fn buf from to num (do
@@ -99,79 +99,80 @@
   result
 )))
 
-(def white 0xffffff)
-(def cyan 65535)
-(def color white)
-(def unifont-width 4128)
-(def unifont-height 4160)
-(def xx 0)
-(def bx 0)
-(def by 0)
-(def x 0)
-(def y 0)
-(def i 0)
-(def rune 0)
-(def chr 0)
 
-(def cursor 0)
-(def blit-char-inv (fn rune x y color (do
-  (blit-mono-inv unifont 
-    (* (+ 2 (% rune 256)) 2) 
-    (* (+ 4 (/ rune 256)) 16) (/ 4128 8) 2 16 x y color)
+(def reverse (fn lst (do
+  (def res (list))
+  (while (or (car lst) (cdr lst)) (do
+    (def res (cons (car lst) res))
+    (def lst (cdr lst))
+  ))
+  res
 )))
 
-(def blit-char (fn rune x y color
-  (blit-mono unifont 
-    (* (+ 2 (% rune 256)) 2) 
-    (* (+ 4 (/ rune 256)) 16) (/ 4128 8) 2 16 x y 0xffffff)
+(def replace-item (fn lst pos new-value ((fn res i (do
+  (while (or (car lst) (cdr lst)) (do
+    (if (= pos i)
+      (def res (cons new-value res))
+      (def res (cons (car lst) res)))
+    (def lst (cdr lst))
+    (def i (+ i 1))
+  ))
+  (reverse res)
+  ))
+  
+  (list) 0)
 ))
 
-(def blit-str (fn cursor str xx y color (do
-  (def l (+ (usize str) 1))
-  (mut i -1)
-  (mut x (+ 0 xx))
-  (while (lt (mut i (+ i 1)) l) (do
-    (mut chr (uget str i))
-    (if (= i cursor)
-      (blit-char-inv chr x y color)
-      (if (= chr 32) 0 (blit-char chr x y color)))
-    (mut x (+ x 8))
-    (if (= chr 10)
-      (do
-        (mut y (+ y 16))
-        (mut x xx)))
-    0
-  ))
-  0
-)))
+(def buffers (list
+  (list (alloc-str 1024) 0   0 800 800 -1 "main")
+  (list (alloc-str 1024) 0 900 800 100  0 "minibuf")
+))
 
-(def running 1)
-(def cmd-mode 0)
+(def buf-str (fn id (item (item buffers id) 0)))
+(def buf-x (fn id (item (item buffers id) 1)))
+(def buf-y (fn id (item (item buffers id) 2)))
+(def buf-w (fn id (item (item buffers id) 3)))
+(def buf-h (fn id (item (item buffers id) 4)))
+(def buf-cursor (fn id (item (item buffers id) 5)))
+(def buf-name (fn id (item (item buffers id) 6)))
 
-(def buf-append (fn str (def buf (concat buf (concat str [0a])))))
+(def set-buf-str (fn id new-str (def buffers (replace-item buffers id (replace-item (item buffers id) 0 new-str)))))
+(def set-buf-x (fn id x (def buffers (replace-item buffers id (replace-item (item buffers id) 1 x)))))
+(def set-buf-y (fn id y (def buffers (replace-item buffers id (replace-item (item buffers id) 2 y)))))
+(def set-buf-w (fn id w (def buffers (replace-item buffers id (replace-item (item buffers id) 3 w)))))
+(def set-buf-h (fn id h (def buffers (replace-item buffers id (replace-item (item buffers id) 4 h)))))
+(def set-buf-cursor (fn id new-cursor (def buffers (replace-item buffers id (replace-item (item buffers id) 5 new-cursor)))))
 
-(def focus-buffer buf)
 (def padding 20)
 
-(def buf-render (fn focused b bx by (do
-  (rectfill bx by 1024 1 0)
-  (blit-str focused b (+ padding bx) (+ padding by) color)
+(def scroll-line (fn buf-id (do
+  (def break-at (+ 1 (ufind-next str 0xa 0)))
+  (set-buf-str id (substr str break-at (usize str)))
+)))
+
+(def buf-render (fn buf-id (do
+  (def rendered-upto
+    (blit-string unifont
+                 (buf-str buf-id)
+                 (buf-cursor buf-id)
+                 (+ padding (buf-x buf-id)) (+ padding (buf-y buf-id)) (buf-w buf-id) (buf-h buf-id) 0xffffff))
+  (def str (buf-str buf-id))
+  (def clipped (- (usize str) rendered-upto))
+  (if (gt clipped 0) (scroll-line buf-id))
+)))
+
+(def buf-append (fn id str (do
+  (set-buf-str id (concat (buf-str id) (concat str [0a])))
+  (set-buf-cursor id (usize (buf-str id)))
 )))
 
 (def clear (fn (do
-  (def buf "cleared.")
-)))
-
-(def toggle-command (fn (do
-  (if (= color cyan)
-    (def color white)
-    (def color cyan))
-  (def cmd-mode (- 1 cmd-mode))
+  (set-buf-str 0 "")
 )))
 
 (def word-at (fn buf pos (do
-  (mut from (ufind-prev-ws buf pos))
-  (mut to   (ufind-next-ws buf pos))
+  (def from (ufind-prev-ws buf pos))
+  (def to   (ufind-next-ws buf pos))
   (substr buf from (- to from))
 )))
 
@@ -181,38 +182,41 @@
     (def buf (load word)))
 )))
 
-(def backspace (fn buf (if (gt cursor 0) (do
-  (uremove buf cursor)
-  (mut cursor (- cursor 1))
-) 0)))
+(def backspace (fn bufid (if (gt (buf-cursor bufid) 0) (do
+  (def cursor (buf-cursor bufid))
+  (uremove (buf-str bufid) cursor)
+  (set-buf-cursor bufid (- cursor 1))
+))))
 
-(def cursor-left (fn (do
-  (mut cursor (- cursor 1))
+(def cursor-left (fn bufid (do
+  (def cursor (buf-cursor bufid))
+  (set-buf-cursor bufid (- cursor 1))
 )))
 
-(def cursor-right (fn (do
-  (mut cursor (+ cursor 1))
-  0
+(def cursor-right (fn bufid (do
+  (def cursor (buf-cursor bufid))
+  (set-buf-cursor bufid (+ cursor 1))
 )))
 
-(def cursor-up (fn (do
-  (mut cursor (ufind-prev buf 13 (- cursor 1)))
-  0
+(def cursor-up (fn bufid (do
+  (def cursor (ufind-prev buf 13 (- (buf-cursor bufid) 1)))
+  (set-buf-cursor bufid cursor)
 )))
 
-(def cursor-down (fn (do
-  (mut cursor (ufind-next buf 13 (+ cursor 1)))
-  0
+(def cursor-down (fn bufid (do
+  (def cursor (ufind-next buf 13 (+ (buf-cursor bufid) 1)))
+  (set-buf-cursor bufid cursor)
 )))
 
 (def eval-tmp-buf (alloc-str 1024))
 
 (def handle-command-key (fn k modif (do
-  (if (= k 10) (do
-    (def eval-tmp (eval minibuf))
+  (if (or (= k 13) (= k 10)) (do
+    (print (cons "evaling:" (buf-str 1)))
+    (def eval-tmp (eval (buf-str 1)))
     (print (cons "eval-tmp:" eval-tmp))
     (write eval-tmp-buf eval-tmp)
-    (buf-append eval-tmp-buf)
+    (buf-append 0 eval-tmp-buf)
     0
   ))
 
@@ -220,7 +224,7 @@
     (plumb (word-at buf cursor))
   ))
 
-  (if (= k 127) (if modif (do (def minibuf (alloc-str 1024)) (mut cursor 0)) (backspace minibuf)))
+  (if (= k 127) (backspace 1))
   (if (= k 130) (cursor-left))
   (if (= k 132) (cursor-up))
   (if (= k 133) (cursor-down))
@@ -230,77 +234,48 @@
 )))
 
 (def handle-editor-key (fn k modif (do
-  (if (and (gt k 12) (lt k 127))
+  (if (and (gt k 13) (lt k 127))
     (do
-      (uinsert minibuf cursor k)
-      (mut cursor (+ cursor 1))
+      (def cursor (buf-cursor 1))
+      (uinsert (buf-str 1) cursor k)
+      (set-buf-cursor 1 (+ cursor 1))
     )
     (handle-command-key k modif)
   )
   0
 )))
 
-(def demo (fn (do
-  (mut c 0)
-  (def a 1024)
-  (while 1 (do
-    (mut c (+ 1 c))
-    (mut b 1079)
-    (while (mut b (- b 1)) (do
-      (mut a 1919)
-      (mut c (+ 1 c))
-      (while (mut a (- a 1))
-        (pixel a b (* (- (- a b) c) c)))))
-    (flip)
-    (gc)
-  ))
+(def buffer-ids (fn (do
+  (def i -1)
+  (map (fn b (def i (+ i 1))) buffers)
 )))
 
-(def frame 0)
-(def tridemo (fn (do
-  (mut tx1 (+ 500 (/ (sin (* frame 100)) 100)))
-  (mut ty1 (+ 300 (/ (cos (* frame 100)) 100)))
-  (mut tx2 (+ 800 (/ (cos (* frame 200)) 100)))
-  (mut ty2 (+ 600 (/ (sin (* frame 200)) 100)))
-  (mut frame (+ frame 1))
-  (flip)
-  (gc)
-)))
-
-(def minibuf-x 0)
-(def minibuf-y 600)
-
-(def update-statusline (fn (do
-  (def memstat (load "/sys/mem"))
-  (def cellusage (/ (* 100 (car (cdr (cdr memstat)))) (car (cdr (cdr (cdr memstat))))))
-  (def memusage (/ (* 100 (car memstat)) (car (cdr memstat))))
-  (write help-buf (cons (cons cursor (usize buf)) (cons (cons "heap%" memusage) (cons "cell%" cellusage))))
-  0
+(def render-all (fn (do
+  (map buf-render (buffer-ids))
 )))
 
 (def main (fn (do
-  (buf-append "welcome to bomber jacket OS (arm7/32bit) ☕ ☕ ☕ ")
-  (while running (do    
-    (buf-render 0 buf 0 0)
-    (buf-render cursor minibuf minibuf-x minibuf-y)
+  (flip)
+  (print "buf-append")
+  (print (list "buffers: " buffers))
+  (buf-append 0 "welcome to bomber jacket OS (arm7/32bit) ☕ ☕ ☕ ")
+  (render-all)
+  (print "entering while")
+  (while 1 (do
   
-    (mut k (inkey 0))
-    (mut modif (inkey 1))
+    (def k (inkey 0))
+    (def modif (inkey 1))
 
     (if k (do 
-      (print (cons "before" k))
-      (if keymap (if modif (mut k (get keymap (+ 128 k))) (mut k (get keymap k))))
-      (print (cons "after" k))
+      (if keymap (if modif (def k (get keymap (+ 128 k))) (def k (get keymap k))))
     ))
     
     (if (not (= k 0))
       (handle-editor-key k modif))
- 
-    (if (lt cursor 0) (mut cursor 0))
-    (if (gt cursor (usize buf)) (mut cursor (usize buf)))
-
+    
     (gc)
     (flip)
+    (render-all)
   ))
 )))
 

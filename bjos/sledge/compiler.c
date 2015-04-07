@@ -24,7 +24,6 @@ typedef enum builtin_t {
   BUILTIN_WHILE,
 
   BUILTIN_DEF,
-  BUILTIN_MUT,
   BUILTIN_IF ,
   BUILTIN_FN ,
 
@@ -61,6 +60,7 @@ typedef enum builtin_t {
   BUILTIN_RECTFILL,
   BUILTIN_BLIT_MONO,
   BUILTIN_BLIT_MONO_INV,
+  BUILTIN_BLIT_STRING,
   BUILTIN_INKEY,
 
   BUILTIN_ALIEN,
@@ -214,6 +214,11 @@ void stack_pop(int reg, void** sp)
   } else if (stack_reg == 2) {
     jit_movr(reg, JIT_V2);
     }*/
+}
+
+void stack_set(int reg, void** sp)
+{
+  jit_sti(sp, JIT_V0);
 }
 
 int compile_applic(int retreg, Cell* list, tag_t required);
@@ -491,65 +496,11 @@ int compile_def(int retreg, Cell* args, tag_t required) {
   return 1;
 }
 
-int compile_mut(int retreg, Cell* args, tag_t required) {
-  if (!car(args) || !cdr(args) || !car(cdr(args))) return argnum_error("(mut value definition)");
-  
-  Cell* sym = car(args);
-  Cell* value = car(cdr(args));
-
-  //printf("interning: %s\n",sym->addr);
-
-  env_entry* e = intern_symbol(sym, &global_env);
-
-  int success = 0;
-
-  if (!e->cell) {
-    printf("++ defaulting mut symbol %s\r\n",sym->addr);
-    e->cell = alloc_int(0);
-  }
-  
-  if (e->cell->tag == TAG_INT) {
-    success = compile_arg(JIT_R1, value, TAG_PURE_INT);
-  } else {
-    success = compile_arg(JIT_R1, value, TAG_ANY);
-  }
-  
-  if (!success) {
-    printf("<return type mismatch in mut>\r\n");
-    return 0;
-  }
-  
-  jit_ldi(JIT_R0, &e->cell);
-  //jit_ldr(JIT_R0, JIT_R0); // load target cell address
-  
-  if (e->cell->tag == TAG_INT) {
-    jit_str(JIT_R0, JIT_R1); // store compiled value in mutated cell
-
-    if (required == TAG_INT || required == TAG_ANY) {
-      box_int(JIT_R1, required);
-    }
-    else if (required != TAG_PURE_INT && required != TAG_VOID) {
-      jit_movi(retreg, 0);
-      printf("<return type mismatch in mut in the end>\r\n");
-      return 0;
-    }
-  } else {
-    jit_sti(&e->cell, JIT_R1);
-    
-    if (required == TAG_PURE_INT) {
-      unbox_int(JIT_R1);
-    }
-  }
-  jit_movr(retreg, JIT_R1);
-  
-  return 1;
-}
-
 static char temp_print_buffer[1024];
 
 Cell* do_print(Cell* arg) {
   lisp_write(arg, temp_print_buffer, sizeof(temp_print_buffer)-1);
-  printf("%s\n",temp_print_buffer);
+  printf("%s\r\n",temp_print_buffer);
   return arg;
 }
 
@@ -720,41 +671,35 @@ int compile_fn(int retreg, Cell* args, tag_t required) {
 }
 
 // args in this case is an array of Cells
-Cell* call_dynamic_lambda(Cell* fn_name, int args_on_stack) {
+Cell* call_dynamic_lambda(Cell** lbd_and_args, int args_supplied) {
+  Cell* lbd = lbd_and_args[0];
+  Cell** args = &lbd_and_args[1];
 
-  printf("-- dyn call to %s\r\n",fn_name->addr);
-  Cell* lbd = lookup_symbol(fn_name->addr, &global_env);
+  // TODO: typecheck for TAG_LAMBDA
 
-  if (!lbd) {
-    return NULL;
-  }
-  
   Cell* pargs = (Cell*)lbd->addr;
 
-  char buf[128];
+  /*char buf[128];
   lisp_write(pargs, buf, 128);
 
-  printf("-- dyn lambda formal params are %s\n",buf);
-
-  //lisp_write(args, buf, 128);
-  
-  //printf("-- dyn lambda supplied args are %s\n",buf);
+  printf("-- dyn lambda formal params are %s\n",buf);*/
 
   // 1. push and clobber environment
 
-  Cell* arg = NULL;
-  for (int i=0; i<args_on_stack; i++) {
+  Cell** stack = malloc(args_supplied*sizeof(Cell*));
+
+  for (int i=0; i<args_supplied; i++) {
     if (car(cdr(pargs))) {
       Cell* parg = car(pargs);
-
       env_entry* arge = intern_symbol(parg, &global_env);
 
-      // TODO: push
-      //stack_push_c(arge->cell);
-      
+      //static char buf[256];
+      //lisp_write(args[i],buf,255);
+      //printf("-- dyn arg %d (%s): %s\r\n",i,parg->addr,buf);
+
+      stack[i] = arge->cell;
       // clobber
-      //arge->cell = args[i];
-      //stack_pop_c();
+      arge->cell = args[i];
     } else {
       printf("-! too many args supplied\n");
       break;
@@ -764,16 +709,35 @@ Cell* call_dynamic_lambda(Cell* fn_name, int args_on_stack) {
   
   // 2. dispatch
 
-  return (Cell*)((funcptr)lbd->next)();
+  Cell* result = (Cell*)((funcptr)lbd->next)();
 
   // 3. pop clobbered environment
+
+  pargs = (Cell*)lbd->addr;
+  for (int i=0; i<args_supplied; i++) {
+    if (car(cdr(pargs))) {
+      Cell* parg = car(pargs);
+      env_entry* arge = intern_symbol(parg, &global_env);
+      // restore
+      arge->cell = stack[i];
+    } else {
+      break;
+    }
+    pargs = cdr(pargs);
+  }
+
+  free(stack);
+  return result;
 }
 
-int compile_dynamic_lambda(int retreg, Cell* fn_name, Cell* args, tag_t requires, env_entry** env) {
+int compile_dynamic_lambda(int retreg, int lbd_reg, Cell* args, tag_t requires, env_entry** env) {
   // apply a function whose parameters we only learn at runtime
 
+  // push the actual lambda to call
+  stack_push(JIT_R0, &stack_ptr);
+
+  // push any args
   int success = 0;
-  
   int i = 0;
   while (i<10 && car(args)) {
     int res = compile_arg(JIT_R0, car(args), TAG_ANY);
@@ -790,8 +754,10 @@ int compile_dynamic_lambda(int retreg, Cell* fn_name, Cell* args, tag_t requires
   }
 
   jit_prepare();
-  jit_pushargi((jit_word_t)fn_name);
-  jit_pushargi((jit_word_t)i);
+  jit_subi(JIT_V0, JIT_V0, (1+i)*sizeof(jit_word_t)); // layout: lbd,arg0,arg1,arg2... FIXME: hardcore stack hack
+  stack_set(JIT_V0, &stack_ptr);
+  jit_pushargr(JIT_V0);
+  jit_pushargi(i);
   jit_finishi(call_dynamic_lambda);
   jit_retval(retreg);
   success = 1;
@@ -858,7 +824,7 @@ int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry*
     // TODO: pop stack
     return 0;
   }
-  
+
   if (recursion == 1) {
     printf("++ recursion\r\n");
     //jit_note("jump to lambda as recursion\n",__LINE__);
@@ -1010,16 +976,21 @@ int compile_car(int retreg, Cell* args, tag_t requires) {
 
   // TODO check success
   
-  compile_arg(retreg, arg, TAG_ANY);
-  jit_prepare();
-  jit_pushargr(retreg);
-  if (requires == TAG_PURE_INT) {
-    jit_finishi(do_car_int);
+  int success = compile_arg(retreg, arg, TAG_ANY);
+  if (success) {
+    jit_prepare();
+    jit_pushargr(retreg);
+    if (requires == TAG_PURE_INT) {
+      jit_finishi(do_car_int);
+    } else {
+      jit_finishi(do_car);
+    }
+    jit_retval(retreg);
+    //jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
   } else {
-    jit_finishi(do_car);
+    printf("<non-cons argument to cdr>\n");
+    return 0;
   }
-  jit_retval(retreg);
-  //jit_ldr(JIT_R0, JIT_R0); // car r0 = r0->addr
 
   return 1;
 }
@@ -1027,14 +998,12 @@ int compile_car(int retreg, Cell* args, tag_t requires) {
 jit_word_t do_cdr(Cell* cell) {
   if (!cell) return ((jit_word_t)alloc_nil());
   if (cell->tag != TAG_CONS) return ((jit_word_t)alloc_nil());
-  return (jit_word_t)cell->next;
+  return (jit_word_t)(cell->next?cell->next:alloc_nil());
 }
 
 int compile_cdr(int retreg, Cell* args, tag_t requires) {
   if (!car(args)) return argnum_error("(cdr list)");
   Cell* arg = car(args);
-
-  // TODO check success
   
   int success = compile_arg(retreg, arg, TAG_ANY);
   if (success) {
@@ -1095,6 +1064,7 @@ int compile_list(int retreg, Cell* args, tag_t requires) {
   jit_prepare();
   jit_finishi(alloc_nil);
   jit_retval(JIT_R1);
+  jit_movr(JIT_R0, JIT_R1);
   
   while (num_items--) {
     jit_prepare();
@@ -1105,7 +1075,53 @@ int compile_list(int retreg, Cell* args, tag_t requires) {
     jit_retval(JIT_R1);
   }
   
-  jit_movr(retreg, JIT_R0);
+  jit_movr(retreg, JIT_R1);
+  return 1;
+}
+
+Cell* do_map(Cell* fn, Cell* list) {
+  // map is special: save only 1 arg
+
+  /*char buf[512];
+  lisp_write(fn,buf,511);
+  printf("~~ map fn: %p %s\r\n",fn,buf);*/
+
+  Cell* argsym = car(((Cell*)fn->addr));
+  env_entry* e = intern_symbol(argsym, &global_env);
+  Cell* saved = e->cell;
+
+  Cell* result = alloc_nil();
+
+  while (car(list)) {
+    e->cell = car(list);
+    Cell* res = (Cell*)((funcptr)fn->next)();
+    list = cdr(list);
+    result = alloc_cons(res, result);
+  }
+
+  e->cell = saved;
+
+  // TODO: build result list
+  return result;
+}
+
+// test: (map (fn x (+ x 1)) (list 1 2 3))
+
+int compile_map(int retreg, Cell* args, tag_t requires) {
+
+  // (map fn list)
+
+  compile_arg(JIT_R0, car(args), TAG_ANY);
+  stack_push(JIT_R0, &stack_ptr);
+  compile_arg(JIT_R1, car(cdr(args)), TAG_ANY);
+  stack_pop(JIT_R0, &stack_ptr);
+
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  jit_pushargr(JIT_R1);
+  jit_finishi(do_map);
+  jit_retval(retreg);
+  
   return 1;
 }
 
@@ -1234,18 +1250,24 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
     
     if (!op_cell) {
       // dynamic call?
-      return compile_dynamic_lambda(retreg, car(list), cdr(list), required, &global_env);
+      //return compile_dynamic_lambda(retreg, car(list), cdr(list), required, &global_env);
 
-      /*printf("<compile_applic: undefined symbol %s>\n",fn_name);
+      printf("<compile_applic: undefined symbol %s>\n",fn_name);
       jit_movi(JIT_R0, 0);
-      return 0;*/
+      return 0;
     }
   }
   else if (op_cell->tag == TAG_LAMBDA) {
     // direct lambda
+    printf("~~ direct lambda\r\n");
   }
   else if (op_cell->tag == TAG_CONS) {
-    return compile_applic(retreg, op_cell, required);
+    printf("~~ cons\r\n");
+    if (compile_applic(JIT_R0, op_cell, required)) {
+      return compile_dynamic_lambda(retreg, JIT_R0, cdr(list), required, &global_env);
+    } else {
+      return 0;
+    }
   }
   else {
     printf("<error:can only apply sym or lambda, got (tag:%d)>\n",op_cell->tag);
@@ -1305,10 +1327,6 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
     return compile_def(retreg, args, required);
     break;
     
-  case BUILTIN_MUT:
-    return compile_mut(retreg, args, required);
-    break;
-    
   case BUILTIN_QUOTE:
     return compile_quote(retreg, args, required);
     break;
@@ -1324,6 +1342,9 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
     break;
   case BUILTIN_LIST:
     return compile_list(retreg, args, required);
+    break;
+  case BUILTIN_MAP:
+    return compile_map(retreg, args, required);
     break;
     
   case BUILTIN_ALLOC:
@@ -1382,6 +1403,9 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
     break;
   case BUILTIN_BLIT_MONO_INV:
     return compile_blit_mono_inv(retreg, args);
+    break;
+  case BUILTIN_BLIT_STRING:
+    return compile_blit_string(retreg, args, required);
     break;
 
   case BUILTIN_SIN:
@@ -1484,7 +1508,6 @@ void init_compiler() {
   insert_symbol(alloc_sym("if"), alloc_builtin(BUILTIN_IF), &global_env);
   insert_symbol(alloc_sym("while"), alloc_builtin(BUILTIN_WHILE), &global_env);
   insert_symbol(alloc_sym("def"), alloc_builtin(BUILTIN_DEF), &global_env);
-  insert_symbol(alloc_sym("mut"), alloc_builtin(BUILTIN_MUT), &global_env);
   insert_symbol(alloc_sym("print"), alloc_builtin(BUILTIN_PRINT), &global_env);
   insert_symbol(alloc_sym("do"), alloc_builtin(BUILTIN_DO), &global_env);
   insert_symbol(alloc_sym("fn"), alloc_builtin(BUILTIN_FN), &global_env);
@@ -1494,6 +1517,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("cdr"), alloc_builtin(BUILTIN_CDR), &global_env);
   insert_symbol(alloc_sym("cons"), alloc_builtin(BUILTIN_CONS), &global_env);
   insert_symbol(alloc_sym("list"), alloc_builtin(BUILTIN_LIST), &global_env);
+  insert_symbol(alloc_sym("map"), alloc_builtin(BUILTIN_MAP), &global_env);
 
   insert_symbol(alloc_sym("concat"), alloc_builtin(BUILTIN_CONCAT), &global_env);
   insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC), &global_env);
@@ -1514,6 +1538,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("flip"), alloc_builtin(BUILTIN_FLIP), &global_env);
   insert_symbol(alloc_sym("blit-mono"), alloc_builtin(BUILTIN_BLIT_MONO), &global_env);
   insert_symbol(alloc_sym("blit-mono-inv"), alloc_builtin(BUILTIN_BLIT_MONO_INV), &global_env);
+  insert_symbol(alloc_sym("blit-string"), alloc_builtin(BUILTIN_BLIT_STRING), &global_env);
   insert_symbol(alloc_sym("inkey"), alloc_builtin(BUILTIN_INKEY), &global_env);
   
   insert_symbol(alloc_sym("gc"), alloc_builtin(BUILTIN_GC), &global_env);

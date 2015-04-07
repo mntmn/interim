@@ -40,6 +40,9 @@ static uint8_t* next_shader_state;
 static nv_vertex_t* next_triangles;
 static int next_num_triangles;
 
+// linux driver: https://github.com/anholt/linux/blob/vc4-kms-v3d/drivers/gpu/drm/vc4/vc4_gem.c
+// mesa: http://cgit.freedesktop.org/mesa/mesa/tree/src/gallium/drivers/vc4/vc4_draw.c
+
 void r3d_write_binning_list(uint8_t* cl) {
   // get next binning control list ---------------------------------------------------------------
   
@@ -139,7 +142,7 @@ nv_vertex_t* r3d_init_frame() {
   // advance lists index (cycle through lists)
   cl_idx++;
   if (cl_idx>(NUM_CTL_LISTS-1)) cl_idx = 0;
-  printf("~~ cl_idx: %d\r\n",cl_idx);
+  //printf("~~ cl_idx: %d\r\n",cl_idx);
 
   next_shader_state = r3d_shader_states+cl_idx*CTL_BLOCK_SIZE;
   next_triangles = (nv_vertex_t*)(r3d_vertex_lists+cl_idx*CTL_BLOCK_SIZE);
@@ -179,7 +182,7 @@ void r3d_render_frame(uint32_t clear_color) {
   //khrn_hw_full_memory_barrier();
 
   arm_dmb();
-  printf("~~ submitted binning list %p-%p\r\n",control_list_bin,control_list_bin_end);
+  //printf("~~ submitted binning list %p-%p\r\n",control_list_bin,control_list_bin_end);
   
   //cl = r3d_render_ctl_lists+cl_idx*CTL_BLOCK_SIZE;
   
@@ -189,23 +192,34 @@ void r3d_render_frame(uint32_t clear_color) {
   *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT1EA)) = (uint32_t)control_list_render_end;
 
   arm_dmb();
-  printf("~~ submitted rendering list %p-%p\r\n",control_list_render,control_list_render_end);
+  //printf("~~ submitted rendering list %p-%p\r\n",control_list_render,control_list_render_end);
   
   uint32_t bfc = 0;
-  do {
-    printf("bfc loop\r\n");
+  /*do {
+    //printf("bfc loop\r\n");
     arm_dmb();
     r3d_debug_gpu();
     bfc = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_BFC));
   } while (bfc==0);
-  
+  */
   uint32_t rfc = 0;
-  do {
-    printf("rfc loop\r\n");
+  /*do {
+    //printf("rfc loop\r\n");
     arm_dmb();
     r3d_debug_gpu();
     rfc = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_RFC));
-  } while (rfc==0);
+    } while (rfc==0);*/
+
+  uint32_t ct1cs = 0x20;
+
+  int timeout = 0;
+  do {
+    timeout++;
+    if (timeout>1000*1000) break;
+    ct1cs = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT1CS));
+  } while (ct1cs & 0x20);
+  
+  //printf("~~ r3d timeout: %d\r\n",timeout);
 }
 
 void r3d_debug_gpu() {
@@ -225,5 +239,5 @@ void r3d_debug_gpu() {
   status0 = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT0CS));
   status1 = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT1CS));
     
-  printf("-- BFC: 0x%x RFC: 0x%x PCS: 0x%x ERRST: 0x%x DBGE: 0x%x DBGO: 0x%x DBGR: 0x%x DBGS: 0x%x ST0: 0x%x ST1: 0x%x\r\n",bfc,rfc,pcs,errstat,dbge,fdbgo,fdbgr,fdbgs,status0,status1);
+  //printf("-- BFC: 0x%x RFC: 0x%x PCS: 0x%x ERRST: 0x%x DBGE: 0x%x DBGO: 0x%x DBGR: 0x%x DBGS: 0x%x ST0: 0x%x ST1: 0x%x\r\n",bfc,rfc,pcs,errstat,dbge,fdbgo,fdbgr,fdbgs,status0,status1);
 }

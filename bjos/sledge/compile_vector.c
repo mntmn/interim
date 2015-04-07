@@ -92,14 +92,15 @@ int compile_uget(int retreg, Cell* args, int requires) {
   if (!car(args) || !car(cdr(args))) return argnum_error("(uget string index)");
   Cell* arg = car(args);
 
-  // TODO: tag + bounds check
-
   compile_arg(JIT_R0, arg, TAG_ANY);
   stack_push(JIT_R0, &stack_ptr);
-  compile_arg(JIT_R1, car(cdr(args)), TAG_ANY);
-  stack_pop(JIT_R0, &stack_ptr);
+  compile_arg(JIT_R0, car(cdr(args)), TAG_ANY);
+  stack_push(JIT_R0, &stack_ptr);
+
   
   jit_prepare();
+  stack_pop(JIT_R1, &stack_ptr);
+  stack_pop(JIT_R0, &stack_ptr);
   jit_pushargr(JIT_R0);
   jit_pushargr(JIT_R1);
   jit_finishi(utf8_rune_at_cell);

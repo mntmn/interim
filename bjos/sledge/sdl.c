@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <SDL2/SDL.h>
 
-#define WIDTH 1024
-#define HEIGHT 768
+#define WIDTH 1920
+#define HEIGHT 1080
 #define BPP 4
 #define DEPTH 32
 
@@ -23,7 +23,7 @@ void sdl_cleanup() {
   SDL_Quit();
 }
 
-void sdl_init(int fullscreen)
+void* sdl_init(int fullscreen)
 {
   SDL_Init(SDL_INIT_VIDEO);
 
@@ -31,6 +31,8 @@ void sdl_init(int fullscreen)
   
   screen = SDL_GetWindowSurface(win);
   atexit(sdl_cleanup);
+
+  return screen->pixels;
 }
 
 static int sdl_key = 0;

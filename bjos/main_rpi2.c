@@ -54,7 +54,7 @@ void main()
   uart_puts("-- QPU enabled.\r\n");
 
   FB = init_rpi_gfx();
-  FB_MEM = FB; //malloc(1920*1080*4);
+  FB_MEM = FB;
 
   init_blitter(FB);
   
@@ -143,6 +143,11 @@ int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t 
 
 Cell* lookup_global_symbol(char* name);
 
+int machine_video_flip_() {
+  //memset(FB_MEM, 0xffffff, 1920*1080*4);
+  return 0;
+}
+
 int machine_video_flip() {
   nv_vertex_t* triangles = r3d_init_frame();
 
@@ -209,8 +214,6 @@ int machine_video_flip() {
   
   //memset(FB_MEM, 0xffffff, 1920*1080*4);
   //r3d_debug_gpu();
-
-  printf("-- r3d frame submitted.\r\n");
   
   return 0;
 }
@@ -312,6 +315,7 @@ static jit_state_t *_jit_saved;
 static void *stack_ptr, *stack_base;
 
 #include "sledge/compiler.c"
+#include "rpi2/rpi-boot/util.h"
 
 void insert_rootfs_symbols() {
   // until we have a file system, inject binaries that are compiled in the kernel
@@ -324,6 +328,9 @@ void insert_rootfs_symbols() {
   unif->size = _binary_bjos_rootfs_unifont_size;
 
   printf("~~ unifont is at %p\r\n",unif->addr);
+  
+  extern uint8_t* blitter_speedtest(uint8_t* font);
+  unif->addr = blitter_speedtest(unif->addr);
 
   insert_symbol(alloc_sym("unifont"), unif, &global_env);
 
@@ -331,28 +338,29 @@ void insert_rootfs_symbols() {
   extern uint32_t _binary_bjos_rootfs_editor_l_size;
   Cell* editor = alloc_string("editor");
   editor->addr = &_binary_bjos_rootfs_editor_l_start;
-  editor->size = 0x194b; //_binary_bjos_rootfs_editor_l_size;
+  editor->size = read_word((uint8_t*)&_binary_bjos_rootfs_editor_l_size,0); //_binary_bjos_rootfs_editor_l_size;
 
-  printf("~~ editor-source is at %p\r\n",editor->addr);
+  printf("~~ editor-source is at %p, size %d\r\n",editor->addr,editor->size);
   
   insert_symbol(alloc_sym("editor-source"), editor, &global_env);
   
-  insert_symbol(alloc_sym("tx1"), alloc_int(0), &global_env);
-  insert_symbol(alloc_sym("tx2"), alloc_int(0), &global_env);
-  insert_symbol(alloc_sym("ty1"), alloc_int(100), &global_env);
-  insert_symbol(alloc_sym("ty2"), alloc_int(100), &global_env);
+  insert_symbol(alloc_sym("tx1"), alloc_int(1700), &global_env);
+  insert_symbol(alloc_sym("tx2"), alloc_int(1732), &global_env);
+  insert_symbol(alloc_sym("ty1"), alloc_int(32), &global_env);
+  insert_symbol(alloc_sym("ty2"), alloc_int(64), &global_env);
 }
 
 void uart_repl() {
+  uart_puts("~~ trying to malloc repl buffers\r\n");
   char* out_buf = malloc(1024*10);
   char* in_line = malloc(1024*2);
   char* in_buf = malloc(1024*10);
-  uart_puts("\r\n\r\nwelcome to sledge arm/32 (c)2015 mntmn.\r\n");
+  uart_puts("\r\n\r\n++ welcome to sledge arm/32 (c)2015 mntmn.\r\n");
   
   init_compiler();
   insert_rootfs_symbols();
 
-  uart_puts("\r\n\r\ncompiler initialized.\r\n");
+  uart_puts("\r\n~~ compiler initialized.\r\n");
   
   memset(out_buf,0,1024*10);
   memset(in_line,0,1024*2);

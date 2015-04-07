@@ -51,7 +51,9 @@ unsigned int utf8_rune_at(char* s, int idx) {
 
     // next char
     if (state == 0) {
-      if (idx == j) return rune;
+      if (idx == j) {
+        return rune;
+      }
       j++;
     }
     i++;
@@ -136,7 +138,10 @@ jit_word_t utf8_rune_at_cell(Cell* cell, Cell* c_idx) {
     printf("error: string with NULL addr at %p!\n",cell);
     return 0;
   }
-  return utf8_rune_at(cell->addr, c_idx->value);
+  
+  unsigned int result = utf8_rune_at(cell->addr, c_idx->value);
+
+  return result;
 }
 
 jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
@@ -159,7 +164,7 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
   }
 
   // how long is the existing rune at target spot?
-  j = utf8_rune_len(s[i]);
+  int existing_len = utf8_rune_len(s[i]);
 
   int rune_len = 0;
   char tmp[10];
@@ -169,14 +174,15 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
 
   //printf("-- existing rune length at %d: %d new rune length: %d\n",idx,j,rune_len);
   
-  if (j>rune_len) {
+  if (existing_len>rune_len) {
     // new rune is smaller
-    int movelen = cell->size - (i+rune_len);
+    int movelen = cell->size - (i+existing_len);
     if (movelen<rune_len) {
       //printf("-- utf8_put_rune_at error: rune %d doesn't fit into string at %d\n",rune,idx);
       return 0;
     }
-    memmove(cell->addr+i+rune_len, cell->addr+i+j, movelen);
+    printf("move a: %d -> %d len %d / size %d\r\n",i+existing_len,i+rune_len,movelen,cell->size);
+    memmove(cell->addr+i+rune_len, cell->addr+i+existing_len, movelen);
   } else if (j<rune_len) {
     // new rune is bigger
     int movelen = cell->size - (i+rune_len);
@@ -184,7 +190,8 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
       //printf("-- utf8_put_rune_at error: rune %d doesn't fit into string at %d\n",rune,idx);
       return 0;
     }
-    memmove(cell->addr+i+rune_len, cell->addr+i+j, movelen);
+    printf("move b: %d -> %d len %d / size %d\r\n",i+existing_len,i+rune_len,movelen,cell->size);
+    memmove(cell->addr+i+rune_len, cell->addr+i+existing_len, movelen);
   }
 
   // write the new rune

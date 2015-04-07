@@ -10,7 +10,7 @@ jit_word_t compile_compile(Cell* expr) {
 
   Cell* compile_expr = read_expr;
   
-  if (read_expr->tag == TAG_CONS && car(cdr(read_expr))) {
+  if (read_expr->tag == TAG_CONS && car(read_expr)->tag == TAG_CONS) {
     printf("-- eval top-level list, compiling step-by-step\r\n");
     
     /*char* buf = malloc(20000);
@@ -29,7 +29,7 @@ jit_word_t compile_compile(Cell* expr) {
       /*static char buf[1024];
       memset(buf,0,1024);
       lisp_write(compile_expr, buf, 1023);
-      printf("~~ compiling %s\r\n",buf);*/
+      printf("~~ s-b-s compiling %s\r\n",buf);*/
     }
   
     if (compile_expr) {
@@ -44,7 +44,7 @@ jit_word_t compile_compile(Cell* expr) {
       
       jit_node_t* fn_body_label = jit_label();
 
-      int success = compile_arg(JIT_R0, read_expr, TAG_ANY);
+      int success = compile_arg(JIT_R0, compile_expr, TAG_ANY);
 
       if (success) {
         jit_retr(JIT_R0);
@@ -63,6 +63,8 @@ jit_word_t compile_compile(Cell* expr) {
           //printf("would jump to fn %p\r\n",fn);
           exec_res = (Cell*)fn();
         }
+      } else {
+        return 0;
       }
       
     } else {

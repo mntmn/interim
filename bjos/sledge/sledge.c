@@ -36,7 +36,7 @@ inline int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, ui
 
 inline int machine_video_flip() {
   sdl_mainloop();
-  machine_video_rect(0,0,1024,768,0xffffff);
+  machine_video_rect(0,0,1920,1080,0xffffff);
   return 1;
 }
 
@@ -138,12 +138,14 @@ static inline void stop_clock()
   printf("%llu ms\n", t);
 }
 
+ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+
 int main(int argc, char *argv[])
 {
   Cell* expr = NULL;
   char* in_line = NULL;
-  char in_buffer[100*1024];
-  int len = 0;
+  char* in_buffer = malloc(100*1024);
+  size_t len = 0;
 
   init_compiler();
   
@@ -153,7 +155,15 @@ int main(int argc, char *argv[])
     fullscreen = 1;
   }
 
-  sdl_init(fullscreen);
+  uint32_t* FB = (uint32_t*)sdl_init(fullscreen);
+  init_blitter(FB);
+  
+  Cell* unif = machine_load_file("unifont");
+  printf("~~ unifont is at %p\r\n",unif->addr);
+  
+  extern uint8_t* blitter_speedtest(uint8_t* font);
+  unif->addr = blitter_speedtest(unif->addr);
+  insert_symbol(alloc_sym("unifont"), unif, &global_env);
   
   int in_offset = 0;
   int parens = 0;
@@ -167,9 +177,10 @@ int main(int argc, char *argv[])
     expr = NULL;
     
     printf("sledge> ");
+    len = 0;
     int r = getline(&in_line, &len, stdin);
-    
-    if (!r) exit(0);
+
+    if (r<1 || !in_line) exit(0);
 
     // recognize parens
     int l = strlen(in_line);
@@ -243,7 +254,7 @@ int main(int argc, char *argv[])
       //MemStats* mst = alloc_stats();
       //printf("%lu heap bytes, %lu/%lu stack bytes used\n",mst->heap_bytes_used,mst->stack_bytes_used,mst->stack_bytes_max);
 
-      collect_garbage(global_env);
+      //collect_garbage(global_env);
       
       jit_clear_state();
       jit_destroy_state();
