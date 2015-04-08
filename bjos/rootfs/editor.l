@@ -74,12 +74,6 @@
   0
 )))
 
-(def uinsert (fn buf pos kchr (do
-  (ucopy buf pos (+ pos 1) (- (usize buf) (+ pos 1)))
-  (uput buf pos kchr)
-  0
-)))
-
 (def split (fn str sepstr (do
   (def sep (uget sepstr 0))
   (def result (quote ()))
@@ -99,6 +93,14 @@
   result
 )))
 
+(def length (fn lst (do
+  (def i 0)
+  (while (or (car lst) (cdr lst)) (do
+    (def i (+ i 1))
+    (def lst (cdr lst))
+  ))
+  i
+)))
 
 (def reverse (fn lst (do
   (def res (list))
@@ -124,9 +126,12 @@
 ))
 
 (def buffers (list
-  (list (alloc-str 1024) 0   0 800 800 -1 "main")
-  (list (alloc-str 1024) 0 900 800 100  0 "minibuf")
+  (list (alloc-str 1024) 0   0 800 800 -1 0)
+  (list (alloc-str 1024) 0 900 800 100  0 1)
 ))
+
+(def append-mode 1)
+(def focused-buf-id 1)
 
 (def buf-str (fn id (item (item buffers id) 0)))
 (def buf-x (fn id (item (item buffers id) 1)))
@@ -134,7 +139,7 @@
 (def buf-w (fn id (item (item buffers id) 3)))
 (def buf-h (fn id (item (item buffers id) 4)))
 (def buf-cursor (fn id (item (item buffers id) 5)))
-(def buf-name (fn id (item (item buffers id) 6)))
+(def buf-type (fn id (item (item buffers id) 6)))
 
 (def set-buf-str (fn id new-str (def buffers (replace-item buffers id (replace-item (item buffers id) 0 new-str)))))
 (def set-buf-x (fn id x (def buffers (replace-item buffers id (replace-item (item buffers id) 1 x)))))
@@ -145,6 +150,20 @@
 
 (def padding 20)
 
+(def new-buffer (fn x y w h (do
+  (def buf (list (alloc-str 1024) x y w h 0 0))
+  (def buffers (reverse (cons buf buffers)))
+  buf
+)))
+
+(def uinsert (fn buf-id pos kchr (do
+  (set-buf-str buf-id (concat (buf-str buf-id) " "))
+  (def buf (buf-str buf-id))
+  (ucopy buf pos (+ pos 1) (- (usize buf) (+ pos 0)))
+  (uput buf pos kchr)
+  0
+)))
+
 (def scroll-line (fn buf-id (do
   (def break-at (+ 1 (ufind-next str 0xa 0)))
   (set-buf-str id (substr str break-at (usize str)))
@@ -154,7 +173,7 @@
   (def rendered-upto
     (blit-string unifont
                  (buf-str buf-id)
-                 (buf-cursor buf-id)
+                 (if (= focused-buf-id buf-id) (buf-cursor buf-id) -1)
                  (+ padding (buf-x buf-id)) (+ padding (buf-y buf-id)) (buf-w buf-id) (buf-h buf-id) 0xffffff))
   (def str (buf-str buf-id))
   (def clipped (- (usize str) rendered-upto))
@@ -199,47 +218,58 @@
 )))
 
 (def cursor-up (fn bufid (do
-  (def cursor (ufind-prev buf 13 (- (buf-cursor bufid) 1)))
+  (def cursor (ufind-prev (buf-str bufid) 10 (- (buf-cursor bufid) 1)))
   (set-buf-cursor bufid cursor)
 )))
 
 (def cursor-down (fn bufid (do
-  (def cursor (ufind-next buf 13 (+ (buf-cursor bufid) 1)))
+  (def cursor (ufind-next (buf-str bufid) 10 (+ (buf-cursor bufid) 1)))
   (set-buf-cursor bufid cursor)
 )))
 
 (def eval-tmp-buf (alloc-str 1024))
 
+(def insert-char (fn k (do
+  (def cursor (buf-cursor focused-buf-id))
+  (uinsert focused-buf-id cursor k)
+  (set-buf-cursor focused-buf-id (+ cursor 1))
+)))
+
 (def handle-command-key (fn k modif (do
-  (if (or (= k 13) (= k 10)) (do
-    (print (cons "evaling:" (buf-str 1)))
-    (def eval-tmp (eval (buf-str 1)))
-    (print (cons "eval-tmp:" eval-tmp))
-    (write eval-tmp-buf eval-tmp)
-    (buf-append 0 eval-tmp-buf)
-    0
-  ))
+  (if (or (= k 13) (= k 10))
+    (if (= (buf-type focused-buf-id) 1)
+      (do
+        (print (cons "evaling:" (buf-str focused-buf-id)))
+        (def eval-tmp (eval (buf-str focused-buf-id)))
+        (print (cons "eval-tmp:" eval-tmp))
+        (if append-mode (do
+          (write eval-tmp-buf eval-tmp)
+          (buf-append 0 eval-tmp-buf)))
+        0)
+      (insert-char k))
+  )
 
   (if (= k 12) (do
     (plumb (word-at buf cursor))
   ))
 
-  (if (= k 127) (backspace 1))
-  (if (= k 130) (cursor-left))
-  (if (= k 132) (cursor-up))
-  (if (= k 133) (cursor-down))
-  (if (= k 131) (cursor-right))
+  (if (= k 9) (do
+    (def focused-buf-id (% (+ focused-buf-id 1) (length buffers)))
+    (print (cons "focused buf:" focused-buf-id))
+  ))
+
+  (if (= k 127) (backspace focused-buf-id))
+  (if (= k 130) (cursor-left focused-buf-id))
+  (if (= k 132) (cursor-up focused-buf-id))
+  (if (= k 133) (cursor-down focused-buf-id))
+  (if (= k 131) (cursor-right focused-buf-id))
   
   0
 )))
 
 (def handle-editor-key (fn k modif (do
-  (if (and (gt k 13) (lt k 127))
-    (do
-      (def cursor (buf-cursor 1))
-      (uinsert (buf-str 1) cursor k)
-      (set-buf-cursor 1 (+ cursor 1))
-    )
+  (if (and (not (= k 27)) (and (gt k 13) (lt k 127)))
+    (insert-char k)
     (handle-command-key k modif)
   )
   0

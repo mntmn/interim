@@ -220,7 +220,25 @@ int machine_video_flip() {
 
 int machine_get_key(int modifiers) {
   if (modifiers) return 0;
-  return uart_getc();
+  int k = uart_getc();
+  if (k==27) {
+    k = uart_getc();
+    if (k==91) {
+      k = uart_getc();
+      if (k==27) {
+        // fast repetition
+        k = uart_getc();
+        k = uart_getc();
+      }
+      if (k==68) return 130;
+      if (k==67) return 131;
+      if (k==65) return 132;
+      if (k==66) return 133;
+      printf("~~ inkey unknown sequence: 91,%d\r\n",k);
+      return 0;
+    }
+  }
+  return k;
 }
 
 Cell* machine_poll_udp() {
