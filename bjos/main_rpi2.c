@@ -8,6 +8,7 @@
 #include "rpi2/r3d.h"
 #include "rpi2/rpi-boot/fs.h"
 #include "rpi2/rpi-boot/dirent.h"
+#include "rpi2/uspi/include/uspi.h"
 
 #include <lightning.h>
 
@@ -37,6 +38,10 @@ extern void* _get_stack_pointer();
 void uart_repl();
 
 extern void libfs_init();
+extern void uspi_keypress_handler(const char *str);
+
+static int have_eth = 0;
+uint8_t* eth_rx_buffer;
 
 void main()
 {
@@ -68,7 +73,29 @@ void main()
   uart_puts(buf);
 
   memset(FB, 0x88, 1920*1080*4);
+  
+  // uspi glue
+  printf("uu uspi glue init…\r\n");
+  extern void uspi_glue_init();
+  uspi_glue_init();
 
+  printf("uu USPiInitialize…\r\n");
+  int res = USPiInitialize();
+  printf("uu USPI initialization: %d\r\n", res);
+  
+  int have_kbd = USPiKeyboardAvailable();
+  printf("uu USPI has keyboard: %d\r\n", have_kbd);
+  if (have_kbd) {
+    USPiKeyboardRegisterKeyPressedHandler(uspi_keypress_handler);
+  }
+  
+  have_eth = USPiEthernetAvailable();
+  printf("uu USPI has ethernet: %d\r\n", have_eth);
+
+  eth_rx_buffer=malloc(64*1024);
+  
+  memset(FB, 0x44, 1920*1080*4);
+  
   uart_repl();
 }
 
@@ -143,12 +170,19 @@ int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t 
 
 Cell* lookup_global_symbol(char* name);
 
-int machine_video_flip_() {
-  //memset(FB_MEM, 0xffffff, 1920*1080*4);
-  return 0;
-}
+void memdump(jit_word_t start,uint32_t len,int raw);
 
 int machine_video_flip() {
+
+  if (have_eth) {
+    int frame_len = 0;
+    if (USPiReceiveFrame(eth_rx_buffer, &frame_len))
+    {
+      printf("[eth] frame received! len: %d\r\n",frame_len);   
+      memdump((uint32_t)eth_rx_buffer,frame_len,0);
+    }
+  }
+  
   nv_vertex_t* triangles = r3d_init_frame();
 
   Cell* c_x1 = lookup_global_symbol("tx1");

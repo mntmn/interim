@@ -95,7 +95,7 @@
 
 (def length (fn lst (do
   (def i 0)
-  (while (or (car lst) (cdr lst)) (do
+  (while (cdr lst) (do
     (def i (+ i 1))
     (def lst (cdr lst))
   ))
@@ -104,7 +104,7 @@
 
 (def reverse (fn lst (do
   (def res (list))
-  (while (or (car lst) (cdr lst)) (do
+  (while (cdr lst) (do
     (def res (cons (car lst) res))
     (def lst (cdr lst))
   ))
@@ -112,7 +112,7 @@
 )))
 
 (def replace-item (fn lst pos new-value ((fn res i (do
-  (while (or (car lst) (cdr lst)) (do
+  (while (cdr lst) (do
     (if (= pos i)
       (def res (cons new-value res))
       (def res (cons (car lst) res)))
@@ -126,34 +126,52 @@
 ))
 
 (def buffers (list
-  (list (alloc-str 1024) 0   0 800 800 -1 0)
-  (list (alloc-str 1024) 0 900 800 100  0 1)
+  (list (alloc-str 1024) "main")
+  (list (alloc-str 1024) "mini")
+  (list (alloc-str 1024) "scratch")
+))
+
+; buf-id    x   y   w   h  cur type (0=text,1=cmd,2=image)
+
+(def views (list
+  (list 0   0     0 800 800   0  0)
+  (list 1   0   900 800 100   0  1)
 ))
 
 (def append-mode 1)
-(def focused-buf-id 1)
+(def focused-view-id 1)
 
 (def buf-str (fn id (item (item buffers id) 0)))
-(def buf-x (fn id (item (item buffers id) 1)))
-(def buf-y (fn id (item (item buffers id) 2)))
-(def buf-w (fn id (item (item buffers id) 3)))
-(def buf-h (fn id (item (item buffers id) 4)))
-(def buf-cursor (fn id (item (item buffers id) 5)))
-(def buf-type (fn id (item (item buffers id) 6)))
-
 (def set-buf-str (fn id new-str (def buffers (replace-item buffers id (replace-item (item buffers id) 0 new-str)))))
-(def set-buf-x (fn id x (def buffers (replace-item buffers id (replace-item (item buffers id) 1 x)))))
-(def set-buf-y (fn id y (def buffers (replace-item buffers id (replace-item (item buffers id) 2 y)))))
-(def set-buf-w (fn id w (def buffers (replace-item buffers id (replace-item (item buffers id) 3 w)))))
-(def set-buf-h (fn id h (def buffers (replace-item buffers id (replace-item (item buffers id) 4 h)))))
-(def set-buf-cursor (fn id new-cursor (def buffers (replace-item buffers id (replace-item (item buffers id) 5 new-cursor)))))
+
+(def view-buf-id (fn id (item (item views id) 0)))
+(def view-x (fn id (item (item views id) 1)))
+(def view-y (fn id (item (item views id) 2)))
+(def view-w (fn id (item (item views id) 3)))
+(def view-h (fn id (item (item views id) 4)))
+(def view-cursor (fn id (item (item views id) 5)))
+(def view-type (fn id (item (item views id) 6)))
+
+(def set-view-buf-id (fn id buf-id (def views (replace-item views id (replace-item (item views id) 0 buf-id)))))
+(def set-view-x (fn id x (def views (replace-item views id (replace-item (item views id) 1 x)))))
+(def set-view-y (fn id y (def views (replace-item views id (replace-item (item views id) 2 y)))))
+(def set-view-w (fn id w (def views (replace-item views id (replace-item (item views id) 3 w)))))
+(def set-view-h (fn id h (def views (replace-item views id (replace-item (item views id) 4 h)))))
+(def set-view-cursor (fn id new-cursor (def views (replace-item views id (replace-item (item views id) 5 new-cursor)))))
+(def set-view-type (fn id new-type (def views (replace-item views id (replace-item (item views id) 6 new-type)))))
 
 (def padding 20)
 
-(def new-buffer (fn x y w h (do
-  (def buf (list (alloc-str 1024) x y w h 0 0))
+(def new-buffer (fn (do
+  (def buf (list (alloc-str 1024) "untitled"))
   (def buffers (reverse (cons buf buffers)))
   buf
+)))
+
+(def new-view (fn buf-id x y w h type (do
+  (def view (list buf-id x y w h 0 type))
+  (def views (reverse (cons view views)))
+  view
 )))
 
 (def uinsert (fn buf-id pos kchr (do
@@ -169,24 +187,57 @@
   (set-buf-str id (substr str break-at (usize str)))
 )))
 
-(def buf-render (fn buf-id (do
+(def text-view-render (fn view-id (do
+  (def buf-id (view-buf-id view-id))
   (def rendered-upto
     (blit-string unifont
                  (buf-str buf-id)
-                 (if (= focused-buf-id buf-id) (buf-cursor buf-id) -1)
-                 (+ padding (buf-x buf-id)) (+ padding (buf-y buf-id)) (buf-w buf-id) (buf-h buf-id) 0xffffff))
+                 (if (= focused-view-id view-id) (view-cursor view-id) -1)
+                 (+ padding (view-x view-id)) (+ padding (view-y view-id)) (view-w view-id) (view-h view-id) 0xffffff))
   (def str (buf-str buf-id))
   (def clipped (- (usize str) rendered-upto))
-  (if (gt clipped 0) (scroll-line buf-id))
+  ; (if (gt clipped 0) (scroll-line buf-id))
+)))
+
+(def image-view-render2 (fn view-id (do
+  (def buf-id (view-buf-id view-id))
+  (blit (buf-str buf-id) (+ padding (view-x view-id)) (+ padding (view-y view-id)) (view-w view-id) (view-h view-id))
+)))
+
+(def pixel-size 48)
+
+(def image-view-render (fn view-id (do
+  (def buf-id (view-buf-id view-id))
+  (def str (buf-str buf-id))
+  (def pixels (eval str))
+  (def vw (view-w view-id))
+  (def rx 0)
+  (def ry 0)
+  (def vx (+ padding (view-x view-id)))
+  (def vy (+ padding (view-y view-id)))
+  
+  (while (cdr pixels) (do
+    (def color (car pixels))
+    (rectfill (+ rx vx) (+ ry vy) pixel-size pixel-size color)
+    (def pixels (cdr pixels))
+    (def rx (+ rx pixel-size))
+    (if (gt rx vw) (do
+      (def rx 0)
+      (def ry (+ ry pixel-size))))
+  ))
+  0
+)))
+
+(def view-render (fn view-id (do
+  (def t (view-type view-id))
+  (if (= t 2) (image-view-render view-id))
+  (if (= t 3) (image-view-render2 view-id))
+  (if (lt t 2) (text-view-render view-id))
 )))
 
 (def buf-append (fn id str (do
+  (print "in buf-append")
   (set-buf-str id (concat (buf-str id) (concat str [0a])))
-  (set-buf-cursor id (usize (buf-str id)))
-)))
-
-(def clear (fn (do
-  (set-buf-str 0 "")
 )))
 
 (def word-at (fn buf pos (do
@@ -201,46 +252,58 @@
     (def buf (load word)))
 )))
 
-(def backspace (fn bufid (if (gt (buf-cursor bufid) 0) (do
-  (def cursor (buf-cursor bufid))
-  (uremove (buf-str bufid) cursor)
-  (set-buf-cursor bufid (- cursor 1))
+(def backspace (fn vid (if (gt (view-cursor vid) 0) (do
+  (def cursor (view-cursor vid))
+  (uremove (buf-str (view-buf-id vid)) cursor)
+  (set-view-cursor vid (- cursor 1))
 ))))
 
-(def cursor-left (fn bufid (do
-  (def cursor (buf-cursor bufid))
-  (set-buf-cursor bufid (- cursor 1))
+(def cursor-left (fn vid (do
+  (def bufid (view-buf-id vid))
+  (def cursor (view-cursor bufid))
+  (set-view-cursor vid (- cursor 1))
 )))
 
-(def cursor-right (fn bufid (do
-  (def cursor (buf-cursor bufid))
-  (set-buf-cursor bufid (+ cursor 1))
+(def cursor-right (fn vid (do
+  (def bufid (view-buf-id vid))
+  (def cursor (view-cursor bufid))
+  (set-view-cursor vid (+ cursor 1))
 )))
 
-(def cursor-up (fn bufid (do
-  (def cursor (ufind-prev (buf-str bufid) 10 (- (buf-cursor bufid) 1)))
-  (set-buf-cursor bufid cursor)
+(def cursor-up (fn vid (do
+  (def bufid (view-buf-id vid))
+  (def cursor (ufind-prev (buf-str bufid) 10 (- (view-cursor vid) 1)))
+  (set-view-cursor vid cursor)
 )))
 
-(def cursor-down (fn bufid (do
-  (def cursor (ufind-next (buf-str bufid) 10 (+ (buf-cursor bufid) 1)))
-  (set-buf-cursor bufid cursor)
+(def cursor-down (fn vid (do
+  (def bufid (view-buf-id vid))
+  (def cursor (ufind-next (buf-str bufid) 10 (+ (view-cursor vid) 1)))
+  (set-view-cursor vid cursor)
 )))
 
 (def eval-tmp-buf (alloc-str 1024))
 
 (def insert-char (fn k (do
-  (def cursor (buf-cursor focused-buf-id))
-  (uinsert focused-buf-id cursor k)
-  (set-buf-cursor focused-buf-id (+ cursor 1))
+  (def cursor (view-cursor focused-view-id))
+  (def buf-id (view-buf-id focused-view-id))
+  (uinsert buf-id cursor k)
+  (set-view-cursor focused-view-id (+ cursor 1))
+)))
+
+(def focus-next-view (fn (do
+  (def focused-view-id (% (+ focused-view-id 1) (length views)))
+  (set-view-cursor focused-view-id (usize (buf-str (view-buf-id focused-view-id))))
+  (print (list "focused view:" focused-view-id (view-cursor focused-view-id)))
 )))
 
 (def handle-command-key (fn k modif (do
   (if (or (= k 13) (= k 10))
-    (if (= (buf-type focused-buf-id) 1)
+    (if (= (view-type focused-view-id) 1)
       (do
-        (print (cons "evaling:" (buf-str focused-buf-id)))
-        (def eval-tmp (eval (buf-str focused-buf-id)))
+        (def buf-id (view-buf-id focused-view-id))
+        (print (cons "evaling:" (buf-str buf-id)))
+        (def eval-tmp (eval (buf-str buf-id)))
         (print (cons "eval-tmp:" eval-tmp))
         (if append-mode (do
           (write eval-tmp-buf eval-tmp)
@@ -249,20 +312,13 @@
       (insert-char k))
   )
 
-  (if (= k 12) (do
-    (plumb (word-at buf cursor))
-  ))
+  (if (or (= k 9) (= k 134)) (focus-next-view))
 
-  (if (= k 9) (do
-    (def focused-buf-id (% (+ focused-buf-id 1) (length buffers)))
-    (print (cons "focused buf:" focused-buf-id))
-  ))
-
-  (if (= k 127) (backspace focused-buf-id))
-  (if (= k 130) (cursor-left focused-buf-id))
-  (if (= k 132) (cursor-up focused-buf-id))
-  (if (= k 133) (cursor-down focused-buf-id))
-  (if (= k 131) (cursor-right focused-buf-id))
+  (if (= k 127) (backspace focused-view-id))
+  (if (= k 130) (cursor-left focused-view-id))
+  (if (= k 132) (cursor-up focused-view-id))
+  (if (= k 133) (cursor-down focused-view-id))
+  (if (= k 131) (cursor-right focused-view-id))
   
   0
 )))
@@ -275,20 +331,30 @@
   0
 )))
 
-(def buffer-ids (fn (do
+(def list-ids (fn lst (do
   (def i -1)
-  (map (fn b (def i (+ i 1))) buffers)
+  (map (fn b (def i (+ i 1))) lst)
 )))
 
 (def render-all (fn (do
-  (map buf-render (buffer-ids))
+  (map view-render (list-ids views))
+)))
+
+; welcome to bomber jacket OS (arm7/32bit) ☕ ☕ ☕
+
+(def loadimage (fn (do
+  (set-view-type 0 3)
+  (set-view-w 0 560)
+  (def cat (load "/sd/grumpy.dat"))
+  (print "cat loaded!")
+  (blit cat 20 20 560 720)
+  (while 1 (print "."))
 )))
 
 (def main (fn (do
   (flip)
-  (print "buf-append")
-  (print (list "buffers: " buffers))
-  (buf-append 0 "welcome to bomber jacket OS (arm7/32bit) ☕ ☕ ☕ ")
+  (print (list "buffers: " buffers "views: " views))
+  (print "render-all")
   (render-all)
   (print "entering while")
   (while 1 (do
@@ -297,7 +363,7 @@
     (def modif (inkey 1))
 
     (if k (do 
-      (if keymap (if modif (def k (get keymap (+ 128 k))) (def k (get keymap k))))
+      (if (and (lt k 127) keymap) (if modif (def k (get keymap (+ 128 k))) (def k (get keymap k))))
     ))
     
     (if (not (= k 0))

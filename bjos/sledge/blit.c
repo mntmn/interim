@@ -4,16 +4,28 @@
 #include "utf8.h"
 #include <stdio.h>
 #include <stdint.h>
+#include "../rpi2/rpi-boot/util.h"
 
 #define FAST_BLIT
 
 #define put_pixel machine_video_set_pixel
 
-int blit_vector32(uint32_t* pixels, uint sx, uint sy, uint pitch, uint w, uint h, uint dx, uint dy)
+int blit_vector32(int h, int w, int dy, int dx, Cell* bytes_c)
+//int blit_vector32(uint32_t* pixels, uint sx, uint sy, uint pitch, uint w, uint h, uint dx, uint dy)
 {
+  uint8_t* pixels = bytes_c->addr;
+  int sx = 0;
+  int sy = 0;
   for (int y=0; y<h; y++) {
     for (int x=0; x<w; x++) {
-      put_pixel(dx+x,dy+y, pixels[((sy+y)*pitch+sx+x)]);
+      int offset = ((sy+y)*w+sx+x)*3;
+      if (offset<bytes_c->size) {
+        uint32_t r = pixels[offset];
+        uint32_t g = pixels[offset+1];
+        uint32_t b = pixels[offset+2];
+        
+        put_pixel(dx+x,dy+y, (b<<16)|(g<<8)|r);
+      }
     }
   }
   

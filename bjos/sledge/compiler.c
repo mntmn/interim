@@ -58,6 +58,7 @@ typedef enum builtin_t {
   BUILTIN_PIXEL,
   BUILTIN_FLIP,
   BUILTIN_RECTFILL,
+  BUILTIN_BLIT,
   BUILTIN_BLIT_MONO,
   BUILTIN_BLIT_MONO_INV,
   BUILTIN_BLIT_STRING,
@@ -957,9 +958,9 @@ int compile_quote(int retreg, Cell* args, tag_t requires) {
 }
 
 jit_word_t do_car(Cell* cell) {
-  if (!cell) return (jit_word_t)alloc_nil();
-  if (cell->tag != TAG_CONS) return (jit_word_t)alloc_nil();
-  return (jit_word_t)(cell->addr?cell->addr:alloc_nil());
+  if (!cell) return 0;
+  if (cell->tag != TAG_CONS) return 0;
+  return (jit_word_t)(cell->addr?cell->addr:0);
 }
 
 jit_word_t do_car_int(Cell* cell) {
@@ -996,9 +997,9 @@ int compile_car(int retreg, Cell* args, tag_t requires) {
 }
 
 jit_word_t do_cdr(Cell* cell) {
-  if (!cell) return ((jit_word_t)alloc_nil());
-  if (cell->tag != TAG_CONS) return ((jit_word_t)alloc_nil());
-  return (jit_word_t)(cell->next?cell->next:alloc_nil());
+  if (!cell) return 0;
+  if (cell->tag != TAG_CONS) return 0;
+  return (jit_word_t)(cell->next?cell->next:0);
 }
 
 int compile_cdr(int retreg, Cell* args, tag_t requires) {
@@ -1398,6 +1399,9 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
   case BUILTIN_FLIP:
     return compile_flip(retreg);
     break;
+  case BUILTIN_BLIT:
+    return compile_blit(retreg, args);
+    break;
   case BUILTIN_BLIT_MONO:
     return compile_blit_mono(retreg, args);
     break;
@@ -1536,6 +1540,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("pixel"), alloc_builtin(BUILTIN_PIXEL), &global_env);
   insert_symbol(alloc_sym("rectfill"), alloc_builtin(BUILTIN_RECTFILL), &global_env);
   insert_symbol(alloc_sym("flip"), alloc_builtin(BUILTIN_FLIP), &global_env);
+  insert_symbol(alloc_sym("blit"), alloc_builtin(BUILTIN_BLIT), &global_env);
   insert_symbol(alloc_sym("blit-mono"), alloc_builtin(BUILTIN_BLIT_MONO), &global_env);
   insert_symbol(alloc_sym("blit-mono-inv"), alloc_builtin(BUILTIN_BLIT_MONO_INV), &global_env);
   insert_symbol(alloc_sym("blit-string"), alloc_builtin(BUILTIN_BLIT_STRING), &global_env);

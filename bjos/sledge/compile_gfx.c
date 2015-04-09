@@ -93,8 +93,22 @@ int compile_flip(int retreg) {
 }
 
 int compile_blit(int retreg, Cell* args) {
+  compile_arg(JIT_R0, car(args), TAG_BYTES);
+  //jit_ldr(JIT_R0, JIT_R0); // load bytes addr
+  stack_push(JIT_R0, &stack_ptr);
+  
+  compile_int_arg();
+  compile_int_arg();
+  compile_int_arg();
+  compile_int_arg();
+
   jit_prepare();
-  jit_pushargr(JIT_R0);
+  push_stack_arg();
+  push_stack_arg();
+  push_stack_arg();
+  push_stack_arg();
+  
+  push_stack_arg(); // pop bytes addr
   jit_finishi(blit_vector32);
   
   jit_movi(retreg, 0);

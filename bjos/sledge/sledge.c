@@ -43,6 +43,12 @@ inline int machine_video_flip() {
 int machine_get_key(int modifiers) {
   if (modifiers) return sdl_get_modifiers();
   int k = sdl_get_key();
+  if (k) printf("k: %d\n",k);
+  if (k==43) k=134;
+  if (k==80) k=130;
+  if (k==79) k=131;
+  if (k==82) k=132;
+  if (k==81) k=133;
   return k;
 }
 

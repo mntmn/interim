@@ -88,8 +88,7 @@ ReaderState* read_char(char c, ReaderState* rs) {
     }
 
   } else if (rs->state == PST_COMMENT) {
-    //printf("c[%c]\n",c);
-    if (c=='\n' || c=='0') {
+    if (c=='\n' || c==0) {
       rs->state = PST_ATOM;
     }
   } else if (rs->state == PST_NUM || rs->state == PST_NUM_NEG) {

@@ -321,6 +321,27 @@ void init_rpi_qpu() {
 #define SDRAM_END         0xbfffffff // 1GB = 0x4000 0000
 #define CACHE_WRITEBACK   0x1e
 
+// (System) Control register
+#define ARM_CONTROL_MMU			(1 << 0)
+#define ARM_CONTROL_STRICT_ALIGNMENT	(1 << 1)
+#define ARM_CONTROL_L1_CACHE		(1 << 2)
+#define ARM_CONTROL_BRANCH_PREDICTION	(1 << 11)
+#define ARM_CONTROL_L1_INSTRUCTION_CACHE (1 << 12)
+
+
+#define ARM_TTBR_USE_SHAREABLE_MEM	(1 << 1)
+
+#define ARM_TTBR_OUTER_NON_CACHEABLE	(0 << 3)
+#define ARM_TTBR_OUTER_WRITE_ALLOCATE	(1 << 3)
+#define ARM_TTBR_OUTER_WRITE_THROUGH	(2 << 3)
+#define ARM_TTBR_OUTER_WRITE_BACK	(3 << 3)
+
+
+#define MMU_MODE	(  ARM_CONTROL_MMU			\
+			 | ARM_CONTROL_L1_CACHE			\
+			 | ARM_CONTROL_L1_INSTRUCTION_CACHE	\
+			 | ARM_CONTROL_BRANCH_PREDICTION)
+
 static uint32_t __attribute__((aligned(16384))) page_table[NUM_PAGE_TABLE_ENTRIES];
 
 void enable_mmu(void)
@@ -345,7 +366,6 @@ void enable_mmu(void)
 
   /* Enable the MMU */
   __asm("mrc p15, 0, %0, c1, c0, 0" : "=r" (reg) : : "cc");
-  reg|=0x1;
-  
+  reg|=MMU_MODE; // 0x1
   __asm("mcr p15, 0, %0, c1, c0, 0" : : "r" (reg) : "cc");
 }

@@ -14,7 +14,7 @@ uint32_t free_list_consumed;
 
 Cell oom_cell;
 
-#define MAX_CELLS 100000
+#define MAX_CELLS 5000000
 #define MAX_BYTE_HEAP 1024*1024*128
 
 static struct MemStats mem_stats;
@@ -268,6 +268,7 @@ Cell* alloc_string_copy(char* str) {
 }
 
 Cell* alloc_concat(Cell* str1, Cell* str2) {
+  if (!str1 || !str2) return alloc_error(ERR_INVALID_PARAM_TYPE);
   if (str1->tag!=TAG_BYTES && str1->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
   if (str2->tag!=TAG_BYTES && str2->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
   
