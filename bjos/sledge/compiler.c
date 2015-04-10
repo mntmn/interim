@@ -1282,7 +1282,9 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
       // dynamic call?
       //return compile_dynamic_lambda(retreg, car(list), cdr(list), required, &global_env);
 
-      printf("<compile_applic: undefined symbol %s>\n",fn_name);
+      char buf[128];
+      lisp_write(list,buf,127);
+      printf("<compile_applic: undefined symbol %s near '%s'>\n",fn_name,buf);
       jit_movi(JIT_R0, 0);
       return 0;
     }

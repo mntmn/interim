@@ -43,7 +43,7 @@ inline int machine_video_flip() {
 int machine_get_key(int modifiers) {
   if (modifiers) return sdl_get_modifiers();
   int k = sdl_get_key();
-  if (k) printf("k: %d\n",k);
+  //if (k) printf("k: %d\n",k);
   if (k==43) k=134;
   if (k==80) k=130;
   if (k==79) k=131;
@@ -97,14 +97,30 @@ Cell* machine_load_file(char* path) {
   return result_cell;
 }
 
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+// TODO: create socket handle and return it
+
+static int tcp_outbound_sockfd = 0;
+
 Cell* my_tcp_connected_callback;
 Cell* my_tcp_data_callback;
+Cell* network_cell;
 
 Cell* machine_poll_udp() {
-  if (my_tcp_connected_callback) {
-    printf("-- calling tcp connected callback\n");
-    funcptr fn = (funcptr)my_tcp_connected_callback->next;
-    return NULL;
+  if (my_tcp_data_callback) {
+    int len = read(tcp_outbound_sockfd,network_cell->addr,1024*64);
+    if (len>0) {
+      printf("-- received tcp packet of len: %d\n",len);
+      ((uint8_t*)network_cell->addr)[len] = 0;
+      network_cell->size = len;
+      funcptr fn = (funcptr)my_tcp_data_callback->next;
+      fn();
+      
+      return NULL;
+    }
   }
   return NULL;
 }
@@ -113,13 +129,44 @@ Cell* machine_send_udp(Cell* data_cell) {
   return data_cell;
 }
 
+
 Cell* machine_connect_tcp(Cell* host_cell, Cell* port_cell, Cell* connected_fn_cell, Cell* data_fn_cell) {
   my_tcp_connected_callback = connected_fn_cell;
+  my_tcp_data_callback = data_fn_cell;
+
+  struct sockaddr_in serv_addr;
+  bzero((char *) &serv_addr, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  
+  bcopy((char *)host_cell->addr,
+        (char *)&serv_addr.sin_addr.s_addr,
+        4); // ipv4 only
+  
+  tcp_outbound_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+  
+  struct timeval tv;
+  tv.tv_sec = 1;  /* 1 Sec Timeout */
+  tv.tv_usec = 0;  // Not init'ing this can cause strange errors
+
+  setsockopt(tcp_outbound_sockfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(struct timeval));
+  
+  serv_addr.sin_port = htons(port_cell->value);
+
+  printf("[machine_connect_tcp] trying to connect to %x:%d\r\n",serv_addr.sin_addr.s_addr,port_cell->value);
+  if (connect(tcp_outbound_sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) {
+    printf("[machine_connect_tcp] couldn't connect.\r\n");
+  } else {
+    // call connected callback
+    printf("[machine_connect_tcp] connected. calling %p…\r\n",my_tcp_connected_callback->next);
+    funcptr fn = (funcptr)my_tcp_connected_callback->next;
+    fn();
+  }
   
   return port_cell;
 }
 
 Cell* machine_send_tcp(Cell* data_cell) {
+  write(tcp_outbound_sockfd,data_cell->addr,data_cell->size);
   return data_cell;
 }
 
@@ -170,6 +217,9 @@ int main(int argc, char *argv[])
   extern uint8_t* blitter_speedtest(uint8_t* font);
   unif->addr = blitter_speedtest(unif->addr);
   insert_symbol(alloc_sym("unifont"), unif, &global_env);
+
+  network_cell = alloc_num_bytes(1024*64+1);
+  insert_symbol(alloc_sym("network-input"), network_cell, &global_env);
   
   int in_offset = 0;
   int parens = 0;

@@ -13,9 +13,9 @@ unsigned int utf8_rune_len(uint8_t b) {
   return 1;
 }
 
-int utf8_strlen(char *s) {
+int utf8_strlen(char *s, int len) {
   int i = 0, j = 0;
-  while (s[i]) {
+  while (s[i] && i<len) {
     if ((s[i] & 0xc0) != 0x80) j++;
     i++;
   }
@@ -126,7 +126,7 @@ int rune_to_utf8(jit_word_t c, void* tempbuf, int* count)
 
 jit_word_t utf8_strlen_cell(Cell* cell) {
   if (!cell || (cell->tag!=TAG_STR && cell->tag!=TAG_BYTES) || !cell->addr) return 0;
-  return utf8_strlen(cell->addr);
+  return utf8_strlen(cell->addr, cell->size);
 }
 
 jit_word_t utf8_rune_at_cell(Cell* cell, Cell* c_idx) {
