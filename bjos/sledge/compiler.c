@@ -35,6 +35,7 @@ typedef enum builtin_t {
   BUILTIN_ALLOC,
   BUILTIN_ALLOC_STR,
   BUILTIN_CONCAT,
+  BUILTIN_SUBSTR,
 
   BUILTIN_GET,
   BUILTIN_PUT,
@@ -1177,6 +1178,34 @@ int compile_concat(int retreg, Cell* args, tag_t requires) {
   return 1;
 }
 
+int compile_substr(int retreg, Cell* args, tag_t requires) {
+  if (!car(args)) return argnum_error("(substr str1 from len)");
+  if (!car(cdr(args))) return argnum_error("(substr str1 from len)");
+  if (!car(cdr(cdr(args)))) return argnum_error("(substr str1 from len)");
+  
+  Cell* arg3 = car(cdr(cdr(args)));
+  int success = compile_arg(JIT_R0, arg3, TAG_PURE_INT);
+  stack_push(JIT_R0, &stack_ptr);
+  
+  Cell* arg2 = car(cdr(args));
+  success = compile_arg(JIT_R0, arg2, TAG_PURE_INT);
+  stack_push(JIT_R0, &stack_ptr);
+  
+  Cell* arg1 = car(args);
+  success = compile_arg(JIT_R0, arg1, TAG_ANY);
+  
+  jit_prepare();
+  jit_pushargr(JIT_R0);
+  stack_pop(JIT_R0, &stack_ptr);
+  jit_pushargr(JIT_R0);
+  stack_pop(JIT_R0, &stack_ptr);
+  jit_pushargr(JIT_R0);
+  jit_finishi(alloc_substr);
+  jit_retval(retreg); // returns fresh cell
+
+  return 1;
+}
+
 // write
 // allocates a string object and writes s-expression dump of object
 // into it
@@ -1357,6 +1386,9 @@ int compile_applic(int retreg, Cell* list, tag_t required) {
   case BUILTIN_CONCAT:
     return compile_concat(retreg, args, required);
     break;
+  case BUILTIN_SUBSTR:
+    return compile_substr(retreg, args, required);
+    break;
 
   case BUILTIN_WRITE:
     return compile_write(retreg, args, required);
@@ -1524,6 +1556,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("map"), alloc_builtin(BUILTIN_MAP), &global_env);
 
   insert_symbol(alloc_sym("concat"), alloc_builtin(BUILTIN_CONCAT), &global_env);
+  insert_symbol(alloc_sym("substr"), alloc_builtin(BUILTIN_SUBSTR), &global_env);
   insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC), &global_env);
   insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR), &global_env);
 

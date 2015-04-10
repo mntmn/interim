@@ -43,6 +43,8 @@ extern void uspi_keypress_handler(const char *str);
 static int have_eth = 0;
 uint8_t* eth_rx_buffer;
 
+void init_mini_ip(Cell* buffer_cell);
+
 void main()
 {
   enable_mmu();
@@ -172,16 +174,25 @@ Cell* lookup_global_symbol(char* name);
 
 void memdump(jit_word_t start,uint32_t len,int raw);
 
-int machine_video_flip() {
-
+int ethernet_rx(uint8_t* packet) {
+  int frame_len = 0;
   if (have_eth) {
-    int frame_len = 0;
-    if (USPiReceiveFrame(eth_rx_buffer, &frame_len))
-    {
+    USPiReceiveFrame(packet, &frame_len);
+
+    if (frame_len) {
       printf("[eth] frame received! len: %d\r\n",frame_len);   
-      memdump((uint32_t)eth_rx_buffer,frame_len,0);
+      memdump((uint32_t)packet,frame_len,0);
     }
   }
+  return frame_len;
+}
+
+void ethernet_tx(uint8_t* packet, int len) {
+  USPiSendFrame(packet, len);
+  printf("[eth] frame sent (%d)\r\n",len);
+}
+
+int machine_video_flip() {
   
   nv_vertex_t* triangles = r3d_init_frame();
 
@@ -275,6 +286,7 @@ int machine_get_key(int modifiers) {
   return k;
 }
 
+/*
 Cell* machine_poll_udp() {
   return NULL;
 }
@@ -293,7 +305,7 @@ Cell* machine_bind_tcp(Cell* port_cell, Cell* fn_cell) {
 
 Cell* machine_send_tcp(Cell* data_cell) {
   return NULL;
-}
+  }*/
 
 Cell* machine_save_file(Cell* cell, char* path) {
   return alloc_int(0);
@@ -400,6 +412,11 @@ void insert_rootfs_symbols() {
   insert_symbol(alloc_sym("tx2"), alloc_int(1732), &global_env);
   insert_symbol(alloc_sym("ty1"), alloc_int(32), &global_env);
   insert_symbol(alloc_sym("ty2"), alloc_int(64), &global_env);
+
+  Cell* udp_cell = alloc_num_bytes(65535);
+  insert_symbol(alloc_sym("network-input"), udp_cell, &global_env);
+
+  init_mini_ip(udp_cell);
 }
 
 void uart_repl() {

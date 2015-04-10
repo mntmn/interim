@@ -6,7 +6,6 @@ Control ID Codes
 // we need these because we can't store words in odd addresses with pointer arithmetic, this will crash the device
 
 #define str16(buf,value) *(buf)=value&0xff; *(buf+1)=(value&0xff00)>>8;
-
 #define str32(buf,value) *(buf)=value&0xff; *(buf+1)=(value&0xff00)>>8; *(buf+2)=(value&0xffff00)>>16; *(buf+3)=(value&0xffffff00)>>24; 
 
 #define vc4_halt_op 0x00

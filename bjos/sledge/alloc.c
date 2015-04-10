@@ -254,6 +254,19 @@ Cell* alloc_num_string(unsigned int num_bytes) {
   return cell;
 }
 
+Cell* alloc_substr(Cell* str, unsigned int from, unsigned int len) {
+  //printf("substr %s %d %d\n",str->addr,from,len);
+  if (from>=str->size) from=str->size-1;
+  if (len+from>str->size) len=str->size-from; // FIXME TEST
+  
+  Cell* cell = cell_alloc();
+  cell->addr = bytes_alloc(len+1); // 1 zeroed byte more to defeat clib-str overflows
+  cell->tag = TAG_STR;
+  cell->size = len;
+  memcpy(cell->addr, (uint8_t*)str->addr+from, len);
+  return cell;
+}
+
 Cell* alloc_string() {
   return alloc_num_string(SYM_INIT_BUFFER_SIZE);
 }

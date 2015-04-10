@@ -31,6 +31,7 @@ Cell* alloc_string();
 Cell* alloc_num_string(unsigned int num_bytes);
 Cell* alloc_string_copy(char* str);
 Cell* alloc_concat(Cell* str1, Cell* str2);
+Cell* alloc_substr(Cell* str, unsigned int from, unsigned int len);
 Cell* alloc_int(int i);
 Cell* alloc_nil();
 Cell* alloc_error(unsigned int code);
