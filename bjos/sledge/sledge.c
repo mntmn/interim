@@ -78,7 +78,7 @@ Cell* machine_load_file(char* path) {
   }
   
   char buf[512];
-  sprintf(buf,"fs/%s",path);
+  sprintf(buf,"../rootfs/%s",path);
   path = buf;
   
   printf("about to load: %s\n",path);
