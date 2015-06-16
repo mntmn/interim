@@ -263,24 +263,40 @@ int machine_video_flip() {
   return 0;
 }
 
+static char usb_key_in = 0;
+static int usb_keyboard_enabled = 0;
+
+void uspi_keypress_handler (const char *str)
+{
+  printf("[uspi-keyboard] pressed: '%s' (%d)\r\n",str,str[0]);
+  usb_key_in = str[0];
+  usb_keyboard_enabled = 1;
+}
+
 int machine_get_key(int modifiers) {
   if (modifiers) return 0;
-  int k = uart_getc();
-  if (k==27) {
+  int k = 0;
+  if (usb_keyboard_enabled) {
+    k = usb_key_in;
+    usb_key_in = 0;
+  } else {
     k = uart_getc();
-    if (k==91) {
+    if (k==27) {
       k = uart_getc();
-      if (k==27) {
-        // fast repetition
+      if (k==91) {
         k = uart_getc();
-        k = uart_getc();
+        if (k==27) {
+          // fast repetition
+          k = uart_getc();
+          k = uart_getc();
+        }
+        if (k==68) return 130;
+        if (k==67) return 131;
+        if (k==65) return 132;
+        if (k==66) return 133;
+        printf("~~ inkey unknown sequence: 91,%d\r\n",k);
+        return 0;
       }
-      if (k==68) return 130;
-      if (k==67) return 131;
-      if (k==65) return 132;
-      if (k==66) return 133;
-      printf("~~ inkey unknown sequence: 91,%d\r\n",k);
-      return 0;
     }
   }
   return k;
@@ -398,15 +414,18 @@ void insert_rootfs_symbols() {
 
   insert_symbol(alloc_sym("unifont"), unif, &global_env);
 
-  extern uint8_t _binary_bjos_rootfs_editor_l_start;
+  /*extern uint8_t _binary_bjos_rootfs_editor_l_start;
   extern uint32_t _binary_bjos_rootfs_editor_l_size;
-  Cell* editor = alloc_string("editor");
+  Cell* editor = alloc_string("boot");
   editor->addr = &_binary_bjos_rootfs_editor_l_start;
   editor->size = read_word((uint8_t*)&_binary_bjos_rootfs_editor_l_size,0); //_binary_bjos_rootfs_editor_l_size;
 
   printf("~~ editor-source is at %p, size %d\r\n",editor->addr,editor->size);
   
-  insert_symbol(alloc_sym("editor-source"), editor, &global_env);
+  insert_symbol(alloc_sym("editor-source"), editor, &global_env);*/
+
+  //Cell* boot = alloc_string("(eval (load \"/sd/boot.l\"))");
+  //insert_symbol(alloc_sym("boot-source"), boot, &global_env);
   
   insert_symbol(alloc_sym("tx1"), alloc_int(1700), &global_env);
   insert_symbol(alloc_sym("tx2"), alloc_int(1732), &global_env);
@@ -449,7 +468,7 @@ void uart_repl() {
   Cell* expr;
   char c = 13;
 
-  strcpy(in_line,"(eval editor-source)\n");
+  strcpy(in_line,"(eval (load \"/sd/boot.l\"))\n");
   
   init_jit(NULL);
   uart_puts("\r\n\r\n~~ JIT initialized.\r\n");

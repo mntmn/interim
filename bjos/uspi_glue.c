@@ -193,8 +193,3 @@ void uspi_glue_init() {
   printf("uu TimerInitialize…\r\n");
   TimerInitialize(&uspi_timer);
 }
-
-void uspi_keypress_handler (const char *str)
-{
-  printf("[uspi-keyboard] pressed: '%s'\r\n",str);
-}
