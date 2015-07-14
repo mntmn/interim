@@ -1,27 +1,39 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <stdio.h>
-#include <lightning.h>
+#include "minilisp.h"
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/mman.h> // mprotect
 
 #include "sdl.h"
 
 #define MAX_INT 4294967296
-#define DEBUG 1
+//#define DEBUG 0
+
+#define KNRM  "\x1B[0m"
+#define KRED  "\x1B[31m"
+#define KGRN  "\x1B[32m"
+#define KYEL  "\x1B[33m"
+#define KBLU  "\x1B[34m"
+#define KMAG  "\x1B[35m"
+#define KCYN  "\x1B[36m"
+#define KWHT  "\x1B[37m"
 
 typedef jit_word_t (*funcptr)();
-static jit_state_t *_jit;
+//static jit_state_t *_jit;
 static void *stack_ptr, *stack_base;
 
-#include "compiler.c"
+//#include "compiler.c"
 
-inline int machine_video_set_pixel(uint32_t x, uint32_t y, uint32_t color) {
-  sdl_setpixel(x,y,color);
+#include "compiler_new.c"
+
+int machine_video_set_pixel(uint32_t x, uint32_t y, COLOR_TYPE color) {
+  //sdl_setpixel(x,y,color);
   return 1;
 }
 
-inline int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color) {
+int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, COLOR_TYPE color) {
   uint32_t y1=y;
   uint32_t y2=y+h;
   uint32_t x2=x+w;
@@ -29,20 +41,21 @@ inline int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, ui
   for (; y1<y2; y1++) {
     uint32_t x1=x;
     for (; x1<x2; x1++) {
-      sdl_setpixel(x1,y1,color);
+      //sdl_setpixel(x1,y1,color);
     }
   }
 }
 
 inline int machine_video_flip() {
-  sdl_mainloop();
-  machine_video_rect(0,0,1920,1080,0xffffff);
+  //sdl_mainloop();
+  machine_video_rect(0,0,1920,1080,0xff);
   return 1;
 }
 
 int machine_get_key(int modifiers) {
-  if (modifiers) return sdl_get_modifiers();
-  int k = sdl_get_key();
+  //if (modifiers) return sdl_get_modifiers();
+  //int k = sdl_get_key();
+  int k = 0;
   //if (k) printf("k: %d\n",k);
   if (k==43) k=134;
   if (k==80) k=130;
@@ -100,6 +113,7 @@ Cell* machine_load_file(char* path) {
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
 
 // TODO: create socket handle and return it
 
@@ -191,6 +205,10 @@ static inline void stop_clock()
   printf("%llu ms\n", t);
 }
 
+Cell* execute_jitted(void* binary) {
+  return (Cell*)((funcptr)binary)(0);
+}
+
 ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 
 int main(int argc, char *argv[])
@@ -208,8 +226,8 @@ int main(int argc, char *argv[])
     fullscreen = 1;
   }
 
-  uint32_t* FB = (uint32_t*)sdl_init(fullscreen);
-  init_blitter(FB);
+  uint32_t* FB = 0; //(uint32_t*)sdl_init(fullscreen);
+  //init_blitter(FB);
   
   Cell* unif = machine_load_file("unifont");
   printf("~~ unifont is at %p\r\n",unif->addr);
@@ -263,44 +281,120 @@ int main(int argc, char *argv[])
       in_offset=0;
     }
     
-    jit_node_t  *in;
+    //jit_node_t  *in;
     funcptr     compiled;
     
     if (expr) {
       if (!jit_inited) { 
-        init_jit(argv[0]);
+        //init_jit(argv[0]);
         jit_inited = 1;
       }
 
       //stack_ptr = stack_base;
         
-      _jit = jit_new_state();
-      jit_prolog();
+      //_jit = jit_new_state();
+      //jit_prolog();
       
       Cell* res;
-      int success = compile_arg(JIT_R0, expr, TAG_ANY);
+      //int success = compile_arg(JIT_R0, expr, TAG_ANY);
+      int success = 1;
+      
+      jit_out = fopen("/tmp/jit_out.s","w");
+  
+      int tag = compile_expr(expr, NULL);
+      jit_ret();
 
       if (success) {
-        compiled = jit_emit();
+        //compiled = jit_emit();
       
 #ifdef DEBUG
         //jit_disassemble();
-      start_clock();
+        start_clock();
 #endif
+        fclose(jit_out);
 
-        res = (Cell*)compiled(0);
+        FILE* asm_f = fopen("/tmp/jit_out.s","r");
+        uint32_t* jit_asm = malloc(4096);
+        memset(jit_asm, 0, 4096);
+        fread(jit_asm,1,4096,asm_f);
+        fclose(asm_f);
+        printf("\nJIT ---------------------\n%s-------------------------\n\n",jit_asm);
+
+        // prefix with arm-none-eabi- on ARM  -mlittle-endian
+      
+        system("as /tmp/jit_out.s -o /tmp/jit_out.o");
+        system("objcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
+
+        FILE* binary_f = fopen("/tmp/jit_out.bin","r");
+        //uint32_t* jit_binary = malloc(4096);
+
+        uint32_t* jit_binary = mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+        
+        int bytes_read = fread(jit_binary,1,4096,binary_f);
+        fclose(binary_f);
+
+        printf("<assembled bytes: %d at: %p>\n",bytes_read,jit_binary);
+
+        // read symbols for linking lambdas
+        system("nm /tmp/jit_out.o > /tmp/jit_out.syms");
+        FILE* link_f = fopen("/tmp/jit_out.syms","r");
+        if (link_f) {
+          char link_line[128];
+          while(fgets(link_line, sizeof(link_line), link_f)) {
+
+            if (strlen(link_line)>22) {
+              char ida=link_line[19];
+              char idb=link_line[20];
+              char idc=link_line[21];
+              //printf("link_line: %s %c %c %c\n",link_line,ida,idb,idc);
+
+              if (ida=='f' && idc=='_') {
+                Cell* lambda = (Cell*)strtoul(&link_line[24], NULL, 16);
+                if (idb=='0') {
+                  // function entrypoint
+                  // TODO: 64/32 bit
+                  unsigned long long offset = strtoul(link_line, NULL, 16);
+                  void* binary = ((uint8_t*)jit_binary) + offset;
+                  printf("function %p entrypoint: %p (+%ld)\n",lambda,binary,offset);
+
+                  if (lambda->tag == TAG_LAMBDA) {
+                    lambda->next = binary;
+                  } else {
+                    printf("fatal error: no lambda found at %p!\n",lambda);
+                  }
+                }
+                else if (idb=='1') {
+                  // function exit
+                  unsigned long long offset = strtoul(link_line, NULL, 16);
+                  printf("function exit point: %p\n",offset);
+                }
+              }
+            }
+          }
+        }
+      
+        //arm_emulate(jit_binary);
+        int mp_res = mprotect(jit_binary, 4096, PROT_EXEC|PROT_READ);
+
+        if (!mp_res) {
+          res = execute_jitted(jit_binary);
+        } else {
+          printf("<mprotect result: %d\n>",mp_res);
+          res = NULL;
+        }
+        
       } else {
         printf("<compilation failed>\n");
         res = NULL;
       }
 
       // TODO: move to write op
-      if (!res) {
-        printf("null\n");
+      if (res<cell_heap_start) {
+        printf("invalid cell (%p)\n",res);
       } else {
         char out_buf[1024*10];
         lisp_write(res, out_buf, 1024*10);
-        printf("%s\n",out_buf);
+        printf(KBLU "\n%s\n\n" KWHT,out_buf);
       }
       
 #ifdef DEBUG
@@ -312,13 +406,13 @@ int main(int argc, char *argv[])
 
       //collect_garbage(global_env);
       
-      jit_clear_state();
-      jit_destroy_state();
+      //jit_clear_state();
+      //jit_destroy_state();
     } else {
     }
 
-    sdl_mainloop();
+    //sdl_mainloop();
   }
-  finish_jit();
+  //finish_jit();
   return 0;
 }

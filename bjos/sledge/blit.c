@@ -4,7 +4,6 @@
 #include "utf8.h"
 #include <stdio.h>
 #include <stdint.h>
-#include "../rpi2/rpi-boot/util.h"
 
 #define FAST_BLIT
 
@@ -32,14 +31,12 @@ int blit_vector32(int h, int w, int dy, int dx, Cell* bytes_c)
   return 0;
 }
 
-static uint32_t* FB;
-void init_blitter(uint32_t* fb) {
+static COLOR_TYPE* FB;
+void init_blitter(COLOR_TYPE* fb) {
   FB = fb;
 }
 
-#define T_PITCH 1920
-
-int blit_string1(uint32_t color, int h, int w, int y, int x, int cursor_pos, Cell* str_c, Cell* font) {
+int blit_string1(COLOR_TYPE color, int h, int w, int y, int x, int cursor_pos, Cell* str_c, Cell* font) {
   uint8_t* pixels = font->addr;
   uint8_t* str = str_c->addr;
 
@@ -86,13 +83,13 @@ int blit_string1(uint32_t color, int h, int w, int y, int x, int cursor_pos, Cel
 
 #ifdef FAST_BLIT
 
-int blit_vector1(uint32_t color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
+int blit_vector1(COLOR_TYPE color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
 {
   uint32_t s_offset = sy*pitch+sx;
-  uint32_t t_offset = dy*T_PITCH+dx;
+  uint32_t t_offset = dy*SCREEN_W+dx;
  
   for (unsigned int y=0; y<h; y++) {
-    register uint32_t* tfb = FB+t_offset;
+    register COLOR_TYPE* tfb = FB+t_offset;
     /*for (unsigned int x=0; x<w; x++) {
       register uint32_t px = pixels[s_offset+x];
       px |= (px<<8);
@@ -105,7 +102,7 @@ int blit_vector1(uint32_t color, uint dy, uint dx, uint h, uint w, uint pitch, u
     register uint8_t* ptr = pixels+s_offset;
 
     for (unsigned int x=0; x<16; x++) {
-      register uint32_t px = *ptr - 1;
+      register COLOR_TYPE px = *ptr - 1;
       //px |= (px<<8);
       //px |= (px<<16);
       
@@ -115,23 +112,23 @@ int blit_vector1(uint32_t color, uint dy, uint dx, uint h, uint w, uint pitch, u
     }
     
     s_offset += pitch;
-    t_offset += T_PITCH;
+    t_offset += SCREEN_W;
   }
   
   return 0;
 }
 
-int blit_vector1_invert(uint32_t color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
+int blit_vector1_invert(COLOR_TYPE color, uint dy, uint dx, uint h, uint w, uint pitch, uint sy, uint sx, uint8_t* pixels)
 {
   uint32_t s_offset = sy*pitch+sx;
-  uint32_t t_offset = dy*T_PITCH+dx;
+  uint32_t t_offset = dy*SCREEN_W+dx;
  
   for (unsigned int y=0; y<h; y++) {
-    register uint32_t* tfb = FB+t_offset;
+    register COLOR_TYPE* tfb = FB+t_offset;
     register uint8_t* ptr = pixels+s_offset;
 
     for (unsigned int x=0; x<16; x++) {
-      register uint32_t px = (1-*ptr) - 1;
+      register COLOR_TYPE px = (1-*ptr) - 1;
       //px |= (px<<8);
       //px |= (px<<16);
       
@@ -141,7 +138,7 @@ int blit_vector1_invert(uint32_t color, uint dy, uint dx, uint h, uint w, uint p
     }
     
     s_offset += pitch;
-    t_offset += T_PITCH;
+    t_offset += SCREEN_W;
   }
   
   return 0;

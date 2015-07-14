@@ -1,8 +1,10 @@
 #ifndef MINILISP_H
 #define MINILISP_H
 
-#include "lightning.h" // for jit_word_t
-#include "uthash.h"
+#define jit_word_t unsigned long
+
+//#include "lightning.h" // for jit_word_t
+#include "strmap.h"
 
 #define TAG_FREED 0
 #define TAG_INT  1
@@ -64,7 +66,6 @@ int is_nil(Cell* c);
 typedef struct env_entry {
   Cell* cell;
   char name[64];
-  UT_hash_handle hh;
 } env_entry;
 
 typedef Cell* (*alien_func)(Cell* args, Cell* env);

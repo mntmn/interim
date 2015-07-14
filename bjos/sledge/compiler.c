@@ -81,8 +81,9 @@ typedef enum builtin_t {
   BUILTIN_SQRT
 } builtin_t;
 
+#define env_t StrMap
 
-static struct env_entry* global_env = NULL;
+static env_t* global_env = NULL;
 
 static Cell* coerce_int_cell; // recycled cell used to return coereced integers
 static Cell* error_cell; // recycled cell used to return errors
@@ -92,55 +93,62 @@ static size_t* jit_state_stack;
 int jit_state_stack_usage = 0;
 
 Cell* lookup_global_symbol(char* name) {
+  //HASH_FIND_STR(global_env, name, res);
   env_entry* res;
-  HASH_FIND_STR(global_env, name, res);
-  if (!res) return NULL;
+  int found = sm_get(global_env, name, (void**)&res);
+  if (!found) return NULL;
   return res->cell;
 }
 
-Cell* lookup_symbol(char* name, env_entry** env) {
+Cell* lookup_symbol(char* name, env_t** env) {
   env_entry* res;
-  HASH_FIND_STR(*env, name, res);
-  if (!res) return NULL;
+  //HASH_FIND_STR(*env, name, res);
+  int found = sm_get(*env, name, (void**)&res);
+  if (!found) return NULL;
   return res->cell;
 }
 
-env_entry* intern_symbol(Cell* symbol, env_entry** env) {
+env_entry* intern_symbol(Cell* symbol, env_t** env) {
   env_entry* e;
-  HASH_FIND_STR(*env, symbol->addr, e);
-  if (!e) {
+  //HASH_FIND_STR(*env, symbol->addr, e);
+  int found = sm_get(*env, symbol->addr, (void**)&e);
+  if (!found) {
     e = malloc(sizeof(env_entry));
     strcpy(e->name, (char*)symbol->addr);
     e->cell = NULL;
-    HASH_ADD_STR(*env, name, e);
+    //HASH_ADD_STR(*env, name, e);
+    sm_put(*env, e->name, &e);
   }
   //printf("intern: %s at %p cell %p\n",symbol->addr,e,e->cell);
   return e;
 }
 
-Cell* insert_symbol(Cell* symbol, Cell* cell, env_entry** env) {
+Cell* insert_symbol(Cell* symbol, Cell* cell, env_t** env) {
   env_entry* e;
-  HASH_FIND_STR(*env, symbol->addr, e);
-
-#ifdef DEBUG
-  if (cell) {
+  printf("sm_get %s\r\n",symbol->addr);
+  //HASH_FIND_STR(*env, symbol->addr, e);
+  int found = sm_get(*env, symbol->addr, (void**)&e);
+  
+  printf("sm_get res: %d\r\n",found);
+  
+  /*if (cell) {
     printf("insert_symbol %s <- %x\n",symbol->addr,cell->value);
   } else {
     printf("insert_symbol %s <- NULL\n",symbol->addr);
-  }
-#endif
+    }*/
 
-  if (e) {
+  if (found) {
     e->cell = cell;
     return e->cell;
   }
-  //printf("++ alloc env entry %s (%d), symbol size %d\r\n",symbol->addr,sizeof(env_entry),symbol->size);
+  printf("++ alloc env entry %s (%d), symbol size %d\r\n",symbol->addr,sizeof(env_entry),symbol->size);
     
   e = malloc(sizeof(env_entry));
   memcpy(e->name, (char*)symbol->addr, symbol->size);
   e->cell = cell;
 
-  HASH_ADD_STR(*env, name, e);
+  //HASH_ADD_STR(*env, name, e);
+  sm_put(*env, e->name, &e);
 
   return e->cell;
 }
@@ -529,9 +537,9 @@ int compile_print(int retreg, Cell* args, tag_t required) {
 
 Cell* make_symbol_list() {
   Cell* end = alloc_nil();
-  for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
+  /*for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
     end = alloc_cons(alloc_string_copy(e->name), end);
-  }
+    }*/
   return end;
 }
 
@@ -732,7 +740,7 @@ Cell* call_dynamic_lambda(Cell** lbd_and_args, int args_supplied) {
   return result;
 }
 
-int compile_dynamic_lambda(int retreg, int lbd_reg, Cell* args, tag_t requires, env_entry** env) {
+int compile_dynamic_lambda(int retreg, int lbd_reg, Cell* args, tag_t requires, env_t** env) {
   // apply a function whose parameters we only learn at runtime
 
   // push the actual lambda to call
@@ -768,7 +776,7 @@ int compile_dynamic_lambda(int retreg, int lbd_reg, Cell* args, tag_t requires, 
 }
 
 // compile application of a compiled function
-int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_entry** env, int recursion) {
+int compile_lambda(int retreg, Cell* lbd, Cell* args, tag_t requires, env_t** env, int recursion) {
   jit_node_t* ret_label = jit_note(__FILE__, __LINE__);
 
   //printf("<lambda: %p>\n",lbd->next);
@@ -1520,8 +1528,12 @@ void init_compiler() {
   //memdump(0x6f460,0x200,0);
   //uart_getc();
   
-  printf("malloc test: %p\r\n",malloc(1024));
-  
+  //printf("malloc test: %p\r\n",malloc(1024));
+
+  printf("[compiler] creating global env hash table…\r\n");
+  global_env = sm_new(1000);
+
+  printf("[compiler] init_allocator…\r\n");
   init_allocator();
 
   int_cell_regs = (Cell*)malloc(10*sizeof(Cell));
@@ -1533,6 +1545,8 @@ void init_compiler() {
   jit_state_stack = (void*)malloc(3*50*sizeof(void*));
   
   error_cell = alloc_error(0);
+
+  printf("[compiler] inserting symbols…\r\n");
   
   insert_symbol(alloc_sym("+"), alloc_builtin(BUILTIN_ADD), &global_env);
   insert_symbol(alloc_sym("-"), alloc_builtin(BUILTIN_SUB), &global_env);
@@ -1540,8 +1554,12 @@ void init_compiler() {
   insert_symbol(alloc_sym("/"), alloc_builtin(BUILTIN_DIV), &global_env);
   insert_symbol(alloc_sym("%"), alloc_builtin(BUILTIN_MOD), &global_env);
   
+  printf("[compiler] arithmetic…\r\n");
+  
   insert_symbol(alloc_sym("lt"), alloc_builtin(BUILTIN_LT), &global_env);
   insert_symbol(alloc_sym("gt"), alloc_builtin(BUILTIN_GT), &global_env);
+  
+  printf("[compiler] compare…\r\n");
   
   insert_symbol(alloc_sym("if"), alloc_builtin(BUILTIN_IF), &global_env);
   insert_symbol(alloc_sym("while"), alloc_builtin(BUILTIN_WHILE), &global_env);
@@ -1550,6 +1568,8 @@ void init_compiler() {
   insert_symbol(alloc_sym("do"), alloc_builtin(BUILTIN_DO), &global_env);
   insert_symbol(alloc_sym("fn"), alloc_builtin(BUILTIN_FN), &global_env);
   
+  printf("[compiler] flow…\r\n");
+  
   insert_symbol(alloc_sym("quote"), alloc_builtin(BUILTIN_QUOTE), &global_env);
   insert_symbol(alloc_sym("car"), alloc_builtin(BUILTIN_CAR), &global_env);
   insert_symbol(alloc_sym("cdr"), alloc_builtin(BUILTIN_CDR), &global_env);
@@ -1557,11 +1577,15 @@ void init_compiler() {
   insert_symbol(alloc_sym("list"), alloc_builtin(BUILTIN_LIST), &global_env);
   insert_symbol(alloc_sym("map"), alloc_builtin(BUILTIN_MAP), &global_env);
 
+  printf("[compiler] lists…\r\n");
+  
   insert_symbol(alloc_sym("concat"), alloc_builtin(BUILTIN_CONCAT), &global_env);
   insert_symbol(alloc_sym("substr"), alloc_builtin(BUILTIN_SUBSTR), &global_env);
   insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC), &global_env);
   insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR), &global_env);
 
+  printf("[compiler] strings…\r\n");
+  
   insert_symbol(alloc_sym("get"), alloc_builtin(BUILTIN_GET), &global_env);
   insert_symbol(alloc_sym("uget"), alloc_builtin(BUILTIN_UGET), &global_env);
   insert_symbol(alloc_sym("put"), alloc_builtin(BUILTIN_PUT), &global_env);
@@ -1569,8 +1593,12 @@ void init_compiler() {
   insert_symbol(alloc_sym("size"), alloc_builtin(BUILTIN_SIZE), &global_env);
   insert_symbol(alloc_sym("usize"), alloc_builtin(BUILTIN_USIZE), &global_env);
 
+  printf("[compiler] get/put…\r\n");
+  
   insert_symbol(alloc_sym("write"), alloc_builtin(BUILTIN_WRITE), &global_env);
   insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL), &global_env);
+  
+  printf("[compiler] write/eval…\r\n");
   
   insert_symbol(alloc_sym("pixel"), alloc_builtin(BUILTIN_PIXEL), &global_env);
   insert_symbol(alloc_sym("rectfill"), alloc_builtin(BUILTIN_RECTFILL), &global_env);
@@ -1581,22 +1609,33 @@ void init_compiler() {
   insert_symbol(alloc_sym("blit-string"), alloc_builtin(BUILTIN_BLIT_STRING), &global_env);
   insert_symbol(alloc_sym("inkey"), alloc_builtin(BUILTIN_INKEY), &global_env);
   
+  printf("[compiler] graphics…\r\n");
+  
   insert_symbol(alloc_sym("gc"), alloc_builtin(BUILTIN_GC), &global_env);
   insert_symbol(alloc_sym("symbols"), alloc_builtin(BUILTIN_SYMBOLS), &global_env);
   insert_symbol(alloc_sym("load"), alloc_builtin(BUILTIN_LOAD), &global_env);
   insert_symbol(alloc_sym("save"), alloc_builtin(BUILTIN_SAVE), &global_env);
   
+  printf("[compiler] gc/load/save…\r\n");
+  
   insert_symbol(alloc_sym("udp-poll"), alloc_builtin(BUILTIN_UDP_POLL), &global_env);
   insert_symbol(alloc_sym("udp-send"), alloc_builtin(BUILTIN_UDP_SEND), &global_env);
 
+  printf("[compiler] udp…\r\n");
+  
   insert_symbol(alloc_sym("tcp-bind"), alloc_builtin(BUILTIN_TCP_BIND), &global_env);
   insert_symbol(alloc_sym("tcp-connect"), alloc_builtin(BUILTIN_TCP_CONNECT), &global_env);
   insert_symbol(alloc_sym("tcp-send"), alloc_builtin(BUILTIN_TCP_SEND), &global_env);
 
+  printf("[compiler] tcp…\r\n");
+  
   insert_symbol(alloc_sym("sin"), alloc_builtin(BUILTIN_SIN), &global_env);
   insert_symbol(alloc_sym("cos"), alloc_builtin(BUILTIN_COS), &global_env);
   insert_symbol(alloc_sym("sqrt"), alloc_builtin(BUILTIN_SQRT), &global_env);
 
-  int num_syms=HASH_COUNT(global_env);
+  printf("[compiler] math.\r\n");
+  
+  //int num_syms=HASH_COUNT(global_env);
+  int num_syms = sm_get_count(global_env);
   printf("sledge knows %u symbols. enter (symbols) to see them.\r\n", num_syms);
 }

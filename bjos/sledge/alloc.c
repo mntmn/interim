@@ -14,8 +14,9 @@ uint32_t free_list_consumed;
 
 Cell oom_cell;
 
-#define MAX_CELLS 5000000
-#define MAX_BYTE_HEAP 1024*1024*128
+// TODO define in machine specs
+#define MAX_CELLS 1000000
+#define MAX_BYTE_HEAP 1024*1024*8
 
 static struct MemStats mem_stats;
 
@@ -35,8 +36,14 @@ void init_allocator() {
   memset(cell_heap,0,cell_mem_reserved);
 
   free_list = malloc(MAX_CELLS*sizeof(Cell*));
+
+  printf("[allocator] initialized.\r\n");
   
   //byte_heap = malloc(MAX_BYTE_HEAP);
+}
+
+Cell* get_cell_heap() {
+  return cell_heap;
 }
 
 Cell* cell_alloc() {
@@ -103,24 +110,34 @@ void mark_tree(Cell* c) {
       lisp_write((Cell*)c->addr, buf, 511);
       printf("~~ mark lambda args: %s\n",buf);*/
       mark_tree((Cell*)c->addr); // function arguments
+      mark_tree((Cell*)c->next); // function signature
     }
   }
 }
 
-int collect_garbage(env_entry* global_env) {
+void collect_garbage_iter(const char *key, void *value, const void *obj)
+{
+  env_entry* e = (env_entry*)value;
+  printf("key: %s value: %s\n", key, value);
+  mark_tree(e->cell);
+}
+
+int collect_garbage(env_t* global_env) {
   // mark
 
   // check all symbols in the environment
   // and look where they lead (cons trees, bytes, strings)
   // mark all of them as usable
 
-  for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
+  sm_enum(global_env, collect_garbage_iter, NULL);
+
+  /*for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
     //printf("env entry: %s pointing to %p\n",e->name,e->cell);
     if (!e->cell) {
       //printf("~! warning: NULL env entry %s.\n",e->name);
     }
     mark_tree(e->cell);
-  }
+  }*/
 
   // sweep -- free all things that are not marked
 
@@ -196,6 +213,14 @@ Cell* alloc_cons(Cell* ar, Cell* dr) {
   cons->addr = ar?alloc_clone(ar):ar;
   cons->next = dr?alloc_clone(dr):dr;
   return cons;
+}
+
+Cell* alloc_list(Cell** items, int num) {
+  Cell* list = alloc_nil();
+  for (int i=num-1; i>=0; i--) {
+    list = alloc_cons(items[i], list);
+  }
+  return list;
 }
 
 //extern void uart_puts(char* str);
@@ -295,11 +320,11 @@ Cell* alloc_concat(Cell* str1, Cell* str2) {
   return cell;
 }
 
-Cell* alloc_builtin(unsigned int b) {
+Cell* alloc_builtin(unsigned int b, Cell* signature) {
   Cell* num = cell_alloc();
   num->tag = TAG_BUILTIN;
   num->value = b;
-  num->next = 0;
+  num->next = signature;
   return num;
 }
 

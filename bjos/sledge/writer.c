@@ -9,7 +9,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   bufsize--;
   
   buffer[0]=0;
-  if (cell == 0) {
+  if (cell == NULL) {
     snprintf(buffer, bufsize, "null");
   } else if (cell->tag == TAG_INT) {
     snprintf(buffer, bufsize, "%lld", cell->value);
