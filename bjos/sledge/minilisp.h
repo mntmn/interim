@@ -76,7 +76,7 @@ void  register_alien_func(char* symname, alien_func func);
 
 extern Cell* read_string(char* in);
 
-#define car(x) (x?(Cell*)x->addr:NULL)
-#define cdr(x) (x?(Cell*)x->next:NULL)
+#define car(x) (x?(Cell*)((Cell*)x)->addr:NULL)
+#define cdr(x) (x?(Cell*)((Cell*)x)->next:NULL)
 
 #endif

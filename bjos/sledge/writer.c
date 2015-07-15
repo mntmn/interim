@@ -66,7 +66,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   } else if (cell->tag == TAG_BYTES) {
     char* hex_buffer = malloc(cell->size*2+2);
     unsigned int i;
-    for (i=0; i<cell->size; i++) {
+    for (i=0; i<cell->size && i<bufsize; i++) {
       // FIXME: buffer overflow?
       snprintf(hex_buffer+i*2, bufsize-i*2, "%02x",((uint8_t*)cell->addr)[i]);
     }

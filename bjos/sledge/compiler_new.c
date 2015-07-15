@@ -124,7 +124,7 @@ void load_int(int dreg, Arg arg) {
 void load_cell(int dreg, Arg arg) {
   if (arg.type == ARGT_CELL || arg.type == ARGT_CONST) {
     if (arg.cell == NULL) {
-      jit_movr(dreg, R0);
+      jit_movr(dreg, R0); // FIXME: really true?
     } else {
       jit_lea(dreg, arg.cell);
     }
@@ -206,7 +206,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
   if (op->tag == TAG_BUILTIN) {
     signature_args = op->next;
   } else if (op->tag == TAG_LAMBDA) {
-    signature_args = op->addr;
+    signature_args = car((Cell*)(op->addr));
   }
   
   //lisp_write(op, debug_buf, sizeof(debug_buf));
@@ -292,6 +292,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
 
         if (given_tag == TAG_INT || given_tag == TAG_STR || given_tag == TAG_BYTES) {
           argdefs[argi].type = ARGT_CONST;
+          printf("const arg of type %d at %p\n",arg->tag,arg);
         }
       } else {
         // check if we can typecast
@@ -394,8 +395,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       }
 
       int slotc = 0;
-      for (int j=argi-3; j>=0; j--) {
-        printf("fn arg %d\n",j);
+      for (int j=argi-(MAXARGS-1); j>=0; j--) {
         Cell* arg = alloc_cons(alloc_sym(argdefs[j].cell->addr),alloc_int(TAG_ANY));
         fn_args = alloc_cons(arg,fn_args);
         
@@ -405,14 +405,15 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       }
       char sig_debug[128];
       lisp_write(fn_args, sig_debug, sizeof(sig_debug));
-      printf("signature: %s\n",sig_debug);
+      //printf("signature: %s\n",sig_debug);
 
       // body
       Cell* fn_body = argdefs[argi-2].cell;
 
-      Cell* lambda = alloc_lambda(fn_args);
+      lisp_write(fn_body, sig_debug, sizeof(sig_debug));
+      
+      Cell* lambda = alloc_lambda(alloc_cons(fn_args,fn_body));
       lambda->next = 0;
-
 
       char label_fn[64];
       char label_fe[64];

@@ -91,9 +91,9 @@ void mark_tree(Cell* c) {
   }
 
   if (!(c->tag & TAG_MARK)) {
-    /*char buf[80];
+    char buf[80];
     lisp_write(c, buf, 79);
-    printf("~~ marking live: %p %s\n",c,buf);*/
+    //printf("~~ marking live: %p %s\n",c,buf);
     
     c->tag |= TAG_MARK;
     
@@ -110,7 +110,13 @@ void mark_tree(Cell* c) {
       lisp_write((Cell*)c->addr, buf, 511);
       printf("~~ mark lambda args: %s\n",buf);*/
       mark_tree((Cell*)c->addr); // function arguments
-      mark_tree((Cell*)c->next); // function signature
+      //mark_tree((Cell*)c->next); // function body
+
+      // TODO: mark compiled code / free unused compiled code
+      // -- keep all compiled blobs in a list
+    }
+    else if (c->tag & TAG_BUILTIN) {
+      mark_tree((Cell*)c->next); // builtin signature
     }
   }
 }
@@ -118,7 +124,7 @@ void mark_tree(Cell* c) {
 void collect_garbage_iter(const char *key, void *value, const void *obj)
 {
   env_entry* e = (env_entry*)value;
-  printf("key: %s value: %s\n", key, value);
+  //printf("key: %s value: %s\n", key, value);
   mark_tree(e->cell);
 }
 
@@ -210,8 +216,8 @@ Cell* alloc_cons(Cell* ar, Cell* dr) {
   //printf("alloc_cons: ar %p dr %p\n",ar,dr);
   Cell* cons = cell_alloc();
   cons->tag = TAG_CONS;
-  cons->addr = ar?alloc_clone(ar):ar;
-  cons->next = dr?alloc_clone(dr):dr;
+  cons->addr = ar; //?alloc_clone(ar):ar;
+  cons->next = dr; //?alloc_clone(dr):dr;
   return cons;
 }
 
