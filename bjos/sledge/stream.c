@@ -10,6 +10,10 @@ typedef jit_word_t (*funcptr)();
 
 // TODO: include fs_list in gc mark
 
+Cell* get_fs_list() {
+  return fs_list;
+}
+
 Cell* fs_open(Cell* path) {
   Cell* fsl = fs_list;
   Cell* fs_cell;
@@ -55,9 +59,11 @@ Cell* fs_mount(Cell* path, Cell* handlers) {
   fs->delete_fn = car(handlers);
   handlers = cdr(handlers);
   fs->mount_point = path;
+  fs->close_fn = NULL;
 
   Cell* fs_cell = alloc_int(num_fs++);
   fs_cell->next = fs;
+  fs_cell->tag = TAG_FS;
   
   printf("[fs] mounted: %s\n",path->addr);
   fs_list = alloc_cons(fs_cell, fs_list);
@@ -83,8 +89,9 @@ Cell* stream_write(Cell* stream, Cell* arg) {
   Stream* s = (Stream*)stream->addr;
   Cell* write_fn = s->fs->write_fn;
   char debug_buf[256];
-  lisp_write(write_fn, debug_buf, 256);
+  lisp_write(arg, debug_buf, 256);
   //printf("[stream_write] fn: %s ptr: %p\n",debug_buf,write_fn->next);
+  //printf("[stream_write] arg: %s\n",debug_buf);
   return (Cell*)((funcptr)write_fn->next)(arg);
 }
 

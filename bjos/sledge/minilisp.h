@@ -21,6 +21,7 @@
 #define TAG_ANY 2048
 #define TAG_VOID 4096
 #define TAG_STREAM 8192
+#define TAG_FS 16384
 
 #define TAG_MARK 65536
 

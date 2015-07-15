@@ -88,8 +88,10 @@ static int fb_state = 0;
 static int cursor_x = 0;
 static int cursor_y = 0;
 
+static int fb_count = 0;
+
 Cell* fbfs_write(Cell* arg) {
-  printf("[fbfs_write] %lx\n",arg->value);
+  //printf("[fbfs_write] %lx\n",arg->value);
   if (fb_state==0) {
     cursor_x = arg->value;
   }
@@ -98,9 +100,14 @@ Cell* fbfs_write(Cell* arg) {
   }
   else {
     sdl_setpixel(cursor_x,cursor_y,arg->value);
-    SDL_Event event;
-    SDL_PollEvent(&event);
-    SDL_UpdateWindowSurface(win);
+    fb_count++;
+
+    if (fb_count==1920) {
+      SDL_Event event;
+      SDL_PollEvent(&event);
+      SDL_UpdateWindowSurface(win);
+      fb_count=0;
+    }
   }
   fb_state++;
   if (fb_state>2) fb_state = 0;

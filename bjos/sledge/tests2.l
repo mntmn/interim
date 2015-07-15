@@ -25,4 +25,22 @@
 (def fb (open "/framebuffer"))
 (def pixel (fn x y color (do (send fb x) (send fb y) (send fb color) )))
 
-(pixel 50 50 0xffffff)
+(def y 50)
+(def x 50)
+(def c 0)
+(def paint (fn (do
+(def y 50)
+(def x 50)
+(while (lt y 400) (do
+  (def x 0)
+  (while (lt x 400) (do
+    (pixel x y (+ c (* y x)))
+    (def x (+ x 1))
+  ))
+  (def y (+ y 1))
+))
+(def c (+ c 0x010101))
+(gc)
+)))
+
+(while 1 (paint))

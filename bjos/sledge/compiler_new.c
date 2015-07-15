@@ -159,10 +159,47 @@ int get_sym_arg_slot(char* argname, Arg* fn_frame) {
   return 0;
 }
 
+void push_frame_regs(Arg* fn_frame) {
+  if (!fn_frame) return;
+  
+  int pushc=0;
+  for (int i=0; i<MAXARGS; i++) {
+    if (fn_frame[i].type == ARGT_REG) {
+      pushc++;
+    }
+  }
+  printf("pushing %d regs\n",pushc);
+  if (pushc) {
+    jit_push(R3,R3+pushc-1);
+  }
+}
+
+void pop_frame_regs(Arg* fn_frame) {
+  if (!fn_frame) return;
+  
+  int pushc=0;
+  for (int i=0; i<MAXARGS; i++) {
+    if (fn_frame[i].type == ARGT_REG) {
+      pushc++;
+    }
+  }
+  printf("popping %d regs\n",pushc);
+  if (pushc) {
+    jit_pop(R3,R3+pushc-1);
+  }
+}
+
 int compile_expr(Cell* expr, Arg* fn_frame) {
 
   if (expr->tag != TAG_CONS) {
     if (expr->tag == TAG_SYM) {
+      
+      int arg_slot = get_sym_arg_slot(expr->addr, fn_frame);
+      if (arg_slot) {
+        jit_movr(R0, R2+arg_slot);
+        return 0;
+      }
+
       env_entry* env = lookup_global_symbol(expr->addr);
       if (env) {
         Cell* value = env->cell;
@@ -396,7 +433,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       }
 
       int slotc = 0;
-      for (int j=argi-(MAXARGS-1); j>=0; j--) {
+      for (int j=argi-3; j>=0; j--) {
         Cell* arg = alloc_cons(alloc_sym(argdefs[j].cell->addr),alloc_int(TAG_ANY));
         fn_args = alloc_cons(arg,fn_args);
         
@@ -686,7 +723,9 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
     case BUILTIN_SEND: {
       load_cell(R1,argdefs[0]);
       load_cell(R2,argdefs[1]);
+      push_frame_regs(fn_frame);
       jit_call(stream_write,"stream_write");
+      pop_frame_regs(fn_frame);
       break;
     }
     }

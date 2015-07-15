@@ -1,6 +1,7 @@
 #include "alloc.h"
 #include <malloc.h>
 #include <stdint.h>
+#include "stream.h"
 
 void* byte_heap;
 Cell* cell_heap;
@@ -118,6 +119,19 @@ void mark_tree(Cell* c) {
     else if (c->tag & TAG_BUILTIN) {
       mark_tree((Cell*)c->next); // builtin signature
     }
+    else if (c->tag & TAG_STREAM) {
+      Stream* s = (Stream*)c->addr;
+      mark_tree(s->path);
+    }
+    else if (c->tag & TAG_FS) {
+      Filesystem* fs = (Filesystem*)c->next;
+      mark_tree(fs->mount_point);
+      mark_tree(fs->open_fn);
+      mark_tree(fs->close_fn);
+      mark_tree(fs->read_fn);
+      mark_tree(fs->write_fn);
+      mark_tree(fs->delete_fn);
+    }
   }
 }
 
@@ -136,6 +150,7 @@ int collect_garbage(env_t* global_env) {
   // mark all of them as usable
 
   sm_enum(global_env, collect_garbage_iter, NULL);
+  mark_tree(get_fs_list());
 
   /*for (env_entry* e=global_env; e != NULL; e=e->hh.next) {
     //printf("env entry: %s pointing to %p\n",e->name,e->cell);
