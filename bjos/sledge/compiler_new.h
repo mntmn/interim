@@ -1,4 +1,6 @@
 
+typedef jit_word_t (*funcptr)();
+
 typedef enum builtin_t {
   BUILTIN_ADD = 1,
   BUILTIN_SUB,
@@ -41,9 +43,15 @@ typedef enum builtin_t {
   BUILTIN_DO,
 
   BUILTIN_EVAL,
+  BUILTIN_READ,
   BUILTIN_WRITE,
 
   BUILTIN_PRINT,
+  BUILTIN_MOUNT,
+  BUILTIN_OPEN,
+  BUILTIN_CLOSE,
+  BUILTIN_RECV,
+  BUILTIN_SEND,
 
   BUILTIN_PIXEL,
   BUILTIN_FLIP,

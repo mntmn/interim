@@ -4,6 +4,7 @@
 #include "alloc.h"
 #include "machine.h"
 #include "compiler_new.h"
+#include "stream.h"
 #include "utf8.c"
 
 #define env_t StrMap
@@ -141,7 +142,7 @@ void load_cell(int dreg, Arg arg) {
   }
 }
 
-#define MAXARGS 4
+#define MAXARGS 5
 
 int get_sym_arg_slot(char* argname, Arg* fn_frame) {
   if (!fn_frame) return 0;
@@ -489,6 +490,25 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       }
       break;
     }
+    case BUILTIN_LIST: {
+      args = orig_args;
+      Cell* arg;
+      int n = 0;
+      while ((arg = car(args))) {
+        compile_expr(arg, fn_frame);
+        jit_push(R0,R0);
+        args = cdr(args);
+        n++;
+      }
+      jit_call(alloc_nil, "list:alloc_nil");
+      jit_movr(R2,R0);
+      for (int i=0; i<n; i++) {
+        jit_pop(R1,R1);
+        jit_call(alloc_cons, "list:alloc_cons");
+        jit_movr(R2,R0);
+      }
+      break;
+    }
     case BUILTIN_QUOTE: {
       args = orig_args;
       Cell* arg = car(args);
@@ -617,6 +637,18 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       jit_call(alloc_num_string,"alloc_string");
       break;
     }
+    case BUILTIN_WRITE: {
+      load_cell(R1,argdefs[0]);
+      load_cell(R2,argdefs[1]);
+      jit_call(lisp_write_to_cell,"lisp_write_to_cell");
+      break;
+    }
+    case BUILTIN_READ: {
+      load_cell(R1,argdefs[0]);
+      jit_ldr(R1);
+      jit_call(read_string,"read_string");
+      break;
+    }
     case BUILTIN_SIZE: {
       load_cell(R1,argdefs[0]);
       jit_addi(R1,8); // fetch size -> R0
@@ -633,6 +665,28 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
     case BUILTIN_PRINT: {
       load_cell(R1,argdefs[0]);
       jit_call(lisp_print,"lisp_print");
+      break;
+    }
+    case BUILTIN_MOUNT: {
+      load_cell(R1,argdefs[0]);
+      load_cell(R2,argdefs[1]);
+      jit_call(fs_mount,"fs_mount");
+      break;
+    }
+    case BUILTIN_OPEN: {
+      load_cell(R1,argdefs[0]);
+      jit_call(fs_open,"fs_open");
+      break;
+    }
+    case BUILTIN_RECV: {
+      load_cell(R1,argdefs[0]);
+      jit_call(stream_read,"stream_read");
+      break;
+    }
+    case BUILTIN_SEND: {
+      load_cell(R1,argdefs[0]);
+      load_cell(R2,argdefs[1]);
+      jit_call(stream_write,"stream_write");
       break;
     }
     }
@@ -664,6 +718,9 @@ void init_compiler() {
 
   printf("[compiler] init_allocator…\r\n");
   init_allocator();
+
+  printf("[compiler] init_filesystems…\r\n");
+  filesystems_init();
 
   consed_type_error = alloc_cons(alloc_error(ERR_INVALID_PARAM_TYPE),alloc_nil());
   
@@ -715,14 +772,22 @@ void init_compiler() {
   insert_symbol(alloc_sym("uput"), alloc_builtin(BUILTIN_UPUT), &global_env);
   insert_symbol(alloc_sym("usize"), alloc_builtin(BUILTIN_USIZE), &global_env);
 
-  printf("[compiler] get/put…\r\n");
+  printf("[compiler] get/put…\r\n");*/
   
-  insert_symbol(alloc_sym("write"), alloc_builtin(BUILTIN_WRITE), &global_env);
-  insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL), &global_env);
+  insert_symbol(alloc_sym("write"), alloc_builtin(BUILTIN_WRITE, alloc_list((Cell*[]){alloc_int(TAG_ANY), alloc_int(TAG_STR)},2)), &global_env);
+  insert_symbol(alloc_sym("read"), alloc_builtin(BUILTIN_READ, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
+  insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL, alloc_list((Cell*[]){alloc_int(TAG_ANY)},1)), &global_env);
+
+  
+  insert_symbol(alloc_sym("mount"), alloc_builtin(BUILTIN_MOUNT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_CONS)},2)), &global_env);
+  insert_symbol(alloc_sym("open"), alloc_builtin(BUILTIN_OPEN, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
+  insert_symbol(alloc_sym("recv"), alloc_builtin(BUILTIN_RECV, alloc_list((Cell*[]){alloc_int(TAG_STREAM)},1)), &global_env);
+  insert_symbol(alloc_sym("send"), alloc_builtin(BUILTIN_SEND, alloc_list((Cell*[]){alloc_int(TAG_STREAM),alloc_int(TAG_ANY)},2)), &global_env);
+
   
   printf("[compiler] write/eval…\r\n");
   
-  insert_symbol(alloc_sym("pixel"), alloc_builtin(BUILTIN_PIXEL), &global_env);
+  /*insert_symbol(alloc_sym("pixel"), alloc_builtin(BUILTIN_PIXEL), &global_env);
   insert_symbol(alloc_sym("rectfill"), alloc_builtin(BUILTIN_RECTFILL), &global_env);
   insert_symbol(alloc_sym("flip"), alloc_builtin(BUILTIN_FLIP), &global_env);
   insert_symbol(alloc_sym("blit"), alloc_builtin(BUILTIN_BLIT), &global_env);

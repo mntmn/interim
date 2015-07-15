@@ -1,5 +1,8 @@
 #include <stdio.h>
-#include <SDL2/SDL.h>
+#include "sdl.h"
+#include "minilisp.h"
+#include "alloc.h"
+#include "stream.h"
 
 #define WIDTH 1920
 #define HEIGHT 1080
@@ -69,4 +72,43 @@ int sdl_mainloop()
   SDL_UpdateWindowSurface(win);
   
   return 0;
+}
+
+
+Cell* fbfs_open() {
+  sdl_init(0);
+  return alloc_int(1);
+}
+
+Cell* fbfs_read() {
+  return alloc_int(0);
+}
+
+static int fb_state = 0;
+static int cursor_x = 0;
+static int cursor_y = 0;
+
+Cell* fbfs_write(Cell* arg) {
+  printf("[fbfs_write] %lx\n",arg->value);
+  if (fb_state==0) {
+    cursor_x = arg->value;
+  }
+  else if (fb_state==1) {
+    cursor_y = arg->value;
+  }
+  else {
+    sdl_setpixel(cursor_x,cursor_y,arg->value);
+    SDL_Event event;
+    SDL_PollEvent(&event);
+    SDL_UpdateWindowSurface(win);
+  }
+  fb_state++;
+  if (fb_state>2) fb_state = 0;
+  return arg;
+}
+
+
+
+void sdl_mount_fbfs() {
+  fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0);
 }

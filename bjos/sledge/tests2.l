@@ -21,3 +21,8 @@
 (gc)
 ))))
 
+
+(def fb (open "/framebuffer"))
+(def pixel (fn x y color (do (send fb x) (send fb y) (send fb color) )))
+
+(pixel 50 50 0xffffff)

@@ -6,3 +6,5 @@ int sdl_mainloop();
 
 int sdl_get_key();
 int sdl_get_modifiers();
+
+void sdl_mount_fbfs();

@@ -1,0 +1,54 @@
+
+(def tty-fs-read (fn path from len (
+  
+)))
+
+(mount "/dev/tty" (list tty-fs-read tty-fs-write tty-fs-delete))
+
+(def tty (open "/dev/tty"))    ; --> bytestream or null
+(def fb (open "/dev/fb"))    ; --> bytestream or null
+
+(def put-pixel (fn x y c (
+  (def offset (* 4 (+ x (* y fb-width))))
+  (put fb offset c)
+  (put fb (+ offset 1) (/ c 256))
+  (put fb (+ offset 2) (/ c 65536))
+))
+
+(def x 0)
+(while tty (do
+  (def in-char (recv tty))
+  (send tty in-char)
+  (put-pixel x 0 0xffffff)
+  (def x (+ x 1))
+))
+
+(close tty)
+
+-------------------------
+
+shr
+
+
+1. open
+2. close
+3. recv
+4. send
+3. mount
+
+
+
+
+-------------------------
+syntax sugar ideas
+-------------------------
+
+
+
+def tty-fs-read (fn path from len {
+  
+})
+
+defn tty-fs-read path from len {
+  concat one two
+}
