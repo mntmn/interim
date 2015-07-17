@@ -150,8 +150,10 @@ void jit_divr(int dreg, int sreg) {
 }
 
 void jit_call(void* func, char* note) {
+  code[code_idx++] = 0xe92d4000; // stmfd	sp!, {lr}
   jit_movr(14,15);
   jit_lea(15,func);
+  code[code_idx++] = 0xe8bd4000; // ldmfd	sp!, {lr}
   
   //fprintf(jit_out, "mov $%p, %%rax\n", func);
   //fprintf(jit_out, "callq *%%rax # %s\n", note);
@@ -182,7 +184,7 @@ void jit_label(char* label) {
 }
 
 void jit_ret() {
-  fprintf(jit_out, "ret\n");
+  jit_movr(15,14); // lr -> pc
 }
 
 void jit_push(int r1, int r2) {
