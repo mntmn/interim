@@ -20,38 +20,33 @@ int main() {
   memset(code, 0, CODESZ);
   cpool_idx = 128; // 128 ops gap
 
-  jit_movi(8, 0xdead0000);
-  jit_call(hello,"printf");
-  jit_movi(8, 0xdead0000);
-  jit_movi(7, 0x0000beef);
-  jit_addr(7,8);
-  jit_movr(0,8);
-  jit_movneg(0,7);
-  jit_movr(15,14); // ret
+  uint32_t* fb = malloc(1024);
 
-  jit_movr(1,3);
-  jit_movne(9,8);
-  jit_movi(1, 0xcafebabe);
-  jit_lea(1, code);
-  jit_ldr(1);
-  jit_ldrb(1);
-  jit_strb(2);
-  jit_strw(3);
-  jit_addr(4,1);
-  jit_subr(4,1);
-  jit_mulr(4,1);
-  jit_movi(2, 0xaaaaffff);
-  jit_movi(3, 0x12345678);
+  jit_movi(1,0);
+  jit_movi(5,0);
+  jit_movi(2,0xffffff);
+  jit_lea(3,fb);
+  jit_label("loop");
+  
+  jit_strw(2);
+  jit_addr(3,4);
+  jit_addr(5,1);
+  jit_cmpi(5,0xff);
+  
+  jit_jne("loop");
+  jit_ret();
+  jit_ret();
+  
 
   FILE* f = fopen("/tmp/test","w");
   fwrite(code, CODESZ, 1, f);
   fclose(f);
 
-  int mp_res = mprotect(code, CODESZ, PROT_EXEC|PROT_READ);
+  /*int mp_res = mprotect(code, CODESZ, PROT_EXEC|PROT_READ);
 
   funcptr fn = (funcptr)code;
   uint32_t res = fn();
-  printf("asm result: %lx\n",res);
+  printf("asm result: %lx\n",res);*/
 
   //free(code);
   //munmap(code);
