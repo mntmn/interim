@@ -26,8 +26,14 @@ void sdl_cleanup() {
   SDL_Quit();
 }
 
+static int sdl_initialized = 0;
+
 void* sdl_init(int fullscreen)
 {
+  if (sdl_initialized) return screen->pixels;
+
+  sdl_initialized = 1;
+  
   SDL_Init(SDL_INIT_VIDEO);
 
   win = SDL_CreateWindow("sledge", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, (fullscreen?SDL_WINDOW_FULLSCREEN:0));
@@ -74,6 +80,14 @@ int sdl_mainloop()
   return 0;
 }
 
+void* sdl_get_fb() {
+  return screen->pixels;
+}
+
+long sdl_get_fbsize() {
+  return WIDTH*HEIGHT*BPP;
+}
+
 
 Cell* fbfs_open() {
   sdl_init(0);
@@ -92,25 +106,13 @@ static int fb_count = 0;
 
 Cell* fbfs_write(Cell* arg) {
   //printf("[fbfs_write] %lx\n",arg->value);
-  if (fb_state==0) {
-    cursor_x = arg->value;
-  }
-  else if (fb_state==1) {
-    cursor_y = arg->value;
-  }
-  else {
-    sdl_setpixel(cursor_x,cursor_y,arg->value);
-    fb_count++;
-
-    if (fb_count==1920) {
+  
+    //if (fb_count==1920) {
       SDL_Event event;
       SDL_PollEvent(&event);
       SDL_UpdateWindowSurface(win);
       fb_count=0;
-    }
-  }
-  fb_state++;
-  if (fb_state>2) fb_state = 0;
+      //}
   return arg;
 }
 

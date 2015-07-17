@@ -8,8 +8,7 @@
 
 #include "sdl.h"
 
-#define MAX_INT 4294967296
-//#define DEBUG 0
+#define DEBUG
 
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[31m"
@@ -19,11 +18,6 @@
 #define KMAG  "\x1B[35m"
 #define KCYN  "\x1B[36m"
 #define KWHT  "\x1B[37m"
-
-//static jit_state_t *_jit;
-static void *stack_ptr, *stack_base;
-
-//#include "compiler.c"
 
 #include "compiler_new.c"
 
@@ -57,35 +51,31 @@ int main(int argc, char *argv[])
   size_t len = 0;
 
   init_compiler();
-
-  sdl_mount_fbfs();
   
   int fullscreen = 0;
 
   if (argc>1 && !strcmp(argv[1],"-f")) {
     fullscreen = 1;
   }
+  
+  sdl_mount_fbfs();
 
-  //uint32_t* FB = 0; //(uint32_t*)sdl_init(fullscreen);
-  //init_blitter(FB);
+  sdl_init(0);
+  Cell* fbtest = alloc_num_bytes(0);
+  fbtest->addr = sdl_get_fb();
+  fbtest->size = sdl_get_fbsize();
+  printf("fbtest->addr: %p\n",fbtest->addr);
+  printf("fbtest->size: %lx\n",fbtest->size);
   
-  //Cell* unif = machine_load_file("unifont");
-  //printf("~~ unifont is at %p\r\n",unif->addr);
-  
-  //extern uint8_t* blitter_speedtest(uint8_t* font);
-  //unif->addr = blitter_speedtest(unif->addr);
-  //insert_symbol(alloc_sym("unifont"), unif, &global_env);
+  insert_symbol(alloc_sym("fb"), fbtest, &global_env);
 
-  //network_cell = alloc_num_bytes(1024*64+1);
-  //insert_symbol(alloc_sym("network-input"), network_cell, &global_env);
-  
   int in_offset = 0;
   int parens = 0;
 
   int jit_inited = 0;
   int sdl_inited = 0;
 
-  stack_ptr = stack_base = malloc(4096 * sizeof(jit_word_t));
+  //stack_ptr = stack_base = malloc(4096 * sizeof(jit_word_t));
 
   while (1) {
     expr = NULL;
@@ -121,22 +111,10 @@ int main(int argc, char *argv[])
       in_offset=0;
     }
     
-    //jit_node_t  *in;
     funcptr     compiled;
     
-    if (expr) {
-      if (!jit_inited) { 
-        //init_jit(argv[0]);
-        jit_inited = 1;
-      }
-
-      //stack_ptr = stack_base;
-        
-      //_jit = jit_new_state();
-      //jit_prolog();
-      
+    if (expr) {      
       Cell* res;
-      //int success = compile_arg(JIT_R0, expr, TAG_ANY);
       int success = 1;
       
       jit_out = fopen("/tmp/jit_out.s","w");
@@ -145,12 +123,6 @@ int main(int argc, char *argv[])
       jit_ret();
 
       if (success) {
-        //compiled = jit_emit();
-      
-#ifdef DEBUG
-        //jit_disassemble();
-        start_clock();
-#endif
         fclose(jit_out);
 
         FILE* asm_f = fopen("/tmp/jit_out.s","r");
@@ -158,22 +130,27 @@ int main(int argc, char *argv[])
         memset(jit_asm, 0, 4096);
         fread(jit_asm,1,4096,asm_f);
         fclose(asm_f);
+        
+#ifdef DEBUG
+        start_clock();
         printf("\nJIT ---------------------\n%s-------------------------\n\n",jit_asm);
-
+#endif
+        
         // prefix with arm-none-eabi- on ARM  -mlittle-endian
       
         system("as /tmp/jit_out.s -o /tmp/jit_out.o");
         system("objcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
 
         FILE* binary_f = fopen("/tmp/jit_out.bin","r");
-        //uint32_t* jit_binary = malloc(4096);
 
         uint32_t* jit_binary = mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
         
         int bytes_read = fread(jit_binary,1,4096,binary_f);
         fclose(binary_f);
 
+#ifdef DEBUG
         printf("<assembled bytes: %d at: %p>\n",bytes_read,jit_binary);
+#endif
 
         // read symbols for linking lambdas
         system("nm /tmp/jit_out.o > /tmp/jit_out.syms");
@@ -195,7 +172,7 @@ int main(int argc, char *argv[])
                   // TODO: 64/32 bit
                   unsigned long long offset = strtoul(link_line, NULL, 16);
                   void* binary = ((uint8_t*)jit_binary) + offset;
-                  printf("function %p entrypoint: %p (+%ld)\n",lambda,binary,offset);
+                  //printf("function %p entrypoint: %p (+%ld)\n",lambda,binary,offset);
 
                   if (lambda->tag == TAG_LAMBDA) {
                     lambda->next = binary;
@@ -206,7 +183,7 @@ int main(int argc, char *argv[])
                 else if (idb=='1') {
                   // function exit
                   unsigned long long offset = strtoul(link_line, NULL, 16);
-                  printf("function exit point: %p\n",offset);
+                  //printf("function exit point: %p\n",offset);
                 }
               }
             }
@@ -243,16 +220,9 @@ int main(int argc, char *argv[])
 
       //MemStats* mst = alloc_stats();
       //printf("%lu heap bytes, %lu/%lu stack bytes used\n",mst->heap_bytes_used,mst->stack_bytes_used,mst->stack_bytes_max);
-
-      //collect_garbage(global_env);
-      
-      //jit_clear_state();
-      //jit_destroy_state();
-    } else {
     }
 
     //sdl_mainloop();
   }
-  //finish_jit();
   return 0;
 }

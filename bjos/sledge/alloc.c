@@ -16,7 +16,7 @@ uint32_t free_list_consumed;
 Cell oom_cell;
 
 // TODO define in machine specs
-#define MAX_CELLS 1000000
+#define MAX_CELLS 10000000
 #define MAX_BYTE_HEAP 1024*1024*8
 
 static struct MemStats mem_stats;

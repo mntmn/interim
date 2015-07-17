@@ -30,6 +30,7 @@ typedef enum builtin_t {
 
   BUILTIN_GET,
   BUILTIN_PUT,
+  BUILTIN_PUT32,
   BUILTIN_SIZE,
 
   BUILTIN_UGET,

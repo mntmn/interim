@@ -20,7 +20,6 @@ env_entry* lookup_global_symbol(char* name) {
 
 Cell* insert_symbol(Cell* symbol, Cell* cell, env_t** env) {
   env_entry* e;
-  //HASH_FIND_STR(*env, symbol->addr, e);
   int found = sm_get(*env, symbol->addr, (void**)&e);
   
   //printf("sm_get res: %d\r\n",found);
@@ -30,14 +29,12 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_t** env) {
     //printf("[insert_symbol] update %s entry at %p (cell: %p value: %d)\r\n",symbol->addr,e,e->cell,e->cell->value);
     return e->cell;
   }
-  //printf("++ alloc env entry %s (%d), symbol size %d\r\n",symbol->addr,sizeof(env_entry),symbol->size);
     
   e = malloc(sizeof(env_entry));
   memcpy(e->name, (char*)symbol->addr, symbol->size);
   e->cell = cell;
 
-  //HASH_ADD_STR(*env, name, e);
-  printf("[insert_symbol] %s entry at %p (cell: %p)\r\n",symbol->addr,e,e->cell);
+  //printf("[insert_symbol] %s entry at %p (cell: %p)\r\n",symbol->addr,e,e->cell);
   sm_put(*env, e->name, e);
 
   return e->cell;
@@ -54,8 +51,11 @@ enum jit_reg {
   R3,
   R4,
   R5,
-  R6
+  R6,
+  R7
 };
+
+#define LBDREG R4
 
 static FILE* jit_out;
 static Cell* cell_heap_start;
@@ -114,7 +114,7 @@ void load_int(int dreg, Arg arg) {
     jit_ldr(dreg);
   }
   else if (arg.type == ARGT_REG) {
-    jit_movr(dreg, R3+arg.slot);
+    jit_movr(dreg, LBDREG+arg.slot);
     jit_ldr(dreg);
   }
   else {
@@ -135,7 +135,7 @@ void load_cell(int dreg, Arg arg) {
     jit_ldr(dreg);
   }
   else if (arg.type == ARGT_REG) {
-    jit_movr(dreg, R3+arg.slot);
+    jit_movr(dreg, LBDREG+arg.slot);
   }
   else {
     jit_movi(dreg, (void*)0xdeadcafe);
@@ -148,8 +148,7 @@ int get_sym_arg_slot(char* argname, Arg* fn_frame) {
   if (!fn_frame) return 0;
   
   for (int i=0; i<MAXARGS; i++) {
-    printf("fn_frame %d: %p\n",i,fn_frame[i]);
-    printf("get_sym_arg_slot %i: %p %s\n",i,fn_frame[i].name,fn_frame[i].name);
+    //printf("get_sym_arg_slot %i: %p %s\n",i,fn_frame[i].name,fn_frame[i].name);
     if (fn_frame[i].name) {
       if (!strcmp(argname, fn_frame[i].name)) {
         return i+1;
@@ -159,6 +158,7 @@ int get_sym_arg_slot(char* argname, Arg* fn_frame) {
   return 0;
 }
 
+// TODO: optimize!
 void push_frame_regs(Arg* fn_frame) {
   if (!fn_frame) return;
   
@@ -168,9 +168,9 @@ void push_frame_regs(Arg* fn_frame) {
       pushc++;
     }
   }
-  printf("pushing %d regs\n",pushc);
+  printf("pushing %d frame regs\n",pushc);
   if (pushc) {
-    jit_push(R3,R3+pushc-1);
+    jit_push(LBDREG,LBDREG+pushc-1);
   }
 }
 
@@ -183,9 +183,9 @@ void pop_frame_regs(Arg* fn_frame) {
       pushc++;
     }
   }
-  printf("popping %d regs\n",pushc);
+  printf("popping %d frame regs\n",pushc);
   if (pushc) {
-    jit_pop(R3,R3+pushc-1);
+    jit_pop(LBDREG,LBDREG+pushc-1);
   }
 }
 
@@ -288,6 +288,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
           // eager evaluation
           // nested expression
           if (argi>0) {
+            printf("argi: %d\n",argi);
             // save registers
             jit_push(R1,R1+argi-1);
           }
@@ -330,7 +331,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
 
         if (given_tag == TAG_INT || given_tag == TAG_STR || given_tag == TAG_BYTES) {
           argdefs[argi].type = ARGT_CONST;
-          printf("const arg of type %d at %p\n",arg->tag,arg);
+          //printf("const arg of type %d at %p\n",arg->tag,arg);
         }
       } else {
         // check if we can typecast
@@ -637,7 +638,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       //sprintf(label_noskip,"noskip_%d",label_skip_count);
     
       load_cell(R1,argdefs[0]);
-      jit_movr(R4,R1);
+      jit_push(R1,R1);
       load_int(R2,argdefs[1]); // offset -> R2
       jit_cmpi(R2,0);
       jit_jneg(label_skip); // negative offset?
@@ -658,9 +659,40 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       //jit_jmp(label_noskip);
       
       jit_label(label_skip);
-      jit_movr(R0,R4);
+      jit_pop(R0,R0); // restore arg0
       //jit_lea(R0,alloc_error(ERR_OUT_OF_BOUNDS));
       //jit_label(label_noskip);
+      
+      break;
+    }
+    case BUILTIN_PUT32: {
+      char label_skip[64];
+      //char label_noskip[64];
+      sprintf(label_skip,"skip_%d",++label_skip_count);
+    
+      load_cell(R1,argdefs[0]);
+      jit_push(R1,R1);
+      load_int(R2,argdefs[1]); // offset -> R2
+      //jit_cmpi(R2,0);
+      //jit_jneg(label_skip); // negative offset?
+      load_int(R3,argdefs[2]); // word to store -> R3
+
+      jit_movr(R0,R1);
+      jit_addi(R0,8); // fetch size -> R0
+      jit_ldr(R0);
+
+      jit_subr(R0,R2);
+      jit_jneg(label_skip); // overflow? (R2>R0)
+      jit_je(label_skip); // overflow? (R2==R0)
+
+      jit_ldr(R1); // string address
+      jit_addr(R1,R2);
+      jit_strw(R1); // store from r3
+      
+      //jit_jmp(label_noskip);
+      
+      jit_label(label_skip);
+      jit_pop(R0,R0); // restore arg0
       
       break;
     }
@@ -733,7 +765,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
     // lambda call
     //printf("-> would jump to lambda at %p\n",op->next);
     for (int j=0; j<argi-1; j++) {
-      load_cell(R3+j, argdefs[j]);
+      load_cell(LBDREG+j, argdefs[j]);
     }
     jit_call(op->next,"lambda");
   }
@@ -801,6 +833,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("substr"), alloc_builtin(BUILTIN_SUBSTR, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
   insert_symbol(alloc_sym("get"), alloc_builtin(BUILTIN_GET, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT)}, 2)), &global_env);
   insert_symbol(alloc_sym("put"), alloc_builtin(BUILTIN_PUT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
+  insert_symbol(alloc_sym("put32"), alloc_builtin(BUILTIN_PUT32, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
   insert_symbol(alloc_sym("size"), alloc_builtin(BUILTIN_SIZE, alloc_list((Cell*[]){alloc_int(TAG_STR)}, 1)), &global_env);
   insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC, alloc_list((Cell*[]){alloc_int(TAG_INT)}, 1)), &global_env);
   insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR, alloc_list((Cell*[]){alloc_int(TAG_INT)}, 1)), &global_env);

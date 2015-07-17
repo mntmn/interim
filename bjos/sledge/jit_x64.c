@@ -4,7 +4,6 @@ char* regnames[] = {
   "%rdi",
   "%rsi",
   "%rdx",
-  "%rcx",
   "%r8",
   "%r9",
   "%r10",
@@ -44,9 +43,14 @@ void jit_ldrb(int reg) {
   }
 }
 
-// only from rdx!
+// 8 bit only from rdx!
 void jit_strb(int reg) {
   fprintf(jit_out, "movb %%dl, (%s)\n", regnames[reg]);
+}
+
+// 32 bit only from rdx!
+void jit_strw(int reg) {
+  fprintf(jit_out, "movl %%edx, (%s)\n", regnames[reg]);
 }
 
 void jit_addr(int dreg, int sreg) {
