@@ -52,7 +52,15 @@ enum jit_reg {
   R4,
   R5,
   R6,
-  R7
+  R7,
+  R8
+};
+
+// FIXME intel
+enum arg_reg {
+  ARGR0 = 0,
+  ARGR1,
+  ARGR2
 };
 
 #define LBDREG R4
@@ -65,10 +73,12 @@ static Cell* consed_type_error;
 
 #ifdef CPU_ARM
 #include "jit_arm_raw.c"
+#define PTRSZ 4
 #endif
 
 #ifdef CPU_X64
 #include "jit_x64.c"
+#define PTRSZ 8
 #endif
 
 typedef enum arg_t {
@@ -356,62 +366,62 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
   if (op->tag == TAG_BUILTIN) {
     switch (op->value) {
     case BUILTIN_ADD: {
-      load_int(R1,argdefs[0]);
+      load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
-      jit_addr(R1,R2);
+      jit_addr(ARGR0,R2);
       jit_call(alloc_int, "alloc_int");
       return TAG_INT;
     }
     case BUILTIN_SUB: {
-      load_int(R1,argdefs[0]);
+      load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
-      jit_subr(R1,R2);
+      jit_subr(ARGR0,R2);
       jit_call(alloc_int, "alloc_int");
       return TAG_INT;
     }
     case BUILTIN_MUL: {
-      load_int(R1,argdefs[0]);
+      load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
-      jit_mulr(R1,R2);
+      jit_mulr(ARGR0,R2);
       jit_call(alloc_int, "alloc_int");
       return TAG_INT;
     }
     case BUILTIN_DIV: {
-      load_int(R1,argdefs[0]);
+      load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
-      jit_divr(R1,R2);
+      jit_divr(ARGR0,R2);
       jit_call(alloc_int, "alloc_int");
       return TAG_INT;
     }
     case BUILTIN_GT: {
-      load_int(R1,argdefs[0]);
+      load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
-      jit_subr(R2,R1);
-      jit_movi(R1,(void*)0);
+      jit_subr(R2,ARGR0);
+      jit_movi(ARGR0,(void*)0);
       jit_movi(R2,(void*)1);
-      jit_movneg(R1,R2);
+      jit_movneg(ARGR0,R2);
       jit_call(alloc_int, "alloc_int");
       return TAG_INT;
     }
     case BUILTIN_LT: {
-      load_int(R1,argdefs[0]);
+      load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
-      jit_subr(R1,R2);
-      jit_movi(R1,(void*)0);
+      jit_subr(ARGR0,R2);
+      jit_movi(ARGR0,(void*)0);
       jit_movi(R2,(void*)1);
-      jit_movneg(R1,R2);
+      jit_movneg(ARGR0,R2);
       jit_call(alloc_int, "alloc_int");
       return TAG_INT;
     }
     case BUILTIN_DEF: {
-      jit_lea(R1,argdefs[0].cell);
+      jit_lea(ARGR0,argdefs[0].cell);
       if (argdefs[1].type == ARGT_CONST) {
-        jit_lea(R2,argdefs[1].cell); // load cell
+        jit_lea(ARGR1,argdefs[1].cell); // load cell
       } else if (argdefs[1].type == ARGT_CELL) {
-        jit_movr(R2,R0);
+        if (ARGR0!=R0) jit_movr(ARGR0,R0);
       } else if (argdefs[1].type == ARGT_ENV) {
-        jit_lea(R2,argdefs[1].env);
-        jit_ldr(R2); // load cell
+        jit_lea(ARGR1,argdefs[1].env);
+        jit_ldr(ARGR1); // load cell
       }
       jit_call(insert_global_symbol, "insert_global_symbol");
       break;
@@ -539,11 +549,11 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       jit_call(alloc_nil, "list:alloc_nil");
       jit_movr(R2,R0);
       for (int i=0; i<n; i++) {
-        jit_pop(R1,R1);
+        jit_pop(ARGR0,ARGR0);
         jit_call(alloc_cons, "list:alloc_cons");
         jit_movr(R2,R0);
       }
-      break;
+      break; // FIXME
     }
     case BUILTIN_QUOTE: {
       args = orig_args;
@@ -556,7 +566,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       
       // type check -------------------
       jit_movr(R1,R0);
-      jit_addi(R1,16);
+      jit_addi(R1,2*PTRSZ);
       jit_ldr(R1);
       jit_lea(R2,consed_type_error);
       jit_cmpi(R1,TAG_CONS);
@@ -568,11 +578,11 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
     }
     case BUILTIN_CDR: {
       load_cell(R0,argdefs[0]);
-      jit_addi(R0,8); // TODO depends on machine word size
+      jit_addi(R0,PTRSZ); // TODO depends on machine word size
 
       // type check -------------------
       jit_movr(R1,R0);
-      jit_addi(R1,8);
+      jit_addi(R1,PTRSZ);
       jit_ldr(R1);
       jit_lea(R2,consed_type_error);
       jit_cmpi(R1,TAG_CONS);
@@ -583,21 +593,21 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       break;
     }
     case BUILTIN_CONS: {
-      load_cell(R1,argdefs[0]);
-      load_cell(R2,argdefs[1]);
+      load_cell(ARGR0,argdefs[0]);
+      load_cell(ARGR1,argdefs[1]);
       jit_call(alloc_cons,"alloc_cons");
       break;
     }
     case BUILTIN_CONCAT: {
-      load_cell(R1,argdefs[0]);
-      load_cell(R2,argdefs[1]);
+      load_cell(ARGR0,argdefs[0]);
+      load_cell(ARGR1,argdefs[1]);
       jit_call(alloc_concat,"alloc_concat");
       break;
     }
     case BUILTIN_SUBSTR: {
-      load_cell(R1,argdefs[0]);
-      load_int(R2,argdefs[1]);
-      load_int(R3,argdefs[2]);
+      load_cell(ARGR0,argdefs[0]);
+      load_int(ARGR1,argdefs[1]);
+      load_int(ARGR2,argdefs[2]);
       jit_call(alloc_substr,"alloc_substr");
       break;
     }
@@ -612,7 +622,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       jit_jneg(label_skip); // negative offset?
 
       jit_movr(R0,R3);
-      jit_addi(R0,8); // fetch size -> R0
+      jit_addi(R0,PTRSZ); // fetch size -> R0
       jit_ldr(R0);
 
       jit_subr(R0,R2);
@@ -626,6 +636,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
 
       jit_label(label_skip);
       
+      jit_movr(ARGR0, R0); // FIXME
       jit_call(alloc_int,"alloc_int");
       break;
     }
@@ -643,7 +654,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       load_int(R3,argdefs[2]); // byte to store -> R3
 
       jit_movr(R0,R1);
-      jit_addi(R0,8); // fetch size -> R0
+      jit_addi(R0,PTRSZ); // fetch size -> R0
       jit_ldr(R0);
 
       jit_subr(R0,R2);
@@ -664,24 +675,25 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       break;
     }
     case BUILTIN_PUT32: {
-      char label_skip[64];
+      //char label_skip[64];
       //char label_noskip[64];
-      sprintf(label_skip,"skip_%d",++label_skip_count);
+      //sprintf(label_skip,"skip_%d",++label_skip_count);
     
       load_cell(R1,argdefs[0]);
-      jit_push(R1,R1);
+      //jit_movr(R8,R1);
       load_int(R2,argdefs[1]); // offset -> R2
       //jit_cmpi(R2,0);
       //jit_jneg(label_skip); // negative offset?
       load_int(R3,argdefs[2]); // word to store -> R3
 
-      jit_movr(R0,R1);
-      jit_addi(R0,8); // fetch size -> R0
-      jit_ldr(R0);
+      //jit_movr(R0,R1);
+      //jit_addi(R0,PTRSZ); // fetch size -> R0
+      //jit_ldr(R0);
 
-      jit_subr(R0,R2);
-      jit_jneg(label_skip); // overflow? (R2>R0)
-      jit_je(label_skip); // overflow? (R2==R0)
+      // FIXME
+      //jit_subr(R0,R2);
+      //jit_jneg(label_skip); // overflow? (R2>R0)
+      //jit_je(label_skip); // overflow? (R2==R0)
 
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
@@ -689,70 +701,73 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       
       //jit_jmp(label_noskip);
       
-      jit_label(label_skip);
-      jit_pop(R0,R0); // restore arg0
+      //jit_label(label_skip);
+      //jit_pop(R0,R8); // restore arg0
+      //load_cell(R0,argdefs[0]);
+      jit_movr(R0,R1);
+      jit_call(alloc_int,"debug");
       
       break;
     }
     case BUILTIN_ALLOC: {
-      load_int(R1,argdefs[0]);
+      load_int(ARGR0,argdefs[0]);
       jit_call(alloc_num_bytes,"alloc_bytes");
       break;
     }
     case BUILTIN_ALLOC_STR: {
-      load_int(R1,argdefs[0]);
+      load_int(ARGR0,argdefs[0]);
       jit_call(alloc_num_string,"alloc_string");
       break;
     }
     case BUILTIN_WRITE: {
-      load_cell(R1,argdefs[0]);
-      load_cell(R2,argdefs[1]);
+      load_cell(ARGR0,argdefs[0]);
+      load_cell(ARGR1,argdefs[1]);
       jit_call(lisp_write_to_cell,"lisp_write_to_cell");
       break;
     }
     case BUILTIN_READ: {
-      load_cell(R1,argdefs[0]);
-      jit_ldr(R1);
+      load_cell(ARGR0,argdefs[0]);
+      jit_ldr(ARGR0);
       jit_call(read_string,"read_string");
       break;
     }
     case BUILTIN_SIZE: {
-      load_cell(R1,argdefs[0]);
-      jit_addi(R1,8); // fetch size -> R0
-      jit_ldr(R1);
+      load_cell(ARGR0,argdefs[0]);
+      jit_addi(ARGR0,PTRSZ); // fetch size -> R0
+      jit_ldr(ARGR0);
       jit_call(alloc_int,"alloc_int");
       
       break;
     }
     case BUILTIN_GC: {
-      jit_lea(R1,global_env);
+      jit_lea(ARGR0,global_env);
       jit_call(collect_garbage,"collect_garbage");
       break;
     }
     case BUILTIN_PRINT: {
-      load_cell(R1,argdefs[0]);
+      load_cell(ARGR0,argdefs[0]);
       jit_call(lisp_print,"lisp_print");
       break;
     }
     case BUILTIN_MOUNT: {
-      load_cell(R1,argdefs[0]);
-      load_cell(R2,argdefs[1]);
+      load_cell(ARGR0,argdefs[0]);
+      load_cell(ARGR1,argdefs[1]);
       jit_call(fs_mount,"fs_mount");
       break;
     }
     case BUILTIN_OPEN: {
-      load_cell(R1,argdefs[0]);
+      load_cell(ARGR0,argdefs[0]);
       jit_call(fs_open,"fs_open");
       break;
     }
     case BUILTIN_RECV: {
-      load_cell(R1,argdefs[0]);
+      load_cell(ARGR0,argdefs[0]);
       jit_call(stream_read,"stream_read");
       break;
     }
     case BUILTIN_SEND: {
-      load_cell(R1,argdefs[0]);
-      load_cell(R2,argdefs[1]);
+      load_cell(ARGR0,argdefs[0]);
+      load_cell(ARGR1,argdefs[1]);
       push_frame_regs(fn_frame);
       jit_call(stream_write,"stream_write");
       pop_frame_regs(fn_frame);

@@ -24,8 +24,6 @@ typedef struct Label {
 static int label_idx = 0;
 static Label jit_labels[JIT_MAX_LABELS];
 
-FILE* jit_out;
-
 /*
 
    31-28 cond
@@ -119,8 +117,8 @@ void jit_strb(int reg) {
 // 32 bit only from rdx!
 void jit_strw(int reg) {
   uint32_t op = 0xe5800000;
-  op |= (3<<16); // r3
-  op |= (reg<<12); // dreg
+  op |= (reg<<16); // r3
+  op |= (3<<12); // dreg
   code[code_idx++] = op;
 }
 
@@ -133,8 +131,8 @@ void jit_addr(int dreg, int sreg) {
 }
 
 void jit_addi(int dreg, int imm) {
-  jit_movi(11,imm);
-  jit_addr(dreg,11);
+  jit_movi(9,imm);
+  jit_addr(dreg,9);
 }
 
 void jit_subr(int dreg, int sreg) {
@@ -191,7 +189,7 @@ void jit_cmpi(int sreg, int imm) {
 
 Label* find_label(char* label) {
   for (int i=0; i<JIT_MAX_LABELS; i++) {
-    if (strcmp(jit_labels[i].name,label)==0) {
+    if (jit_labels[i].name && strcmp(jit_labels[i].name,label)==0) {
       return &jit_labels[i];
     }
   }

@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define TMP_BUF_SIZE 1024
+#define INTFORMAT "%ld"
 
 char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   //printf("writing %p (%d) to %p, size: %d\n",cell,cell->tag,buffer,bufsize);
@@ -13,7 +14,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   if (cell == NULL) {
     snprintf(buffer, bufsize, "null");
   } else if (cell->tag == TAG_INT) {
-    snprintf(buffer, bufsize, "%lld", cell->value);
+    snprintf(buffer, bufsize, INTFORMAT, cell->value);
   } else if (cell->tag == TAG_CONS) {
     if (cell->addr == 0 && cell->next == 0) {
       if (!in_list) {
@@ -53,7 +54,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
     write_((Cell*)cell->addr, tmpr, 0, TMP_BUF_SIZE);
     snprintf(buffer, bufsize, "(fn %s) ; assembled at %p", tmpr, cell->next);
   } else if (cell->tag == TAG_BUILTIN) {
-    snprintf(buffer, bufsize, "(op %lld)", cell->value);
+    snprintf(buffer, bufsize, "(op "INTFORMAT")", cell->value);
   } else if (cell->tag == TAG_ERROR) {
     switch (cell->value) {
       case ERR_SYNTAX: snprintf(buffer, bufsize, "<e0:syntax error.>"); break;
@@ -62,7 +63,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
       case ERR_APPLY_NIL: snprintf(buffer, bufsize, "<e3:cannot apply nil.>"); break;
       case ERR_INVALID_PARAM_TYPE: snprintf(buffer, bufsize, "<e4:invalid or no parameter given.>"); break;
       case ERR_OUT_OF_BOUNDS: snprintf(buffer, bufsize, "<e5:out of bounds.>"); break;
-      default: snprintf(buffer, bufsize, "<e%lld:unknown>", cell->value); break;
+      default: snprintf(buffer, bufsize, "<e"INTFORMAT":unknown>", cell->value); break;
     }
   } else if (cell->tag == TAG_BYTES) {
     char* hex_buffer = malloc(cell->size*2+2);
