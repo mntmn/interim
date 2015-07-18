@@ -64,7 +64,7 @@ static char temp_print_buffer[1024];
 static Cell* consed_type_error;
 
 #ifdef CPU_ARM
-#include "jit_arm.c"
+#include "jit_arm_raw.c"
 #endif
 
 #ifdef CPU_X64
