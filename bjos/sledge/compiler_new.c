@@ -63,8 +63,6 @@ static int label_skip_count = 0;
 static char temp_print_buffer[1024];
 static Cell* consed_type_error;
 
-#define CPU_X64
-
 #ifdef CPU_ARM
 #include "jit_arm.c"
 #endif

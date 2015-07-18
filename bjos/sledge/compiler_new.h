@@ -78,3 +78,5 @@ typedef enum builtin_t {
   BUILTIN_COS,
   BUILTIN_SQRT
 } builtin_t;
+
+Cell* insert_global_symbol(Cell* symbol, Cell* cell);

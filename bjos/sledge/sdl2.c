@@ -5,8 +5,8 @@
 #include "stream.h"
 #include "compiler_new.h"
 
-#define WIDTH 640
-#define HEIGHT 480
+#define WIDTH 1920
+#define HEIGHT 1080
 #define BPP 4
 #define DEPTH 32
 
@@ -33,9 +33,13 @@ void* sdl_init(int fullscreen)
 {
   if (sdl_initialized) return screen->pixels;
 
+  sdl_initialized = 1;
+  
   SDL_Init(SDL_INIT_VIDEO);
-  screen = SDL_SetVideoMode(640, 480, 32, SDL_SWSURFACE);
 
+  win = SDL_CreateWindow("sledge", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, (fullscreen?SDL_WINDOW_FULLSCREEN:0));
+  
+  screen = SDL_GetWindowSurface(win);
   atexit(sdl_cleanup);
 
   return screen->pixels;
@@ -52,6 +56,29 @@ int sdl_get_key() {
 int sdl_get_modifiers() {
   int m = sdl_modifiers;
   return m;
+}
+
+int sdl_mainloop()
+{
+  SDL_Event event;
+  
+  if (SDL_PollEvent(&event)) 
+  {      
+    switch (event.type) 
+    {
+    case SDL_QUIT:
+      exit(0);
+      break;
+    case SDL_KEYDOWN:
+      sdl_modifiers = event.key.keysym.mod;
+      sdl_key = event.key.keysym.scancode;
+      break;
+    }
+  }
+  
+  SDL_UpdateWindowSurface(win);
+  
+  return 0;
 }
 
 void* sdl_get_fb() {
@@ -90,11 +117,13 @@ Cell* fbfs_write(Cell* arg) {
   return arg;
 }
 
+
+
 void sdl_mount_fbfs() {
   fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0);
 }
 
-void dev_sdl_init() {
+void dev_sdl2_init() {
   sdl_mount_fbfs();
   sdl_init(0);
   
