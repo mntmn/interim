@@ -118,20 +118,23 @@ Cell* fbfs_write(Cell* arg) {
 }
 
 
-
-void sdl_mount_fbfs() {
-  fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0);
-}
-
-void dev_sdl2_init() {
-  sdl_mount_fbfs();
-  sdl_init(0);
-  
+Cell* fbfs_mmap(Cell* arg) {
   Cell* fbtest = alloc_num_bytes(0);
   fbtest->addr = sdl_get_fb();
   fbtest->size = sdl_get_fbsize();
   printf("fbtest->addr: %p\n",fbtest->addr);
   printf("fbtest->size: %lx\n",fbtest->size);
-  
-  insert_global_symbol(alloc_sym("fb"), fbtest);
+
+  return fbtest;
+}
+
+
+
+void sdl_mount_fbfs() {
+  fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0, fbfs_mmap);
+}
+
+void dev_sdl2_init() {
+  sdl_mount_fbfs();
+  sdl_init(0);
 }

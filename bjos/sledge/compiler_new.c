@@ -697,6 +697,11 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       
       break;
     }
+    case BUILTIN_MMAP: {
+      load_cell(ARGR0,argdefs[0]);
+      jit_call(fs_mmap,"fs_mmap");
+      break;
+    }
     case BUILTIN_ALLOC: {
       load_int(ARGR0,argdefs[0]);
       jit_call(alloc_num_bytes,"alloc_bytes");
@@ -854,6 +859,7 @@ void init_compiler() {
   
   insert_symbol(alloc_sym("mount"), alloc_builtin(BUILTIN_MOUNT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_CONS)},2)), &global_env);
   insert_symbol(alloc_sym("open"), alloc_builtin(BUILTIN_OPEN, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
+  insert_symbol(alloc_sym("mmap"), alloc_builtin(BUILTIN_MMAP, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
   insert_symbol(alloc_sym("recv"), alloc_builtin(BUILTIN_RECV, alloc_list((Cell*[]){alloc_int(TAG_STREAM)},1)), &global_env);
   insert_symbol(alloc_sym("send"), alloc_builtin(BUILTIN_SEND, alloc_list((Cell*[]){alloc_int(TAG_STREAM),alloc_int(TAG_ANY)},2)), &global_env);
 

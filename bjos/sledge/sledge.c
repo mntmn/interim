@@ -47,6 +47,10 @@ int main(int argc, char *argv[])
 #ifdef DEV_SDL
   dev_sdl_init();
 #endif
+
+#ifdef DEV_LINUXFB
+  mount_linux_fbfs();
+#endif
   
   while (1) {
     expr = NULL;

@@ -49,6 +49,7 @@ typedef enum builtin_t {
 
   BUILTIN_PRINT,
   BUILTIN_MOUNT,
+  BUILTIN_MMAP,
   BUILTIN_OPEN,
   BUILTIN_CLOSE,
   BUILTIN_RECV,
