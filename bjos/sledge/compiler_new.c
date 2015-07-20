@@ -44,25 +44,6 @@ Cell* insert_global_symbol(Cell* symbol, Cell* cell) {
   return insert_symbol(symbol, cell, &global_env);
 }
 
-enum jit_reg {
-  R0 = 0,
-  R1,
-  R2,
-  R3,
-  R4,
-  R5,
-  R6,
-  R7,
-  R8
-};
-
-// FIXME intel
-enum arg_reg {
-  ARGR0 = 0,
-  ARGR1,
-  ARGR2
-};
-
 #define LBDREG R4
 
 static FILE* jit_out;
@@ -287,27 +268,26 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
         argdefs[argi].cell = arg;
         argdefs[argi].type = ARGT_CELL;
       }
+      else if (signature_arg->value == TAG_LAMBDA) {
+        // lazy evaluation by form
+        argdefs[argi].cell = arg;
+        argdefs[argi].type = ARGT_LAMBDA;
+      }
       else if (arg->tag == TAG_CONS) {
-        if (signature_arg->value == TAG_LAMBDA) {
-          // lazy evaluation by form
-          argdefs[argi].cell = arg;
-          argdefs[argi].type = ARGT_LAMBDA;
-        } else {
-          // eager evaluation
-          // nested expression
-          if (argi>0) {
-            printf("argi: %d\n",argi);
-            // save registers
-            jit_push(R1,R1+argi-1);
-          }
-          given_tag = compile_expr(arg, fn_frame);
-          argdefs[argi].cell = NULL; // cell is in R0 at runtime
-          argdefs[argi].type = ARGT_CELL;
-          jit_movr(argi+R1,R0);
+        // eager evaluation
+        // nested expression
+        if (argi>0) {
+          printf("argi: %d\n",argi);
+          // save registers
+          jit_push(R1,R1+argi-1);
+        }
+        given_tag = compile_expr(arg, fn_frame);
+        argdefs[argi].cell = NULL; // cell is in R0 at runtime
+        argdefs[argi].type = ARGT_CELL;
+        jit_movr(argi+R1,R0);
         
-          if (argi>0) {
-            jit_pop(R1,R1+argi-1);
-          }
+        if (argi>0) {
+          jit_pop(R1,R1+argi-1);
         }
       }
       else if (given_tag == TAG_SYM && signature_arg->value != TAG_SYM) {
@@ -414,15 +394,16 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       return TAG_INT;
     }
     case BUILTIN_DEF: {
-      jit_lea(ARGR0,argdefs[0].cell);
       if (argdefs[1].type == ARGT_CONST) {
         jit_lea(ARGR1,argdefs[1].cell); // load cell
       } else if (argdefs[1].type == ARGT_CELL) {
-        if (ARGR0!=R0) jit_movr(ARGR0,R0);
+        jit_movr(ARGR1,R0);
       } else if (argdefs[1].type == ARGT_ENV) {
         jit_lea(ARGR1,argdefs[1].env);
         jit_ldr(ARGR1); // load cell
       }
+      jit_lea(ARGR0,argdefs[0].cell); // load symbol address
+      
       jit_call(insert_global_symbol, "insert_global_symbol");
       break;
     }

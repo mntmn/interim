@@ -11,6 +11,23 @@ char* regnames[] = {
   "r6"
 };
 
+enum jit_reg {
+  R0 = 0,
+  R1,
+  R2,
+  R3,
+  R4,
+  R5,
+  R6,
+  R7,
+  R8
+};
+enum arg_reg {
+  ARGR0 = 0,
+  ARGR1,
+  ARGR2
+};
+
 static uint32_t* code;
 static uint32_t code_idx;
 static uint32_t cpool_idx; // constant pool
@@ -23,6 +40,8 @@ typedef struct Label {
 #define JIT_MAX_LABELS 32
 static int label_idx = 0;
 static Label jit_labels[JIT_MAX_LABELS];
+static Label jit_labels_unres[JIT_MAX_LABELS]; // unresolved (forward) labels
+static int unres_labels = 0;
 
 /*
 
@@ -37,6 +56,20 @@ static Label jit_labels[JIT_MAX_LABELS];
    20: L (0 = store 1 = load)
 
  */
+
+void jit_init() {
+  // cleans up jit state
+  label_idx = 0;
+  unres_labels = 0;
+  code_idx = 0;
+  cpool_idx = 128;
+  for (int i=0; i<JIT_MAX_LABELS; i++) {
+    jit_labels[i].name = NULL;
+    jit_labels[i].idx = NULL;
+    jit_labels_unres[i].name = NULL;
+    jit_labels_unres[i].idx = NULL;
+  }
+}
 
 
 void jit_movi(int reg, uint32_t imm) {
@@ -156,9 +189,6 @@ void jit_call(void* func, char* note) {
   jit_movr(14,15);
   jit_lea(15,func);
   code[code_idx++] = 0xe8bd4000; // ldmfd	sp!, {lr}
-  
-  //fprintf(jit_out, "mov $%p, %%rax\n", func);
-  //fprintf(jit_out, "callq *%%rax # %s\n", note);
 }
 
 int32_t inline_div(int32_t a, int32_t b) {
@@ -196,22 +226,31 @@ Label* find_label(char* label) {
   return NULL;
 }
 
+Label* find_unresolved_label(char* label) {
+  for (int i=0; i<JIT_MAX_LABELS; i++) {
+    if (jit_labels_unres[i].name && strcmp(jit_labels_unres[i].name,label)==0) {
+      return &jit_labels_unres[i];
+    }
+  }
+  return NULL;
+}
+
 void jit_emit_branch(uint32_t op, char* label) {
   Label* lbl = find_label(label);
   if (lbl) {
-    int offset = 4*(lbl->idx - code_idx) - 8;
-    printf("offset: %d\n",offset);
-    offset/=4;
+    int offset = (lbl->idx - code_idx) - 2;
+    printf("offset: %d (*4)\n",offset);
     if (offset<0) {
       offset = 0x1000000-(-offset);
       op|=offset;
+      code[code_idx++] = op;
     }
-    else {
-      // TODO impl forward jump
-    }
-    code[code_idx++] = op;
   } else {
-    printf("! label not found %s",label);
+    printf("! label not found %s, adding unresolved.",label);
+    jit_labels_unresolved[unres_labels].name = label;
+    jit_labels_unresolved[unres_labels].idx  = code_idx;
+    
+    unres_labels++;
   }
 }
 
@@ -239,6 +278,16 @@ void jit_label(char* label) {
   //fprintf(jit_out, "%s:\n", label);
   jit_labels[label_idx].name = label;
   jit_labels[label_idx].idx = code_idx;
+
+  Label* unres_lbl = NULL;
+  while ((unres_lbl = find_unresolved_label(label))) {
+    printf("! forward label to %s at idx %d resolved.\n",label,unres_lbl->idx);
+    code[unres_lbl->idx] |= (code_idx - unres_lbl->idx) - 2;
+
+    unres_lbl->name = NULL;
+    unres_lbl->idx  = 0;
+  }
+  
   label_idx++;
 }
 
@@ -247,13 +296,17 @@ void jit_ret() {
 }
 
 void jit_push(int r1, int r2) {
-  /*for (int i=r1; i<=r2; i++) {
-    fprintf(jit_out, "push %s\n",regnames[i]);
-    }*/
+  uint32_t op = 0xe92d0000;
+  
+  for (int i=r1; i<=r2; i++) {
+    op |= (1<<i); // build bit pattern of registers to push
+  }
 }
 
 void jit_pop(int r1, int r2) {
-  /*for (int i=r2; i>=r1; i--) {
-    fprintf(jit_out, "pop %s\n",regnames[i]);
-    }*/
+  uint32_t op = 0xe8bd0000;
+  
+  for (int i=r1; i<=r2; i++) {
+    op |= (1<<i); // build bit pattern of registers to pop
+  }
 }

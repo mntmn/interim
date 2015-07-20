@@ -10,6 +10,26 @@ char* regnames[] = {
   "%r11"
 };
 
+enum jit_reg {
+  R0 = 0,
+  R1,
+  R2,
+  R3,
+  R4,
+  R5,
+  R6,
+  R7,
+  R8
+};
+enum arg_reg {
+  ARGR0 = 1,
+  ARGR1 = 2,
+  ARGR2 = 3
+};
+
+void jit_init() {
+}
+
 void jit_movi(int reg, void* imm) {
   fprintf(jit_out, "movq $%p, %s\n", imm, regnames[reg]);
 }

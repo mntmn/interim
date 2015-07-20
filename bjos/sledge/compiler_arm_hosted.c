@@ -3,6 +3,7 @@
 int compile_for_platform(Cell* expr, Cell** res) {
   code = mmap(0, CODESZ, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
   memset(code, 0, CODESZ);
+  jit_init();
   cpool_idx = 128; // 128 ops gap
   code_idx = 0;
 
