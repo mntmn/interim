@@ -114,7 +114,7 @@ void load_int(int dreg, Arg arg) {
 void load_cell(int dreg, Arg arg) {
   if (arg.type == ARGT_CELL || arg.type == ARGT_CONST) {
     if (arg.cell == NULL) {
-      jit_movr(dreg, R0); // FIXME: really true?
+      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
     } else {
       jit_lea(dreg, arg.cell);
     }
@@ -260,7 +260,6 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
     }
 
     if (arg && (!signature_args || signature_arg)) {
-
       int given_tag = arg->tag;
 
       if (!signature_args) {
@@ -276,15 +275,17 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       else if (arg->tag == TAG_CONS) {
         // eager evaluation
         // nested expression
+        printf("nested argi: %d\n",argi);
         if (argi>0) {
-          printf("argi: %d\n",argi);
           // save registers
+          // FIXME RETHINK
           jit_push(R1,R1+argi-1);
         }
         given_tag = compile_expr(arg, fn_frame);
         argdefs[argi].cell = NULL; // cell is in R0 at runtime
+        argdefs[argi].slot = argi;
         argdefs[argi].type = ARGT_CELL;
-        jit_movr(argi+R1,R0);
+        jit_movr(R1+argi,R0);
         
         if (argi>0) {
           jit_pop(R1,R1+argi-1);
@@ -315,7 +316,10 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       }
       else if (given_tag == signature_arg->value || signature_arg->value==TAG_ANY) {
         argdefs[argi].cell = arg;
+        argdefs[argi].slot = argi-1;
         argdefs[argi].type = ARGT_CELL;
+
+        printf("argdefs[%d]: slot: %d\n",argi,argi-1);
 
         if (given_tag == TAG_INT || given_tag == TAG_STR || given_tag == TAG_BYTES) {
           argdefs[argi].type = ARGT_CONST;
