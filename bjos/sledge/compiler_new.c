@@ -688,6 +688,18 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
       
       break;
     }
+    case BUILTIN_GET32: {
+      load_cell(R1,argdefs[0]);
+      load_int(R2,argdefs[1]); // offset -> R2
+      jit_ldr(R1); // string address
+      jit_addr(R1,R2);
+      jit_ldrw(R1); // load to r3
+      
+      jit_movr(ARGR0, R3); // FIXME
+      jit_call(alloc_int,"alloc_int");
+      
+      break;
+    }
     case BUILTIN_PUT32: {
       //char label_skip[64];
       //char label_noskip[64];
@@ -865,7 +877,8 @@ void init_compiler() {
   insert_symbol(alloc_sym("substr"), alloc_builtin(BUILTIN_SUBSTR, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
   insert_symbol(alloc_sym("get"), alloc_builtin(BUILTIN_GET, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT)}, 2)), &global_env);
   insert_symbol(alloc_sym("put"), alloc_builtin(BUILTIN_PUT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
-  insert_symbol(alloc_sym("put32"), alloc_builtin(BUILTIN_PUT32, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
+  insert_symbol(alloc_sym("get32"), alloc_builtin(BUILTIN_GET32, alloc_list((Cell*[]){alloc_int(TAG_BYTES), alloc_int(TAG_INT)}, 2)), &global_env);
+  insert_symbol(alloc_sym("put32"), alloc_builtin(BUILTIN_PUT32, alloc_list((Cell*[]){alloc_int(TAG_BYTES), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
   insert_symbol(alloc_sym("size"), alloc_builtin(BUILTIN_SIZE, alloc_list((Cell*[]){alloc_int(TAG_STR)}, 1)), &global_env);
   insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC, alloc_list((Cell*[]){alloc_int(TAG_INT)}, 1)), &global_env);
   insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR, alloc_list((Cell*[]){alloc_int(TAG_INT)}, 1)), &global_env);

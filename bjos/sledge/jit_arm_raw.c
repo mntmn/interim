@@ -129,6 +129,10 @@ void jit_ldr(int reg) {
   code[code_idx++] = op;
 }
 
+void jit_ldrw(int reg) {
+  jit_ldr(reg);
+}
+
 // 8 bit only from rdx! (R3)
 void jit_ldrb(int reg) {
   uint32_t op = 0xe5900000;
