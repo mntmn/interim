@@ -15,6 +15,8 @@ uint32_t free_list_consumed;
 
 Cell oom_cell;
 
+//#define DEBUG_GC
+
 // TODO define in machine specs
 #define MAX_CELLS 10000000
 #define MAX_BYTE_HEAP 1024*1024*8
@@ -131,6 +133,7 @@ void mark_tree(Cell* c) {
       mark_tree(fs->read_fn);
       mark_tree(fs->write_fn);
       mark_tree(fs->delete_fn);
+      mark_tree(fs->mmap_fn);
     }
   }
 }
@@ -142,7 +145,7 @@ void collect_garbage_iter(const char *key, void *value, const void *obj)
   mark_tree(e->cell);
 }
 
-int collect_garbage(env_t* global_env) {
+Cell* collect_garbage(env_t* global_env) {
   // mark
 
   // check all symbols in the environment
@@ -208,7 +211,7 @@ int collect_garbage(env_t* global_env) {
   
   //printf("-- %d high water mark.\n\n",cells_used);
 
-  return 0;
+  return alloc_int(gc);
 }
 
 void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes) {

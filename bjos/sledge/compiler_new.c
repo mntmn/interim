@@ -67,7 +67,8 @@ typedef enum arg_t {
   ARGT_CELL,
   ARGT_ENV,
   ARGT_LAMBDA,
-  ARGT_REG
+  ARGT_REG,
+  ARGT_INT
 } arg_t;
 
 typedef struct Arg {
@@ -106,6 +107,9 @@ void load_int(int dreg, Arg arg) {
     jit_movr(dreg, LBDREG+arg.slot);
     jit_ldr(dreg);
   }
+  else if (arg.type == ARGT_INT) {
+    // do nothing
+  }
   else {
     jit_movi(dreg, (void*)0xdeadbeef);
   }
@@ -114,7 +118,7 @@ void load_int(int dreg, Arg arg) {
 void load_cell(int dreg, Arg arg) {
   if (arg.type == ARGT_CELL || arg.type == ARGT_CONST) {
     if (arg.cell == NULL) {
-      jit_movr(dreg, R0); // FIXME: really true?
+      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
     } else {
       jit_lea(dreg, arg.cell);
     }
@@ -178,15 +182,17 @@ void pop_frame_regs(Arg* fn_frame) {
   }
 }
 
-int compile_expr(Cell* expr, Arg* fn_frame) {
+int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
 
+  int compiled_type = TAG_ANY;
+  
   if (expr->tag != TAG_CONS) {
     if (expr->tag == TAG_SYM) {
       
       int arg_slot = get_sym_arg_slot(expr->addr, fn_frame);
       if (arg_slot) {
         jit_movr(R0, R2+arg_slot);
-        return 0;
+        return compiled_type;
       }
 
       env_entry* env = lookup_global_symbol(expr->addr);
@@ -201,6 +207,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
     } else {
       // return the expr
       jit_movi(R0,expr);
+      return compiled_type;
     }
     return 0;
   }
@@ -260,7 +267,6 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
     }
 
     if (arg && (!signature_args || signature_arg)) {
-
       int given_tag = arg->tag;
 
       if (!signature_args) {
@@ -277,14 +283,21 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
         // eager evaluation
         // nested expression
         if (argi>0) {
-          printf("argi: %d\n",argi);
           // save registers
+          // FIXME RETHINK
           jit_push(R1,R1+argi-1);
         }
-        given_tag = compile_expr(arg, fn_frame);
+        given_tag = compile_expr(arg, fn_frame, signature_arg->value);
         argdefs[argi].cell = NULL; // cell is in R0 at runtime
-        argdefs[argi].type = ARGT_CELL;
-        jit_movr(argi+R1,R0);
+        argdefs[argi].slot = argi;
+
+        if (given_tag == TAG_INT) {
+          argdefs[argi].type = ARGT_INT;
+          jit_movr(R1+argi,ARGR0);
+        } else {
+          argdefs[argi].type = ARGT_CELL;
+          jit_movr(R1+argi,R0);
+        }
         
         if (argi>0) {
           jit_pop(R1,R1+argi-1);
@@ -315,6 +328,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       }
       else if (given_tag == signature_arg->value || signature_arg->value==TAG_ANY) {
         argdefs[argi].cell = arg;
+        argdefs[argi].slot = argi-1;
         argdefs[argi].type = ARGT_CELL;
 
         if (given_tag == TAG_INT || given_tag == TAG_STR || given_tag == TAG_BYTES) {
@@ -349,29 +363,33 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
       jit_addr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int, "alloc_int");
-      return TAG_INT;
+      break;
     }
     case BUILTIN_SUB: {
       load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
       jit_subr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int, "alloc_int");
-      return TAG_INT;
+      break;
     }
     case BUILTIN_MUL: {
       load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
       jit_mulr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int, "alloc_int");
-      return TAG_INT;
+      break;
     }
     case BUILTIN_DIV: {
       load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
       jit_divr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int, "alloc_int");
-      return TAG_INT;
+      break;
     }
     case BUILTIN_GT: {
       load_int(ARGR0,argdefs[0]);
@@ -380,8 +398,9 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       jit_movi(ARGR0,(void*)0);
       jit_movi(R2,(void*)1);
       jit_movneg(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int, "alloc_int");
-      return TAG_INT;
+      break;
     }
     case BUILTIN_LT: {
       load_int(ARGR0,argdefs[0]);
@@ -390,8 +409,9 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       jit_movi(ARGR0,(void*)0);
       jit_movi(R2,(void*)1);
       jit_movneg(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int, "alloc_int");
-      return TAG_INT;
+      break;
     }
     case BUILTIN_DEF: {
       if (argdefs[1].type == ARGT_CONST) {
@@ -401,6 +421,8 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       } else if (argdefs[1].type == ARGT_ENV) {
         jit_lea(ARGR1,argdefs[1].env);
         jit_ldr(ARGR1); // load cell
+      } else if (argdefs[1].type == ARGT_REG) {
+        jit_movr(ARGR1, LBDREG+argdefs[1].slot);
       }
       jit_lea(ARGR0,argdefs[0].cell); // load symbol address
       
@@ -450,7 +472,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       
       jit_jmp(label_fe);
       jit_label(label_fn);
-      compile_expr(fn_body, fn_new_frame);
+      compile_expr(fn_body, fn_new_frame, TAG_ANY);
       jit_ret();
       jit_label(label_fe);
       jit_lea(R0,lambda);
@@ -475,7 +497,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       jit_cmpi(R1,0);
       jit_je(label_skip);
 
-      compile_expr(argdefs[1].cell, fn_frame);
+      compile_expr(argdefs[1].cell, fn_frame, return_type);
 
       // else?
       if (argdefs[2].cell) {
@@ -484,7 +506,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
         jit_jmp(label_end);
         
         jit_label(label_skip);
-        compile_expr(argdefs[2].cell, fn_frame);
+        compile_expr(argdefs[2].cell, fn_frame, return_type);
         jit_label(label_end);
       } else {
         jit_label(label_skip);
@@ -501,14 +523,18 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       
       jit_label(label_loop);
       
-      compile_expr(argdefs[0].cell, fn_frame);
-      jit_ldr(R0);
+      int compiled_type = compile_expr(argdefs[0].cell, fn_frame, TAG_INT);
+      if (compiled_type != TAG_INT) {
+        jit_ldr(R0);
+        jit_cmpi(R0,0);
+      } else {
+        jit_cmpi(ARGR0,0);
+      }
       //load_int(R1,argdefs[0]);
       // compare to zero
-      jit_cmpi(R0,0);
       jit_je(label_skip);
 
-      compile_expr(argdefs[1].cell, fn_frame);
+      compile_expr(argdefs[1].cell, fn_frame, return_type);
 
       jit_jmp(label_loop);
       jit_label(label_skip);
@@ -519,7 +545,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       args = orig_args;
       Cell* arg;
       while ((arg = car(args))) {
-        compile_expr(arg, fn_frame);
+        compile_expr(arg, fn_frame, return_type);
         args = cdr(args);
       }
       break;
@@ -529,7 +555,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       Cell* arg;
       int n = 0;
       while ((arg = car(args))) {
-        compile_expr(arg, fn_frame);
+        compile_expr(arg, fn_frame, TAG_ANY);
         jit_push(R0,R0);
         args = cdr(args);
         n++;
@@ -779,7 +805,7 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
   fflush(jit_out);
 
   // at this point, registers R1-R6 are filled, execute
-  return 0;
+  return compiled_type;
 }
 
 
