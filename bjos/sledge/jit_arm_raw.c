@@ -57,12 +57,12 @@ static int unres_labels = 0;
 
  */
 
-void jit_init() {
+void jit_init(int gap) {
   // cleans up jit state
   label_idx = 0;
   unres_labels = 0;
   code_idx = 0;
-  cpool_idx = 128;
+  cpool_idx = gap;
   for (int i=0; i<JIT_MAX_LABELS; i++) {
     jit_labels[i].name = NULL;
     jit_labels[i].idx = NULL;
