@@ -19,7 +19,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
   funcptr fn = (funcptr)code;
   *res = (Cell*)fn();
   printf("pointer result: %p\n",*res);
-  printf("pointer value: %p\n",((Cell*)*res)->value);
+  //printf("pointer value: %p\n",((Cell*)*res)->value);
 
   return 1;
 }

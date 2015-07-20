@@ -239,16 +239,17 @@ void jit_emit_branch(uint32_t op, char* label) {
   Label* lbl = find_label(label);
   if (lbl) {
     int offset = (lbl->idx - code_idx) - 2;
-    printf("offset: %d (*4)\n",offset);
+    //printf("offset: %d (*4)\n",offset);
     if (offset<0) {
       offset = 0x1000000-(-offset);
       op|=offset;
       code[code_idx++] = op;
     }
   } else {
-    printf("! label not found %s, adding unresolved.",label);
-    jit_labels_unresolved[unres_labels].name = label;
-    jit_labels_unresolved[unres_labels].idx  = code_idx;
+    printf("! label not found %s, adding unresolved.\n",label);
+    jit_labels_unres[unres_labels].name = label;
+    jit_labels_unres[unres_labels].idx  = code_idx;
+    code[code_idx++] = op;
     
     unres_labels++;
   }
@@ -270,7 +271,7 @@ void jit_jneg(char* label) {
 }
 
 void jit_jmp(char* label) {
-  uint32_t op = 0xea000000;
+  uint32_t op = 0xea000000; // b
   jit_emit_branch(op, label);
 }
 

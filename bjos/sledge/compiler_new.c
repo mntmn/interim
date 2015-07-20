@@ -455,6 +455,13 @@ int compile_expr(Cell* expr, Arg* fn_frame) {
       jit_label(label_fe);
       jit_lea(R0,lambda);
       
+#ifdef CPU_ARM
+      Label* fn_lbl = find_label(label_fn);
+      printf("fn_lbl idx: %d code: %p\n",fn_lbl->idx,code);
+      lambda->next = code + fn_lbl->idx;
+      printf("fn_lbl next: %p\n",lambda->next);
+#endif
+      
       break;
     }
     case BUILTIN_IF: {

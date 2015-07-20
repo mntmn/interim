@@ -98,7 +98,6 @@ int main(int argc, char *argv[])
       if (res<cell_heap_start) {
         printf("invalid cell (%p)\n",res);
       } else {
-      printf("here: %d",res->value);
         char out_buf[1024*10];
         lisp_write(res, out_buf, 1024*10);
         printf(KBLU "\n%s\n\n" KWHT,out_buf);

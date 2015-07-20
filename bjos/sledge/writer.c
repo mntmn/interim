@@ -52,7 +52,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   } else if (cell->tag == TAG_LAMBDA) {
     char tmpr[TMP_BUF_SIZE];
     write_((Cell*)cell->addr, tmpr, 0, TMP_BUF_SIZE);
-    snprintf(buffer, bufsize, "(fn %s) ; assembled at %p", tmpr, cell->next);
+    snprintf(buffer, bufsize, "(fn %s) ; assembled at %p (op %p)", tmpr, cell->next, *((uint32_t*)cell->next));
   } else if (cell->tag == TAG_BUILTIN) {
     snprintf(buffer, bufsize, "(op "INTFORMAT")", cell->value);
   } else if (cell->tag == TAG_ERROR) {

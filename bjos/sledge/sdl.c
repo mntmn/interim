@@ -37,7 +37,8 @@
 
 	  atexit(sdl_cleanup);
 
-	  return screen->pixels;
+	  if (screen) return screen->pixels;
+	  return NULL;
 	}
 
 	static int sdl_key = 0;
@@ -54,7 +55,8 @@
 	}
 
 	void* sdl_get_fb() {
-	  return screen->pixels;
+	  if (screen) return screen->pixels;
+	  return NULL;
 	}
 
 	long sdl_get_fbsize() {
