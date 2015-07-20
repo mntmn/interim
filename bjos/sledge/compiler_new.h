@@ -29,6 +29,7 @@ typedef enum builtin_t {
   BUILTIN_SUBSTR,
 
   BUILTIN_GET,
+  BUILTIN_GET32,
   BUILTIN_PUT,
   BUILTIN_PUT32,
   BUILTIN_SIZE,
