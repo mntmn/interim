@@ -89,7 +89,7 @@
 }
 
 void sdl_mount_fbfs() {
-  fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0);
+  fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0, 0);
 }
 
 void dev_sdl_init() {

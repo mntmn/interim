@@ -9,7 +9,7 @@
 
 #define WIDTH 1920
 #define HEIGHT 1080
-#define BPP 4
+#define BPP 2
 #define DEPTH 32
 
 
@@ -35,6 +35,7 @@ Cell* linux_fbfs_mmap(Cell* arg) {
     Cell* buffer_cell = alloc_int(0);
     buffer_cell->addr = mmap(NULL, sz, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
     buffer_cell->size = sz;
+    buffer_cell->tag = TAG_BYTES;
     printf("[linux_fbfs_mmap] buffer_cell->addr: %p\n",buffer_cell->addr);
   
     return buffer_cell;
