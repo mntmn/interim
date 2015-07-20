@@ -689,11 +689,11 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
       break;
     }
     case BUILTIN_GET32: {
-      load_cell(R1,argdefs[0]);
+      load_cell(R3,argdefs[0]);
       load_int(R2,argdefs[1]); // offset -> R2
-      jit_ldr(R1); // string address
-      jit_addr(R1,R2);
-      jit_ldrw(R1); // load to r3
+      jit_ldr(R3); // string address
+      jit_addr(R3,R2);
+      jit_ldrw(R3); // load to r3
       
       jit_movr(ARGR0, R3); // FIXME
       jit_call(alloc_int,"alloc_int");
