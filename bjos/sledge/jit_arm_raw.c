@@ -1,15 +1,5 @@
 #include <stdint.h>
 
-char* regnames[] = {
-  "r0",
-  "r1",
-  "r2",
-  "r3",
-  "r4",
-  "r5",
-  "r6"
-};
-
 enum jit_reg {
   R0 = 0,
   R1,
