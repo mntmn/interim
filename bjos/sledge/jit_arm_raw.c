@@ -112,6 +112,13 @@ void jit_ldr(int reg) {
   code[code_idx++] = op;
 }
 
+void jit_ldr_stack(int dreg, int offset) {
+  uint32_t op = 0xe59d3004;
+  op |= offset;
+  op |= (dreg<<12); // dreg
+  code[code_idx++] = op;
+}
+
 void jit_ldrw(int reg) {
   jit_ldr(reg);
 }

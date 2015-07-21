@@ -58,6 +58,10 @@ void jit_ldr(int reg) {
   fprintf(jit_out, "mov (%s), %s\n", regnames[reg], regnames[reg]);
 }
 
+void jit_ldr_stack(int dreg, int offset) {
+  fprintf(jit_out, "mov %d(%%rsp), %s\n", offset, regnames[dreg]);
+}
+
 // clobbers rdx!
 void jit_ldrb(int reg) {
   fprintf(jit_out, "movb (%s), %%dl\n", regnames[reg]);

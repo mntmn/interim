@@ -124,6 +124,42 @@ int rune_to_utf8(jit_word_t c, void* tempbuf, int* count)
   return 0;
 }
 
+int utf8_str_to_runestr(char* ustr, int len_bytes, uint32_t* dest) {
+  uint32_t desti = 0;
+  uint32_t rune = 0;
+  int state = 0;
+  for (int i=0; i<len_bytes; i++) {
+    uint8_t b1 = ustr[i];
+
+    if ((b1 & 0x80)==0) { // ascii
+      rune = b1;
+      state = 0;
+    } else if (state>0) {
+      rune=(rune<<6) | (b1 & 0x3fu);
+      state--;
+    } else if ((b1 & 0xe0) == 0xc0) {
+      // 16 bit
+      rune = b1 & 0x1f;
+      state = 1;
+    } else if ((b1 & 0xf0) == 0xe0) {
+      // 24 bit
+      rune = b1 & 0x0f;
+      state = 2;
+    } else if ((b1 & 0xf8) == 0xf0) {
+      // 32 bit
+      rune = b1 & 0x07;
+      state = 3;
+    }
+
+    // next char
+    if (state == 0) {
+      dest[desti++] = rune;
+    }
+  }
+  return desti;
+}
+
+/*
 jit_word_t utf8_strlen_cell(Cell* cell) {
   if (!cell || (cell->tag!=TAG_STR && cell->tag!=TAG_BYTES) || !cell->addr) return 0;
   return utf8_strlen(cell->addr, cell->size);
@@ -201,3 +237,4 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
 
   return i;
 }
+*/

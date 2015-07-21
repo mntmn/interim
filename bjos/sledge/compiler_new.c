@@ -135,7 +135,7 @@ void load_cell(int dreg, Arg arg) {
   }
 }
 
-#define MAXARGS 5
+#define MAXARGS 6
 
 int get_sym_arg_slot(char* argname, Arg* fn_frame) {
   if (!fn_frame) return 0;
@@ -808,10 +808,28 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
   } else {
     // lambda call
     //printf("-> would jump to lambda at %p\n",op->next);
+    if (argi>1) jit_push(LBDREG, LBDREG+argi-2);
     for (int j=0; j<argi-1; j++) {
-      load_cell(LBDREG+j, argdefs[j]);
+      if (argdefs[j].type == ARGT_REG) {
+        if (argdefs[j].slot<j) {
+          // register already clobbered, load from stack
+          printf("-- loading clobbered reg %d from stack to %d\n",argdefs[j].slot,LBDREG+j);
+          jit_ldr_stack(LBDREG+j, (argdefs[j].slot+1)*PTRSZ);
+        } else {
+          // no need to move a reg into itself
+          if (argdefs[j].slot!=j) {
+            load_cell(LBDREG+j, argdefs[j]);
+          }
+        }
+      }
+      else {
+        load_cell(LBDREG+j, argdefs[j]);
+      }
+      
+      // LDR Rd, [sp, #immed_8x4]
     }
     jit_call(op->next,"lambda");
+    if (argi>1) jit_pop(LBDREG, LBDREG+argi-2);
   }
 
   fflush(jit_out);
