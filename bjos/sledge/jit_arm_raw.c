@@ -1,4 +1,3 @@
-
 #include <stdint.h>
 
 char* regnames[] = {
@@ -86,8 +85,6 @@ void jit_movi(int reg, uint32_t imm) {
 
   code[code_idx] = op;
   code_idx++;
-  
-  //fprintf(jit_out, "movq $%p, %s\n", imm, regnames[reg]);
 }
 
 void jit_movr(int dreg, int sreg) {
@@ -98,24 +95,20 @@ void jit_movr(int dreg, int sreg) {
   code[code_idx++] = op;
 }
 
-void jit_movneg(int dreg, int sreg) {
-  
+void jit_movneg(int dreg, int sreg) {  
   uint32_t op = 0x41a00000;
   op |= (sreg<<0); // base reg = pc
   op |= (dreg<<12); // dreg
   
   code[code_idx++] = op;
-  //fprintf(jit_out, "cmovs %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
 void jit_movne(int dreg, int sreg) {
-  
   uint32_t op = 0x11a00000;
   op |= (sreg<<0); // base reg = pc
   op |= (dreg<<12); // dreg
   
   code[code_idx++] = op;
-  //fprintf(jit_out, "cmovne %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
 void jit_lea(int reg, void* addr) {
@@ -280,7 +273,6 @@ void jit_jmp(char* label) {
 }
 
 void jit_label(char* label) {
-  //fprintf(jit_out, "%s:\n", label);
   jit_labels[label_idx].name = label;
   jit_labels[label_idx].idx = code_idx;
 
