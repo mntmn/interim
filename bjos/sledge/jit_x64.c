@@ -34,7 +34,7 @@ enum arg_reg {
 void jit_init() {
 }
 
-void jit_movi(int reg, void* imm) {
+void jit_movi(int reg, uint64_t imm) {
   fprintf(jit_out, "movq $%p, %s\n", imm, regnames[reg]);
 }
 
@@ -51,15 +51,27 @@ void jit_movne(int dreg, int sreg) {
 }
 
 void jit_lea(int reg, void* addr) {
-  fprintf(jit_out, "mov $%p, %s\n", addr, regnames[reg]);
+  fprintf(jit_out, "movq $%p, %s\n", addr, regnames[reg]);
 }
 
 void jit_ldr(int reg) {
-  fprintf(jit_out, "mov (%s), %s\n", regnames[reg], regnames[reg]);
+  fprintf(jit_out, "movq (%s), %s\n", regnames[reg], regnames[reg]);
 }
 
 void jit_ldr_stack(int dreg, int offset) {
-  fprintf(jit_out, "mov %d(%%rsp), %s\n", offset, regnames[dreg]);
+  fprintf(jit_out, "movq %d(%%rsp), %s\n", offset, regnames[dreg]);
+}
+
+void jit_str_stack(int sreg, int offset) {
+  fprintf(jit_out, "movq %s, %d(%%rsp)\n", regnames[sreg], offset);
+}
+
+void jit_inc_stack(int offset) {
+  fprintf(jit_out, "addq $%d, %%rsp\n", offset);
+}
+
+void jit_dec_stack(int offset) {
+  fprintf(jit_out, "subq $%d, %%rsp\n", offset);
 }
 
 // clobbers rdx!

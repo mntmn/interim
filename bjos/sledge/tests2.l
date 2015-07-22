@@ -71,3 +71,10 @@
   (while (gt c 10) (do (def c (recv con)) (put buf i c) (def i (+ i 1))))
   buf
 )))
+
+
+(def f1 (fn a b (* a b)))
+(def f2 (fn a b c d (+ (f1 b a) (f1 d c))))
+(f2 4 3 2 1)
+
+(let a 3)

@@ -123,6 +123,27 @@ void jit_ldr_stack(int dreg, int offset) {
   code[code_idx++] = op;
 }
 
+void jit_str_stack(int sreg, int offset) {
+  uint32_t op = 0xe58d0000;
+  if (offset<0) {
+    op = 0xe51d0000;
+    offset = -1*offset;
+  }
+  op |= (offset)&0xfff;
+  op |= (sreg<<12); // dreg
+  code[code_idx++] = op;
+}
+
+void jit_inc_stack(int offset) {
+  uint32_t op = 0xe28d0000;
+  op |= (offset)&0xfff;
+}
+
+void jit_dec_stack(int offset) {
+  uint32_t op = 0xe24d0000;
+  op |= (offset)&0xfff;
+}
+
 void jit_ldrw(int reg) {
   jit_ldr(reg);
 }

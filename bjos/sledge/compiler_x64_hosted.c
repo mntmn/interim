@@ -10,7 +10,8 @@ int compile_for_platform(Cell* expr, Cell** res) {
   jit_out = fopen("/tmp/jit_out.s","w");
   
   jit_init();
-  int tag = compile_expr(expr, NULL, TAG_ANY);
+  Frame empty_frame = {NULL, 0, 0};
+  int tag = compile_expr(expr, &empty_frame, TAG_ANY);
   jit_ret();
 
   if (success) {
