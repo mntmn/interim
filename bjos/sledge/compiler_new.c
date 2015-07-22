@@ -87,23 +87,29 @@ Cell* lisp_print(Cell* arg) {
 
 void load_int(int dreg, Arg arg) {
   if (arg.type == ARGT_CONST) {
-    jit_movi(dreg, (void*)arg.cell->value);
+    // argument is a constant like 123, "foo"
+    jit_movi(dreg, (jit_word_t)arg.cell->value);
   }
   else if (arg.type == ARGT_CELL) {
     if (arg.cell == NULL) {
-      //jit_movr(dreg, R0);
+      // not sure what this is
+      //if (dreg!=R0) jit_movr(dreg, R0);
+      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
       jit_ldr(dreg);
     } else {
+      // argument is a cell pointer
       jit_lea(dreg, arg.cell);
       jit_ldr(dreg);
     }
   }
   else if (arg.type == ARGT_ENV) {
+    // argument is an environment table entry, load e->cell->value
     jit_lea(dreg, arg.env);
     jit_ldr(dreg);
     jit_ldr(dreg);
   }
   else if (arg.type == ARGT_REG) {
+    // argument comes from a register
     jit_movr(dreg, LBDREG+arg.slot);
     jit_ldr(dreg);
   }
@@ -111,15 +117,17 @@ void load_int(int dreg, Arg arg) {
     // do nothing
   }
   else {
-    jit_movi(dreg, (void*)0xdeadbeef);
+    jit_movi(dreg, 0xdeadbeef);
   }
 }
 
 void load_cell(int dreg, Arg arg) {
   if (arg.type == ARGT_CELL || arg.type == ARGT_CONST) {
     if (arg.cell == NULL) {
+      // not sure what this is
       jit_movr(dreg, R1+arg.slot); // FIXME: really true?
     } else {
+      // argument is a cell pointer
       jit_lea(dreg, arg.cell);
     }
   }
@@ -131,7 +139,7 @@ void load_cell(int dreg, Arg arg) {
     jit_movr(dreg, LBDREG+arg.slot);
   }
   else {
-    jit_movi(dreg, (void*)0xdeadcafe);
+    jit_movi(dreg, 0xdeadcafe);
   }
 }
 
@@ -198,7 +206,7 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
       env_entry* env = lookup_global_symbol(expr->addr);
       if (env) {
         Cell* value = env->cell;
-        jit_movi(R0,value);
+        jit_movi(R0,(jit_word_t)value);
       } else {
         printf("undefined symbol %s\n",expr->addr);
         jit_movi(R0,0);
@@ -206,7 +214,7 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
       }
     } else {
       // return the expr
-      jit_movi(R0,expr);
+      jit_movi(R0,(jit_word_t)expr);
       return compiled_type;
     }
     return 0;
@@ -395,8 +403,8 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
       load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
       jit_subr(R2,ARGR0);
-      jit_movi(ARGR0,(void*)0);
-      jit_movi(R2,(void*)1);
+      jit_movi(ARGR0,0);
+      jit_movi(R2,1);
       jit_movneg(ARGR0,R2);
       if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int, "alloc_int");
@@ -406,8 +414,8 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
       load_int(ARGR0,argdefs[0]);
       load_int(R2,argdefs[1]);
       jit_subr(ARGR0,R2);
-      jit_movi(ARGR0,(void*)0);
-      jit_movi(R2,(void*)1);
+      jit_movi(ARGR0,0);
+      jit_movi(R2,1);
       jit_movneg(ARGR0,R2);
       if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int, "alloc_int");
@@ -629,7 +637,7 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
       char label_skip[64];
       sprintf(label_skip,"skip_%d",++label_skip_count);
 
-      jit_movi(R1,(void*)0);    
+      jit_movi(R1,0);    
       load_cell(R3,argdefs[0]);
       load_int(R2,argdefs[1]); // offset -> R2
       jit_cmpi(R2,0);
@@ -809,12 +817,13 @@ int compile_expr(Cell* expr, Arg* fn_frame, int return_type) {
     // lambda call
     //printf("-> would jump to lambda at %p\n",op->next);
     if (argi>1) jit_push(LBDREG, LBDREG+argi-2);
+    
     for (int j=0; j<argi-1; j++) {
       if (argdefs[j].type == ARGT_REG) {
         if (argdefs[j].slot<j) {
           // register already clobbered, load from stack
           printf("-- loading clobbered reg %d from stack to %d\n",argdefs[j].slot,LBDREG+j);
-          jit_ldr_stack(LBDREG+j, (argdefs[j].slot+1)*PTRSZ);
+          jit_ldr_stack(LBDREG+j, (argdefs[j].slot)*PTRSZ);
         } else {
           // no need to move a reg into itself
           if (argdefs[j].slot!=j) {

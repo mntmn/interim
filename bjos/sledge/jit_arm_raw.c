@@ -54,9 +54,9 @@ void jit_init(int gap) {
   cpool_idx = gap;
   for (int i=0; i<JIT_MAX_LABELS; i++) {
     jit_labels[i].name = NULL;
-    jit_labels[i].idx = NULL;
+    jit_labels[i].idx = 0;
     jit_labels_unres[i].name = NULL;
-    jit_labels_unres[i].idx = NULL;
+    jit_labels_unres[i].idx = 0;
   }
 }
 
@@ -113,8 +113,12 @@ void jit_ldr(int reg) {
 }
 
 void jit_ldr_stack(int dreg, int offset) {
-  uint32_t op = 0xe59d3004;
-  op |= offset;
+  uint32_t op = 0xe59d0000;
+  if (offset<0) {
+    op = 0xe51d0000;
+    offset = -1*offset;
+  }
+  op |= (offset)&0xfff;
   op |= (dreg<<12); // dreg
   code[code_idx++] = op;
 }
@@ -295,6 +299,7 @@ void jit_push(int r1, int r2) {
   for (int i=r1; i<=r2; i++) {
     op |= (1<<i); // build bit pattern of registers to push
   }
+  code[code_idx++] = op;
 }
 
 void jit_pop(int r1, int r2) {
@@ -303,4 +308,5 @@ void jit_pop(int r1, int r2) {
   for (int i=r1; i<=r2; i++) {
     op |= (1<<i); // build bit pattern of registers to pop
   }
+  code[code_idx++] = op; 
 }

@@ -1,4 +1,6 @@
 #define CODESZ 4096
+#include <unistd.h>
+#include <fcntl.h>
 
 int compile_for_platform(Cell* expr, Cell** res) {
   code = mmap(0, CODESZ, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
@@ -14,6 +16,17 @@ int compile_for_platform(Cell* expr, Cell** res) {
   fwrite(code, CODESZ, 1, f);
   fclose(f);
 
+  // disassemble
+  system("arm-linux-gnueabihf-objdump -D -b binary -marmv5 /tmp/test >/tmp/disasm");
+  int fd = open("/tmp/disasm",O_RDONLY);
+  char buf[1024];
+  int buflen;
+  while((buflen = read(fd, buf, 1024)) > 0)
+  {
+    write(1, buf, buflen);
+  }
+  close(fd);
+  
   int mp_res = mprotect(code, CODESZ, PROT_EXEC|PROT_READ);
   
   funcptr fn = (funcptr)code;

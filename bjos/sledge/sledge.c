@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef DEV_LINUXFB
+  void mount_linux_fbfs();
   mount_linux_fbfs();
 #endif
   
