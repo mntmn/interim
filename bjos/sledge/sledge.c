@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
       } else {
         char out_buf[1024*10];
         lisp_write(res, out_buf, 1024*10);
-        printf(KBLU "\n%s\n\n" KWHT,out_buf);
+        printf(KCYN "\n%s\n\n" KWHT,out_buf);
       }
       
       //MemStats* mst = alloc_stats();
