@@ -137,11 +137,13 @@ void jit_str_stack(int sreg, int offset) {
 void jit_inc_stack(int offset) {
   uint32_t op = 0xe28d0000;
   op |= (offset)&0xfff;
+  code[code_idx++] = op;
 }
 
 void jit_dec_stack(int offset) {
   uint32_t op = 0xe24d0000;
   op |= (offset)&0xfff;
+  code[code_idx++] = op;
 }
 
 void jit_ldrw(int reg) {
