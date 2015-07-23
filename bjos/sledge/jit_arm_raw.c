@@ -248,7 +248,10 @@ void jit_cmpi(int sreg, int imm) {
 
 Label* find_label(char* label) {
   for (int i=0; i<label_idx; i++) {
-    if (jit_labels[i].name && strcmp(jit_labels[i].name,label)==0) {
+    if (jit_labels[i].name) {
+      printf("find_label %s label vs %s\n",label,jit_labels[i].name);
+    }
+    if (jit_labels[i].name && (strcmp(jit_labels[i].name,label)==0)) {
       return &jit_labels[i];
     }
   }
@@ -256,8 +259,11 @@ Label* find_label(char* label) {
 }
 
 Label* find_unresolved_label(char* label) {
-  for (int i=0; i<unresolved_labels; i++) {
-    if (jit_labels_unres[i].name && strcmp(jit_labels_unres[i].name,label)==0) {
+  for (int i=0; i<unres_labels; i++) {
+    if (jit_labels_unres[i].name) {
+      printf("find_unres_label %s label vs %s\n",label,jit_labels_unres[i].name);
+    }
+    if (jit_labels_unres[i].name && (strcmp(jit_labels_unres[i].name,label)==0)) {
       return &jit_labels_unres[i];
     }
   }
@@ -268,7 +274,7 @@ void jit_emit_branch(uint32_t op, char* label) {
   Label* lbl = find_label(label);
   if (lbl) {
     int offset = (lbl->idx - code_idx) - 2;
-    //printf("offset: %d (*4)\n",offset);
+    printf("offset to %s: %d (*4)\n",label,offset);
     if (offset<0) {
       offset = 0x1000000-(-offset);
       op|=offset;
