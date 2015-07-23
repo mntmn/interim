@@ -165,9 +165,12 @@ int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
   
   for (int i=0; i<MAXFRAME; i++) {
     if (fn_frame[i].name) {
-      if (!(fn_frame[i].type == ARGT_REG && ignore_regs)) {
-        printf("get_sym_arg_slot %i: %s\n",i,fn_frame[i].name);
+      printf("<< get_sym_frame_idx %i (type %d, reg = %d, looking for %s): %s\n",i,fn_frame[i].type,ARGT_REG,argname,fn_frame[i].name);
+      
+      if (!((fn_frame[i].type == ARGT_REG) && ignore_regs)) {
         if (!strcmp(argname, fn_frame[i].name)) {
+          printf("!! get_sym_frame_idx %i (type %d): %s\n",i,fn_frame[i].type,fn_frame[i].name);
+          printf("returning %d\n",i);
           return i;
         }
       }
@@ -345,12 +348,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         if (arg_frame_idx>=0) {
           argdefs[argi] = fn_frame[arg_frame_idx];
 
-          printf("argument %s from stack frame.\n");
+          printf("argument %s from stack frame.\n", arg->addr);
         } else {
           argdefs[argi].env = lookup_global_symbol((char*)arg->addr);
           argdefs[argi].type = ARGT_ENV;
           
-          printf("argument %s from environment.\n");
+          printf("argument %s from environment.\n", arg->addr);
         }
         //printf("lookup result: %p\n",argptrs[argi]);
 
@@ -463,24 +466,37 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_LET: {
-      if (argdefs[1].type == ARGT_CONST) {
+      // TODO why not just load_cell?!
+      /*if (argdefs[1].type == ARGT_CONST) {
         jit_lea(R0,argdefs[1].cell); // load cell
-      }
+      } else if (argdefs[1].type == ARGT_CELL) {
+        // already in R0
+      } else if (argdefs[1].type == ARGT_ENV) {
+        jit_lea(R0,argdefs[1].env);
+        jit_ldr(R0); // load cell
+      } else if (argdefs[1].type == ARGT_REG) {
+        jit_movr(ARGR1, LBDREG+argdefs[1].slot);
+        }*/
+      load_cell(R0, argdefs[1], frame);
 
       int offset = argi-1 + frame->locals;
       
-      int fidx = get_sym_frame_idx(expr->addr, fn_frame, 1);
+      int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
+
+      printf("fidx: %d\n",fidx);
+      
       if (fidx >= 0) {
         // existing stack entry
         offset = fidx;
+        printf("+~ frame entry %s, existing stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
       } else {
         fn_frame[offset].name = argdefs[0].cell->addr;
         fn_frame[offset].cell = NULL;
         fn_frame[offset].type = ARGT_STACK;
         fn_frame[offset].slot = frame->locals;
+        printf("++ frame entry %s, new stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
+        frame->locals++;
       }
-      printf("++ frame entry %s, stack-local idx %d\n",fn_frame[offset].name,frame->locals);
-      frame->locals++;
       
       jit_str_stack(R0,PTRSZ*(fn_frame[offset].slot+frame->sp));
       //jit_stack_offset++;
@@ -872,7 +888,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   } else {
     // lambda call
     //printf("-> would jump to lambda at %p\n",op->next);
-    if (argi>1) jit_push(LBDREG, LBDREG+argi-2);
+    if (argi>1) {
+      jit_push(LBDREG, LBDREG+argi-2);
+      frame->sp+=(1+argi-2);
+    }
     
     for (int j=0; j<argi-1; j++) {
       if (argdefs[j].type == ARGT_REG) {
@@ -892,7 +911,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
     }
     jit_call(op->next,"lambda");
-    if (argi>1) jit_pop(LBDREG, LBDREG+argi-2);
+    if (argi>1) {
+      jit_pop(LBDREG, LBDREG+argi-2);
+      frame->sp-=(1+argi-2);
+    }
   }
 
   fflush(jit_out);
