@@ -157,7 +157,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   printf("[gc] stack at: %p, stack end: %p\n",stack_pointer,stack_end);
 
   int sw_state = 0;
-  for (jit_word_t* a=(jit_word_t*)stack_end; a>(jit_word_t*)stack_pointer; a--) {
+  for (jit_word_t* a=(jit_word_t*)stack_end; a>=(jit_word_t*)stack_pointer; a--) {
     jit_word_t item = *a;
     jit_word_t next_item = *(a-1);
     if (next_item==STACK_FRAME_MARKER) {
