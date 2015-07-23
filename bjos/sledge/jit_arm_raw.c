@@ -62,8 +62,10 @@ void jit_init(int gap) {
   code_idx = 0;
   cpool_idx = gap;
   for (int i=0; i<JIT_MAX_LABELS; i++) {
+    if (jit_labels[i].name) free(jit_labels[i].name);
     jit_labels[i].name = NULL;
     jit_labels[i].idx = 0;
+    if (jit_labels_unres[i].name) free(jit_labels_unres[i].name);
     jit_labels_unres[i].name = NULL;
     jit_labels_unres[i].idx = 0;
   }
@@ -282,7 +284,7 @@ void jit_emit_branch(uint32_t op, char* label) {
     }
   } else {
     printf("! label not found %s, adding unresolved.\n",label);
-    jit_labels_unres[unres_labels].name = label;
+    jit_labels_unres[unres_labels].name = strdup(label);
     jit_labels_unres[unres_labels].idx  = code_idx;
     code[code_idx++] = op;
     
@@ -313,7 +315,7 @@ void jit_jmp(char* label) {
 }
 
 void jit_label(char* label) {
-  jit_labels[label_idx].name = label;
+  jit_labels[label_idx].name = strdup(label);
   jit_labels[label_idx].idx = code_idx;
 
   printf("register label: %s\n",label);
@@ -323,6 +325,7 @@ void jit_label(char* label) {
     printf("! forward label to %s at idx %d resolved.\n",label,unres_lbl->idx);
     code[unres_lbl->idx] |= (code_idx - unres_lbl->idx) - 2;
 
+    free(unres_lbl->name);
     unres_lbl->name = NULL;
     unres_lbl->idx  = 0;
   }
