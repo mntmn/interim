@@ -9,7 +9,8 @@ int compile_for_platform(Cell* expr, Cell** res) {
   //cpool_idx = CODESZ/2; // 128 ops gap
   //code_idx = 0;
 
-  Frame empty_frame = {NULL, 0, 0};
+  register void* sp asm ("sp"); // FIXME maybe unportable
+  Frame empty_frame = {NULL, 0, 0, sp};
   int tag = compile_expr(expr, &empty_frame, TAG_ANY);
   jit_ret();
 
