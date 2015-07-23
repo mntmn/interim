@@ -29,7 +29,6 @@
                         (let ofs (* y 3840))
                         (let x3 (* sy 24))
                         (while (lt x1 x2) (do
-                          (print x3)
                           (let color (get32 sprite x3))
                           (put32 fb (+ ofs x1) color)
                           (let x1 (+ x1 2))
@@ -46,17 +45,20 @@
                      )))
 
 (def main (fn (do
-  (let x 0)
-  (let y 0)
   (let offset 0)
-  (while (lt offset 64) (do
+  (let tick 0)
+  (while (lt offset 512) (do
+    (let x 0)
+    (let y 0)
     (while (lt y 10) (do
       (let x 0)
       (while (lt x 10) (do
-        (blit (* x 8) (* y 8))
+        (blit (+ offset (* x 8)) (+ offset (* y 8)))
         (let x (+ x 3))
         ))
-      (print y)
       (let y (+ y 3))))
-    (let offset (+ offset 1)) ))
+    (let offset (+ offset 1))
+    (let tick (+ tick 1))
+    (if (gt tick 9) (do (gc) (let tick 0)))
+  ))
 )))
