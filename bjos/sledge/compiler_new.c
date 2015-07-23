@@ -213,7 +213,8 @@ void pop_frame_regs(Arg* fn_frame) {
   }
 }
 
-int analyze_fn(Cell* expr, int num_lets) {
+static char* analyze_buffer[MAXFRAME];
+int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
   if (expr->tag == TAG_SYM) {
     env_entry* op_env = lookup_global_symbol(expr->addr);
     if (op_env) {
@@ -221,17 +222,33 @@ int analyze_fn(Cell* expr, int num_lets) {
       if (op->tag == TAG_BUILTIN) {
         printf("analyze_fn: found builtin: %s\n",expr->addr);
         if (op->value == BUILTIN_LET) {
-          num_lets++;
+          Cell* sym = car(cdr(parent));
+          if (sym) {
+            int existing = 0;
+            for (int i=0; i<num_lets; i++) {
+              if (!strcmp(analyze_buffer[i], sym->addr)) {
+                printf("-- we already know local %s\n",sym->addr);
+                existing = 1;
+                break;
+              }
+            }
+            if (!existing) {
+              analyze_buffer[num_lets] = sym->addr;
+              num_lets++;
+            }
+          } else {
+            printf("!! analyze error: malformed let!\n");
+          }
         }
       }
     }
   }
   else if (expr->tag == TAG_CONS) {
     if (car(expr)) {
-      num_lets = analyze_fn(car(expr), num_lets);
+      num_lets = analyze_fn(car(expr), expr, num_lets);
     }
     if (cdr(expr)) {
-      num_lets = analyze_fn(cdr(expr), num_lets);
+      num_lets = analyze_fn(cdr(expr), expr, num_lets);
     }
   }
   return num_lets;
@@ -558,7 +575,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_movi(R2,STACK_FRAME_MARKER);
       jit_push(R2,R2);
 
-      int num_lets = analyze_fn(fn_body,0);
+      int num_lets = analyze_fn(fn_body,NULL,0);
       
       jit_dec_stack(num_lets*PTRSZ);
       Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
