@@ -479,7 +479,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         }*/
       load_cell(R0, argdefs[1], frame);
 
-      int offset = argi-1 + frame->locals;
+      int offset = argi + frame->locals;
       
       int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
 
