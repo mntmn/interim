@@ -1,4 +1,3 @@
-
 (def fb (mmap "/framebuffer"))
 (def f (open "/framebuffer"))
 
@@ -50,6 +49,7 @@
   (while (lt offset 512) (do
     (let x 0)
     (let y 0)
+    (print (list "let: " x y))
     (while (lt y 10) (do
       (let x 0)
       (while (lt x 10) (do
@@ -59,8 +59,7 @@
       (let y (+ y 3))))
     (let offset (+ offset 1))
     (let tick (+ tick 1))
-    (print (list "tick" tick "offset" offset))
-    (if (gt tick 100) (do (gc) (let tick 0) (print "gc!")) 0)
+    (if (gt tick 100) (do (gc) (let tick 0) (print "gc!") (send f 0)) 0)
   ))
 ))))
 
