@@ -171,14 +171,14 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
     }
 
     if (sw_state==2) {
-      printf(KMAG "%p: 0x%016llx\n" KWHT,a,item);
+      printf(KMAG "%p: 0x%08llx\n" KWHT,a,item);
     }
     else if (sw_state==1) {
-      printf(KCYN "%p: 0x%016llx\n" KWHT,a,item);
+      printf(KCYN "%p: 0x%08llx\n" KWHT,a,item);
     }
-    /*else {
-      printf(KWHT "%p: 0x%016llx\n" KWHT,a,item);
-    }*/
+    else {
+      printf(KWHT "%p: 0x%08llx\n" KWHT,a,item);
+    }
   }
   printf("[gc] stack walk complete -------------------------------\n");
 

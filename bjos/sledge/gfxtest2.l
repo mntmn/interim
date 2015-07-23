@@ -44,7 +44,7 @@
                        (let sy (+ sy 1)) ))
                      )))
 
-(def main (fn (do
+(def main (fn (while 1 (do
   (let offset 0)
   (let tick 0)
   (while (lt offset 512) (do
@@ -59,6 +59,9 @@
       (let y (+ y 3))))
     (let offset (+ offset 1))
     (let tick (+ tick 1))
-    (if (gt tick 9) (do (gc) (let tick 0)))
+    (print (list "tick" tick "offset" offset))
+    (if (gt tick 100) (do (gc) (let tick 0) (print "gc!")) 0)
   ))
-)))
+))))
+
+(main)
