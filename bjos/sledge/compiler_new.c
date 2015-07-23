@@ -555,7 +555,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       jit_jmp(label_fe);
       jit_label(label_fn);
-      jit_movi(R2,0x1111111111111111);
+      jit_movi(R2,STACK_FRAME_MARKER);
       jit_push(R2,R2);
 
       int num_lets = analyze_fn(fn_body,0);

@@ -160,7 +160,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   for (jit_word_t* a=(jit_word_t*)stack_end; a>(jit_word_t*)stack_pointer; a--) {
     jit_word_t item = *a;
     jit_word_t next_item = *(a-1);
-    if (next_item==0x1111111111111111) {
+    if (next_item==STACK_FRAME_MARKER) {
       sw_state=2;
     } else {
       if (sw_state==2) {

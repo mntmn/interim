@@ -8,6 +8,14 @@
 
 #define env_t StrMap
 
+#ifdef CPU_ARM
+#define STACK_FRAME_MARKER 0x11111111
+#endif
+
+#ifdef CPU_X64
+#define STACK_FRAME_MARKER 0x1111111111111111
+#endif
+
 enum cell_allocator_t {
   CA_STACK,
   CA_HEAP
