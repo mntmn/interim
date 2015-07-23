@@ -165,12 +165,12 @@ int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
   
   for (int i=0; i<MAXFRAME; i++) {
     if (fn_frame[i].name) {
-      printf("<< get_sym_frame_idx %i (type %d, reg = %d, looking for %s): %s\n",i,fn_frame[i].type,ARGT_REG,argname,fn_frame[i].name);
+      //printf("<< get_sym_frame_idx %i (type %d, reg = %d, looking for %s): %s\n",i,fn_frame[i].type,ARGT_REG,argname,fn_frame[i].name);
       
       if (!((fn_frame[i].type == ARGT_REG) && ignore_regs)) {
         if (!strcmp(argname, fn_frame[i].name)) {
-          printf("!! get_sym_frame_idx %i (type %d): %s\n",i,fn_frame[i].type,fn_frame[i].name);
-          printf("returning %d\n",i);
+          //printf("!! get_sym_frame_idx %i (type %d): %s\n",i,fn_frame[i].type,fn_frame[i].name);
+          //printf("returning %d\n",i);
           return i;
         }
       }
@@ -483,7 +483,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
 
-      printf("fidx: %d\n",fidx);
+      //printf("fidx: %d\n",fidx);
       
       if (fidx >= 0) {
         // existing stack entry
@@ -639,12 +639,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         n++;
       }
       jit_call(alloc_nil, "list:alloc_nil");
-      jit_movr(R2,R0);
+      jit_movr(ARGR1,R0);
       for (int i=0; i<n; i++) {
         jit_pop(ARGR0,ARGR0);
         frame->sp--;
         jit_call(alloc_cons, "list:alloc_cons");
-        jit_movr(R2,R0);
+        jit_movr(ARGR1,R0);
       }
       break; // FIXME
     }
