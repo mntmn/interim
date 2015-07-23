@@ -220,7 +220,7 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
     if (op_env) {
       Cell* op = op_env->cell;
       if (op->tag == TAG_BUILTIN) {
-        printf("analyze_fn: found builtin: %s\n",expr->addr);
+        //printf("analyze_fn: found builtin: %s\n",expr->addr);
         if (op->value == BUILTIN_LET) {
           Cell* sym = car(cdr(parent));
           if (sym) {
@@ -387,17 +387,17 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         if (arg_frame_idx>=0) {
           argdefs[argi] = fn_frame[arg_frame_idx];
 
-          printf("argument %s from stack frame.\n", arg->addr);
+          //printf("argument %s from stack frame.\n", arg->addr);
         } else {
           argdefs[argi].env = lookup_global_symbol((char*)arg->addr);
           argdefs[argi].type = ARGT_ENV;
           
-          printf("argument %s from environment.\n", arg->addr);
+          //printf("argument %s from environment.\n", arg->addr);
         }
         //printf("lookup result: %p\n",argptrs[argi]);
 
         if (!argdefs[argi].env && arg_frame_idx<0) {
-          printf("undefined symbol %s given for argument %s!\n",arg->addr,arg_name);
+          printf("!! undefined symbol %s given for argument %s!\n",arg->addr,arg_name);
           return 0;
         }
       }
@@ -514,13 +514,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       if (fidx >= 0) {
         // existing stack entry
         offset = fidx;
-        printf("+~ frame entry %s, existing stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
+        //printf("+~ frame entry %s, existing stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
       } else {
         fn_frame[offset].name = argdefs[0].cell->addr;
         fn_frame[offset].cell = NULL;
         fn_frame[offset].type = ARGT_STACK;
         fn_frame[offset].slot = frame->locals;
-        printf("++ frame entry %s, new stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
+        //printf("++ frame entry %s, new stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
         frame->locals++;
       }
       
@@ -578,6 +578,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       int num_lets = analyze_fn(fn_body,NULL,0);
       
       jit_dec_stack(num_lets*PTRSZ);
+      
       Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
       compile_expr(fn_body, &nframe, TAG_ANY); // new frame, fresh sp
 

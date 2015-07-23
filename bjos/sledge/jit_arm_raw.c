@@ -275,7 +275,7 @@ void jit_emit_branch(uint32_t op, char* label) {
       code[code_idx++] = op;
     }
   } else {
-    printf("! label not found %s, adding unresolved.\n",label);
+    //printf("! label not found %s, adding unresolved.\n",label);
     jit_labels_unres[unres_labels].name = label;
     jit_labels_unres[unres_labels].idx  = code_idx;
     code[code_idx++] = op;
@@ -310,7 +310,7 @@ void jit_label(char* label) {
 
   Label* unres_lbl = NULL;
   while ((unres_lbl = find_unresolved_label(label))) {
-    printf("! forward label to %s at idx %d resolved.\n",label,unres_lbl->idx);
+    //printf("! forward label to %s at idx %d resolved.\n",label,unres_lbl->idx);
     code[unres_lbl->idx] |= (code_idx - unres_lbl->idx) - 2;
 
     unres_lbl->name = NULL;
