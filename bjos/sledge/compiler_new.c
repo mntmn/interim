@@ -358,7 +358,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         //printf("lookup result: %p\n",argptrs[argi]);
 
         if (!argdefs[argi].env && arg_frame_idx<0) {
-          printf("undefined symbol given for argument %s!\n",arg_name);
+          printf("undefined symbol %s given for argument %s!\n",arg->addr,arg_name);
           return 0;
         }
       }
