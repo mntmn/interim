@@ -4,14 +4,15 @@ char* regnames[] = {
   "%rdi",
   "%rsi",
   "%rdx",
-  /*"%r8",
-  "%r9",
-  "%r10",
-  "%r11",*/
   "%r12",
   "%r13",
   "%r14",
   "%r15",
+  "%r8",
+  "%r9",
+  "%r10",
+  "%r11",
+  "%rsp"
 };
 
 enum jit_reg {
@@ -23,13 +24,22 @@ enum jit_reg {
   R5,
   R6,
   R7,
-  R8
+  R8,
+  R9,
+  R10,
+  R11,
+  R12,
+  R13,
+  R14,
+  R15 
 };
 enum arg_reg {
   ARGR0 = 1,
   ARGR1 = 2,
   ARGR2 = 3
 };
+
+#define RSP R12
 
 void jit_init() {
 }

@@ -84,6 +84,7 @@ typedef struct Frame {
   Arg* f;
   int sp;
   int locals;
+  void* stack_end;
 } Frame;
 
 Cell* lisp_print(Cell* arg) {
@@ -212,10 +213,31 @@ void pop_frame_regs(Arg* fn_frame) {
   }
 }
 
-// sp = local stack offset
+int analyze_fn(Cell* expr, int num_lets) {
+  if (expr->tag == TAG_SYM) {
+    env_entry* op_env = lookup_global_symbol(expr->addr);
+    if (op_env) {
+      Cell* op = op_env->cell;
+      if (op->tag == TAG_BUILTIN) {
+        printf("analyze_fn: found builtin: %s\n",expr->addr);
+        if (op->value == BUILTIN_LET) {
+          num_lets++;
+        }
+      }
+    }
+  }
+  else if (expr->tag == TAG_CONS) {
+    if (car(expr)) {
+      num_lets = analyze_fn(car(expr), num_lets);
+    }
+    if (cdr(expr)) {
+      num_lets = analyze_fn(cdr(expr), num_lets);
+    }
+  }
+  return num_lets;
+}
 
 int compile_expr(Cell* expr, Frame* frame, int return_type) {
-
   int compiled_type = TAG_ANY;
   Arg* fn_frame = frame->f;
   
@@ -450,6 +472,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_DEF: {
+      // FIXME why no load_cell?
       if (argdefs[1].type == ARGT_CONST) {
         jit_lea(ARGR1,argdefs[1].cell); // load cell
       } else if (argdefs[1].type == ARGT_CELL) {
@@ -466,25 +489,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_LET: {
-      // TODO why not just load_cell?!
-      /*if (argdefs[1].type == ARGT_CONST) {
-        jit_lea(R0,argdefs[1].cell); // load cell
-      } else if (argdefs[1].type == ARGT_CELL) {
-        // already in R0
-      } else if (argdefs[1].type == ARGT_ENV) {
-        jit_lea(R0,argdefs[1].env);
-        jit_ldr(R0); // load cell
-      } else if (argdefs[1].type == ARGT_REG) {
-        jit_movr(ARGR1, LBDREG+argdefs[1].slot);
-        }*/
       load_cell(R0, argdefs[1], frame);
 
-      int offset = argi + frame->locals;
-      
+      int offset = argi + frame->locals;      
       int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
 
-      //printf("fidx: %d\n",fidx);
-      
       if (fidx >= 0) {
         // existing stack entry
         offset = fidx;
@@ -499,7 +508,6 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
       
       jit_str_stack(R0,PTRSZ*(fn_frame[offset].slot+frame->sp));
-      //jit_stack_offset++;
       
       break;
     }
@@ -518,7 +526,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         fn_new_frame[i].name = NULL;
       }
 
-      int slotc = 0;
+      int fn_argc = 0;
       for (int j=argi-3; j>=0; j--) {
         Cell* arg = alloc_cons(alloc_sym(argdefs[j].cell->addr),alloc_int(TAG_ANY));
         fn_args = alloc_cons(arg,fn_args);
@@ -526,6 +534,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         fn_new_frame[j].type = ARGT_REG;
         fn_new_frame[j].slot = j;
         fn_new_frame[j].name = argdefs[j].cell->addr;
+        fn_argc++;
       }
       char sig_debug[128];
       lisp_write(fn_args, sig_debug, sizeof(sig_debug));
@@ -546,10 +555,19 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       jit_jmp(label_fe);
       jit_label(label_fn);
-      jit_dec_stack(MAXFRAME*PTRSZ);
-      Frame nframe = {fn_new_frame, 0, 0};
+      jit_movi(R2,0x1111111111111111);
+      jit_push(R2,R2);
+
+      int num_lets = analyze_fn(fn_body,0);
+      
+      jit_dec_stack(num_lets*PTRSZ);
+      Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
       compile_expr(fn_body, &nframe, TAG_ANY); // new frame, fresh sp
-      jit_inc_stack(MAXFRAME*PTRSZ);
+
+      printf(">> fn has %d args and %d locals. predicted locals: %d\n",fn_argc,nframe.locals,num_lets);
+      
+      jit_inc_stack(num_lets*PTRSZ);
+      jit_inc_stack(PTRSZ);
       jit_ret();
       jit_label(label_fe);
       jit_lea(R0,lambda);
@@ -853,6 +871,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_GC: {
       jit_lea(ARGR0,global_env);
+      jit_movi(ARGR1,frame->stack_end);
+      jit_movr(ARGR2,RSP);
       jit_call(collect_garbage,"collect_garbage");
       break;
     }
@@ -886,8 +906,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     }
   } else {
-    // lambda call
-    //printf("-> would jump to lambda at %p\n",op->next);
+    // λλλ lambda call λλλ
+    
     if (argi>1) {
       jit_push(LBDREG, LBDREG+argi-2);
       frame->sp+=(1+argi-2);

@@ -94,9 +94,9 @@ void mark_tree(Cell* c) {
   }
 
   if (!(c->tag & TAG_MARK)) {
-    char buf[80];
+    /*char buf[80];
     lisp_write(c, buf, 79);
-    //printf("~~ marking live: %p %s\n",c,buf);
+    printf("~~ marking live: %p %s\n",c,buf);*/
     
     c->tag |= TAG_MARK;
     
@@ -145,12 +145,42 @@ void collect_garbage_iter(const char *key, void *value, const void *obj)
   mark_tree(e->cell);
 }
 
-Cell* collect_garbage(env_t* global_env) {
+Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   // mark
 
   // check all symbols in the environment
   // and look where they lead (cons trees, bytes, strings)
   // mark all of them as usable
+
+  // (def foo (fn (do (let a 1) (let b 2) (+ a b) (gc))))
+
+  printf("[gc] stack at: %p, stack end: %p\n",stack_pointer,stack_end);
+
+  int sw_state = 0;
+  for (jit_word_t* a=(jit_word_t*)stack_end; a>(jit_word_t*)stack_pointer; a--) {
+    jit_word_t item = *a;
+    jit_word_t next_item = *(a-1);
+    if (next_item==0x1111111111111111) {
+      sw_state=2;
+    } else {
+      if (sw_state==2) {
+        sw_state=1;
+      } else if (sw_state==1) {
+        mark_tree((Cell*)item);
+      }
+    }
+
+    if (sw_state==2) {
+      printf(KMAG "%p: 0x%016llx\n" KWHT,a,item);
+    }
+    else if (sw_state==1) {
+      printf(KCYN "%p: 0x%016llx\n" KWHT,a,item);
+    }
+    /*else {
+      printf(KWHT "%p: 0x%016llx\n" KWHT,a,item);
+    }*/
+  }
+  printf("[gc] stack walk complete -------------------------------\n");
 
   sm_enum(global_env, collect_garbage_iter, NULL);
   mark_tree(get_fs_list());

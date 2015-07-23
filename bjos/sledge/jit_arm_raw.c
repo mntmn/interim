@@ -9,13 +9,22 @@ enum jit_reg {
   R5,
   R6,
   R7,
-  R8
+  R8,
+  R9,
+  R10,
+  R11,
+  R12,
+  R13, // SP Stack Pointer
+  R14, // LR Link Register
+  R15  // PC Program Counter
 };
 enum arg_reg {
   ARGR0 = 0,
   ARGR1,
   ARGR2
 };
+
+#define RSP R13
 
 static uint32_t* code;
 static uint32_t code_idx;
@@ -59,7 +68,6 @@ void jit_init(int gap) {
     jit_labels_unres[i].idx = 0;
   }
 }
-
 
 void jit_movi(int reg, uint32_t imm) {
   // load from constant pool
