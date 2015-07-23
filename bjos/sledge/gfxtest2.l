@@ -72,5 +72,4 @@
       (def x (+ x 3))
       ))
     (print y)
-    (send f 0)
     (def y (+ y 3)))) )))

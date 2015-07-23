@@ -160,14 +160,16 @@ void load_cell(int dreg, Arg arg, Frame* f) {
 #define MAXARGS 6
 #define MAXFRAME 16 // maximum 16-6 local vars
 
-int get_sym_frame_idx(char* argname, Arg* fn_frame) {
+int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
   if (!fn_frame) return -1;
   
   for (int i=0; i<MAXFRAME; i++) {
     if (fn_frame[i].name) {
-      printf("get_sym_arg_slot %i: %s\n",i,fn_frame[i].name);
-      if (!strcmp(argname, fn_frame[i].name)) {
-        return i;
+      if (!(fn_frame[i].type == ARGT_REG && ignore_regs)) {
+        printf("get_sym_arg_slot %i: %s\n",i,fn_frame[i].name);
+        if (!strcmp(argname, fn_frame[i].name)) {
+          return i;
+        }
       }
     }
   }
@@ -217,7 +219,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   if (expr->tag != TAG_CONS) {
     if (expr->tag == TAG_SYM) {
       
-      int arg_frame_idx = get_sym_frame_idx(expr->addr, fn_frame);
+      int arg_frame_idx = get_sym_frame_idx(expr->addr, fn_frame, 0);
       if (arg_frame_idx>=0) {
         load_cell(R0, fn_frame[arg_frame_idx], frame);
         return compiled_type;
@@ -337,7 +339,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         // symbol given, lookup (indirect)
         //printf("indirect symbol lookup (name: %p)\n",arg->value);
 
-        int arg_frame_idx = get_sym_frame_idx(arg->addr, fn_frame);
+        int arg_frame_idx = get_sym_frame_idx(arg->addr, fn_frame, 0);
 
         // argument passed to function in register
         if (arg_frame_idx>=0) {
@@ -464,14 +466,23 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       if (argdefs[1].type == ARGT_CONST) {
         jit_lea(R0,argdefs[1].cell); // load cell
       }
-      jit_str_stack(R0,PTRSZ*(frame->locals+frame->sp));
+
       int offset = argi-1 + frame->locals;
-      fn_frame[offset].name = argdefs[0].cell->addr;
-      fn_frame[offset].cell = NULL;
-      fn_frame[offset].type = ARGT_STACK;
-      fn_frame[offset].slot = frame->locals;
+      
+      int fidx = get_sym_frame_idx(expr->addr, fn_frame, 1);
+      if (fidx >= 0) {
+        // existing stack entry
+        offset = fidx;
+      } else {
+        fn_frame[offset].name = argdefs[0].cell->addr;
+        fn_frame[offset].cell = NULL;
+        fn_frame[offset].type = ARGT_STACK;
+        fn_frame[offset].slot = frame->locals;
+      }
       printf("++ frame entry %s, stack-local idx %d\n",fn_frame[offset].name,frame->locals);
       frame->locals++;
+      
+      jit_str_stack(R0,PTRSZ*(fn_frame[offset].slot+frame->sp));
       //jit_stack_offset++;
       
       break;
