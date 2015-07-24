@@ -9,9 +9,9 @@ Interim runs on:
 - ARM5+ Linux (Hosted)
 - Intel/AMD x64 Linux (Hosted)
 
-![Bomberjacket OS Logo](http://dump.mntmn.com/bjos.png)
+![Interim OS Bomberjacket Logo](http://dump.mntmn.com/bjos.png)
 
-![Bomberjacket OS Screenshot](http://dump.mntmn.com/bjos-mar17-2015.png)
+![Interim OS Screenshot](http://dump.mntmn.com/interim-paper/illustrations/interim-picture.jpg)
 
 Architecture
 ------------
