@@ -66,14 +66,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-newlib: GNU GPLv2, Maintained by Corinna Vinschen, Jeff Johnston / Red Hat Inc.
-devices/rpi2/uspi: GNU GPLv3, Copyright (C) 2014-2015  R. Stange <rsta2@o2online.de>
-devices/rpi2/rpi-boot: Copyright (C) 2013 by John Cronin <jncronin@tysos.org>
-
-GNU Unifont: GNU GPLv2+, originally by Roman Czyborra
+- newlib: GNU GPLv2, Maintained by Corinna Vinschen, Jeff Johnston / Red Hat Inc.
+- devices/rpi2/uspi: GNU GPLv3, Copyright (C) 2014-2015  R. Stange <rsta2@o2online.de>
+- devices/rpi2/rpi-boot: Copyright (C) 2013 by John Cronin <jncronin@tysos.org>
+- GNU Unifont: GNU GPLv2+, originally by Roman Czyborra
 
 Codecs
 
-minimp3: GNU LGPL, Copyright (C) 2001, 2002 Fabrice Bellard, (C) 2007 Martin J. Fiedler
-uPNG: zlib License, Copyright (C) 2005-2010 Lode Vandevenne, (C) 2010 Sean Middleditch
-NanoJPEG: KeyJ's Research License, Copyright (C) 2014 Martin J. Fiedler
+- minimp3: GNU LGPL, Copyright (C) 2001, 2002 Fabrice Bellard, (C) 2007 Martin J. Fiedler
+- uPNG: zlib License, Copyright (C) 2005-2010 Lode Vandevenne, (C) 2010 Sean Middleditch
+- NanoJPEG: KeyJ's Research License, Copyright (C) 2014 Martin J. Fiedler
