@@ -4,15 +4,16 @@
 (fib 5)
 
 (def fib (fn n (do
-  (def i (+ 0 1))
-  (def j (+ 0 1))
-  (def r (+ 0 1))
+  (let i 1)
+  (let j 1)
+  (let r 1)
+  (let n n)
 
   (while (gt n 2) (do
-    (mut r (+ i j))
-    (mut i j)
-    (mut j r)
-    (mut n (- n 1))
+    (let r (+ i j))
+    (let i j)
+    (let j r)
+    (let n (- n 1))
   ))
 
   r

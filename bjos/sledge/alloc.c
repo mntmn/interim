@@ -201,6 +201,8 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   free_list_avail = 0;
   free_list_consumed = 0;
 
+  int highwater = 0;
+
 #ifdef DEBUG_GC
   printf("\e[1;1H\e[2J");
   printf("~~ cell memory: ");
@@ -225,6 +227,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
       free_list_avail++;
       gc++;
     } else {
+      highwater = i;
       
 #ifdef DEBUG_GC
       printf("o");
@@ -233,6 +236,9 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
     // unset mark bit
     cell_heap[i].tag &= ~TAG_MARK;
   }
+  
+  cells_used = highwater+1;
+  printf("[gc] highwater %d\n",highwater);
   
 #ifdef DEBUG_GC
   printf("\n\n");

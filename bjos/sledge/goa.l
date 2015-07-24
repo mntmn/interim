@@ -1,35 +1,24 @@
+(def fb (mmap "/framebuffer"))
+(def pixel (fn x y c (put32 fb (+ x (+ x (* y 3840))) c)))
+
+(def main (fn
 (do
-(mut c 0)
+(let c 0)
+(let tick 0)
 (while 1
   (do
-    (mut c (+ 1 (% (+ c 1) 256)))
-    (mut b 320)
-    (while (mut b (- b 1))
+    (let c (+ 1 c))
+    (let b 640)
+    (while b
       (do
-        (mut a 320)
-        (while (mut a (- a 1))
-          (pixel a b (/ (+ a b) c)))))
-    (flip))))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        (let b (- b 1))
+          (let a 640)
+        (while a (do
+          (let a (- a 1))
+          (put32 fb (+ a (+ a (* b 3840))) (* 0x1000 (* a (+ c b))))
+          ;(pixel a b (* 0x1000 (* a (+ c b))))
+        ))))
+    (let tick (+ tick 1))
+    (gc)
+    )))
+))

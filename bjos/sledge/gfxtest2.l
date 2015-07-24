@@ -1,6 +1,19 @@
 (def fb (mmap "/framebuffer"))
 (def f (open "/framebuffer"))
 
+(def draw-bg (fn c (do
+    (let c (+ 1 c))
+    (let b 1080)
+    (while b
+      (do
+        (let b (- b 1))
+        (let a 1920)
+        (while a (do
+          (let a (- a 1))
+          (put32 fb (+ a (+ a (* b 3840))) (* 0x1000 (* a (+ c b))))
+        ))))
+)))
+
 (def sprite [0000 0000 0000 00f0 00f0 00f0 00f0 00f0 0000 0000 0000 0000
              0000 0000 00f0 00f0 00f0 00f0 00f0 00f0 00f0 00f0 00f0 0000
              0000 0000 0088 0088 0088 00ff 00ff 0088 00ff 0000 0000 0000
@@ -33,6 +46,7 @@
                           (let x1 (+ x1 2))
                           (let x3 (+ x3 2))
                         )) )))
+
 (def blit (fn x y (do
                      (let y1 y)
                      (let y2 (+ y sprite-h))
@@ -44,22 +58,38 @@
                      )))
 
 (def main (fn (while 1 (do
-  (let offset 0)
+  (draw-bg 0)
+  (let offset-x 500)
+  (let offset-y 500)
+  (let dx 1)
+  (let dy 1)
   (let tick 0)
-  (while (lt offset 512) (do
+  (while 1 (do
+    (let offset-x (+ offset-x dx))
+    (let offset-y (+ offset-y dy))
+
+    (if (gt offset-x 1800) (let dx -1) 0)
+    (if (gt offset-y 900)  (let dy -1) 0)
+    (if (lt offset-x 100)  (let dx 1) 0)
+    (if (lt offset-y 100)  (let dy 1) 0)
+
+    ; draw marios
     (let x 0)
     (let y 0)
-    (print (list "let: " x y))
     (while (lt y 10) (do
       (let x 0)
       (while (lt x 10) (do
-        (blit (+ offset (* x 8)) (+ offset (* y 8)))
+        (blit (+ offset-x (* x 8)) (+ offset-y (* y 8)))
         (let x (+ x 3))
         ))
       (let y (+ y 3))))
-    (let offset (+ offset 1))
+
+    ; collect garbage
     (let tick (+ tick 1))
-    (if (gt tick 100) (do (gc) (let tick 0) (print "gc!") (send f 0)) 0)
+    (if (gt tick 300) (do
+      (gc)
+      (let tick 0)
+      (print "gc!")) 0)
   ))
 ))))
 
