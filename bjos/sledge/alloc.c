@@ -237,7 +237,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
     cell_heap[i].tag &= ~TAG_MARK;
   }
   
-  cells_used = highwater+1;
+  //cells_used = highwater+1;
   printf("[gc] highwater %d\n",highwater);
   
 #ifdef DEBUG_GC
