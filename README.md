@@ -1,3 +1,5 @@
+![Interim OS Bomberjacket Logo](http://dump.mntmn.com/bjos.png)
+
 Interim
 -------
 
@@ -9,18 +11,14 @@ Interim runs on:
 - ARM5+ Linux (Hosted)
 - Intel/AMD x64 Linux (Hosted)
 
-![Interim OS Bomberjacket Logo](http://dump.mntmn.com/bjos.png)
-
-![Interim OS Screenshot](http://dump.mntmn.com/interim-paper/illustrations/interim-picture.jpg)
-
 Architecture
 ------------
 
-Layer 2: Bitmapped Terminal / Editor
+- Layer 2: Bitmapped Terminal / Editor
+- Layer 1: Sledge Lisp JIT Compiler
+- Layer 0: Platform Interface (Startup code and filesystems)
 
-Layer 1: Sledge Lisp JIT Compiler
-
-Layer 0: Platform Interface (Startup code and filesystems)
+![Interim OS Screenshot](http://dump.mntmn.com/interim-paper/illustrations/interim-picture.jpg)
 
 Design Choices
 --------------
