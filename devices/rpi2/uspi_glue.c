@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
-#include "rpi2/raspi.h"
+#include "devices/rpi2/raspi.h"
 
 #include <uspienv/timer.h>
 #include <uspienv/logger.h>

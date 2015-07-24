@@ -1,3 +1,5 @@
+#ifndef SLEDGE_COMPILER_H
+#define SLEDGE_COMPILER_H
 
 typedef jit_word_t (*funcptr)();
 
@@ -82,3 +84,6 @@ typedef enum builtin_t {
 } builtin_t;
 
 Cell* insert_global_symbol(Cell* symbol, Cell* cell);
+env_entry* lookup_global_symbol(char* name);
+
+#endif

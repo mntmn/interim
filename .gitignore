@@ -1,6 +1,8 @@
 .DS_Store
 obj/*.o
+*.o
 a.out
 os/rootfs/grumpy.data
 sledge/sledge
 build/*.elf
+newlib

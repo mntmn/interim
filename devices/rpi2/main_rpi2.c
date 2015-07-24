@@ -1,16 +1,18 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "sledge/minilisp.h"
-#include "sledge/alloc.h"
-#include "sledge/blit.h"
-#include "rpi2/raspi.h"
-#include "rpi2/r3d.h"
-#include "rpi2/rpi-boot/fs.h"
-#include "rpi2/rpi-boot/dirent.h"
-#include "rpi2/uspi/include/uspi.h"
+#include "minilisp.h"
+#include "alloc.h"
+#include "reader.h"
+#include "compiler_new.h"
+#include "os/debug_util.h"
 
-#include <lightning.h>
+#include "devices/rpi2/raspi.h"
+#include "devices/rpi2/r3d.h"
+#include "devices/rpi2/rpi-boot/fs.h"
+#include "devices/rpi2/rpi-boot/dirent.h"
+#include "devices/rpi2/rpi-boot/util.h"
+#include "devices/rpi2/uspi/include/uspi.h"
 
 void main();
 
@@ -52,10 +54,10 @@ void main()
 
   uart_init(); // gpio setup also affects emmc TODO: document
   
-  uart_puts("-- BOMBERJACKET/PI kernel_main entered.\r\n");
+  uart_puts("-- INTERIM/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
   
-  libfs_init();
+  //libfs_init();
 
   init_rpi_qpu();
   uart_puts("-- QPU enabled.\r\n");
@@ -63,7 +65,7 @@ void main()
   FB = init_rpi_gfx();
   FB_MEM = FB;
 
-  init_blitter(FB);
+  //init_blitter(FB);
   
   sprintf(buf, "-- framebuffer at %p.\r\n",FB);
   uart_puts(buf);
@@ -115,36 +117,9 @@ void vfs_register(struct fs *fs) {
   fat_fs = fs;
 }
 
-void printhex(uint32_t num) {
-  char buf[9];
-  buf[8] = 0;
-  for (int i=7; i>=0; i--) {
-    int d = num&0xf;
-    if (d<10) buf[i]='0'+d;
-    else buf[i]='a'+d-10;
-    num=num>>4;
-  }
-  uart_puts(buf);
-}
+#include <os/libc_glue.c>
 
-void printhex_signed(int32_t num) {
-  char buf[9];
-  buf[8] = 0;
-  if (num<0) {
-    uart_putc('-');
-    num=-num;
-  }
-  for (int i=7; i>=0; i--) {
-    int d = num&0xf;
-    if (d<10) buf[i]='0'+d;
-    else buf[i]='a'+d-10;
-    num=num/16;
-  }
-  uart_puts(buf);
-}
-
-#include "libc_glue.c"
-
+/*
 int machine_video_set_pixel(uint32_t x, uint32_t y, uint32_t color) {
   if (x>=1920 || y>=1080) return 0;
   FB_MEM[y*1920+x] = color;
@@ -169,10 +144,9 @@ int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t 
 
   return 0;
 }
+*/
 
-Cell* lookup_global_symbol(char* name);
-
-void memdump(jit_word_t start,uint32_t len,int raw);
+//Cell* lookup_global_symbol(char* name);
 
 int ethernet_rx(uint8_t* packet) {
   int frame_len = 0;
@@ -181,7 +155,7 @@ int ethernet_rx(uint8_t* packet) {
 
     if (frame_len) {
       printf("[eth] frame received! len: %d\r\n",frame_len);   
-      memdump((uint32_t)packet,frame_len,0);
+      memdump(packet,frame_len,0);
     }
   }
   return frame_len;
@@ -192,8 +166,8 @@ void ethernet_tx(uint8_t* packet, int len) {
   printf("[eth] frame sent (%d)\r\n",len);
 }
 
+/*
 int machine_video_flip() {
-  
   nv_vertex_t* triangles = r3d_init_frame();
 
   Cell* c_x1 = lookup_global_symbol("tx1");
@@ -262,6 +236,7 @@ int machine_video_flip() {
   
   return 0;
 }
+*/
 
 static char usb_key_in = 0;
 static int usb_keyboard_enabled = 0;
@@ -390,14 +365,10 @@ Cell* machine_load_file(char* path) {
 }
 
 typedef jit_word_t (*funcptr)();
-static jit_state_t *_jit;
-static jit_state_t *_jit_saved;
-static void *stack_ptr, *stack_base;
 
-#include "sledge/compiler.c"
-#include "rpi2/rpi-boot/util.h"
+#include "compiler_new.c"
 
-void insert_rootfs_symbols() {
+/*void insert_rootfs_symbols() {
   // until we have a file system, inject binaries that are compiled in the kernel
   // into the environment
   
@@ -414,7 +385,7 @@ void insert_rootfs_symbols() {
 
   insert_symbol(alloc_sym("unifont"), unif, &global_env);
 
-  /*extern uint8_t _binary_bjos_rootfs_editor_l_start;
+  extern uint8_t _binary_bjos_rootfs_editor_l_start;
   extern uint32_t _binary_bjos_rootfs_editor_l_size;
   Cell* editor = alloc_string("boot");
   editor->addr = &_binary_bjos_rootfs_editor_l_start;
@@ -422,7 +393,7 @@ void insert_rootfs_symbols() {
 
   printf("~~ editor-source is at %p, size %d\r\n",editor->addr,editor->size);
   
-  insert_symbol(alloc_sym("editor-source"), editor, &global_env);*/
+  insert_symbol(alloc_sym("editor-source"), editor, &global_env);
 
   //Cell* boot = alloc_string("(eval (load \"/sd/boot.l\"))");
   //insert_symbol(alloc_sym("boot-source"), boot, &global_env);
@@ -436,7 +407,7 @@ void insert_rootfs_symbols() {
   insert_symbol(alloc_sym("network-input"), udp_cell, &global_env);
 
   init_mini_ip(udp_cell);
-}
+  }*/
 
 void uart_repl() {
   uart_puts("~~ trying to malloc repl buffers\r\n");
@@ -446,16 +417,13 @@ void uart_repl() {
   uart_puts("\r\n\r\n++ welcome to sledge arm/32 (c)2015 mntmn.\r\n");
   
   init_compiler();
-  insert_rootfs_symbols();
+  //insert_rootfs_symbols();
 
   uart_puts("\r\n~~ compiler initialized.\r\n");
   
   memset(out_buf,0,1024*10);
   memset(in_line,0,1024*2);
   memset(in_buf,0,1024*10);
-
-  // jit stack
-  stack_ptr = stack_base = malloc(4096 * sizeof(jit_word_t));
 
   long count = 0;  
   int fullscreen = 0;
@@ -470,9 +438,6 @@ void uart_repl() {
 
   strcpy(in_line,"(eval (load \"/sd/boot.l\"))\n");
   
-  init_jit(NULL);
-  uart_puts("\r\n\r\n~~ JIT initialized.\r\n");
-
   r3d_init(FB);
   uart_puts("-- R3D initialized.\r\n");
   
@@ -502,17 +467,11 @@ void uart_repl() {
         parens--;
       }
     }
-
-    //printf("parens: %d in_offset: %d\n",parens,in_offset);
-
     if (len>1) {
       strncpy(in_buf+in_offset, in_line, len-1);
       in_buf[in_offset+len-1] = 0;
       
-      //printf("line: '%s' (%d)\n",in_buf,strlen(in_buf));
-      
       linec++;
-      //if (linec>10) while (1) {};
     }
     printf("\r\n[%s]\r\n",in_buf);
     
@@ -525,34 +484,14 @@ void uart_repl() {
         in_offset=0;
       }
     }
-    //printf("parens: %d offset: %d\n",parens,in_offset);
     
-    jit_node_t  *in;
-    funcptr     compiled;
+    funcptr compiled;
 
     if (expr) {
-      _jit = jit_new_state();
-      
-      jit_prolog();
-      
-      int success = compile_arg(JIT_R0, expr, TAG_ANY);
-
-      jit_retr(JIT_R0);
+      int success = 0;
+      Cell* res = NULL;
 
       if (success) {
-        compiled = jit_emit();
-
-        //jit_disassemble();
-
-        //start_clock();
-
-        printf("-- compiled: %p\r\n",compiled);
-        memdump((uint32_t)compiled,200,1);
-
-        Cell* res = (Cell*)compiled();
-        printf("-- res at: %p\r\n",res);
-
-        // TODO: move to write op
         if (!res) {
           uart_puts("null\n");
         } else {
@@ -562,9 +501,6 @@ void uart_repl() {
       }
       
       uart_puts("\r\n");
-      
-      jit_clear_state();
-      jit_destroy_state();
     }
   }
 }
