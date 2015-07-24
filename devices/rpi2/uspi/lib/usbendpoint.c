@@ -20,6 +20,11 @@
 #include <uspi/usbendpoint.h>
 #include <uspi/assert.h>
 
+short read16(const void* addr) {
+  unsigned char* p = (unsigned char*)addr;
+  return (p[1]<<8)|p[0];
+}
+
 void USBEndpoint (TUSBEndpoint *pThis, TUSBDevice *pDevice)
 {
 	assert (pThis != 0);
@@ -36,15 +41,21 @@ void USBEndpoint (TUSBEndpoint *pThis, TUSBDevice *pDevice)
 
 void USBEndpoint2 (TUSBEndpoint *pThis, TUSBDevice *pDevice, const TUSBEndpointDescriptor *pDesc)
 {
+  
+  printf("in usbendpoint2 a\r\n");
+  
 	assert (pThis != 0);
 	pThis->m_pDevice = pDevice;
 	pThis->m_nInterval = 1;
 
+  printf("in usbendpoint2 a2 \r\n");
 	assert (pThis->m_pDevice != 0);
 
 	assert (pDesc != 0);
 	assert (pDesc->bLength == sizeof *pDesc);
 	assert (pDesc->bDescriptorType == DESCRIPTOR_ENDPOINT);
+
+  printf("in usbendpoint2 a3\r\n");
 
 	switch (pDesc->bmAttributes & 0x03)
 	{
@@ -62,11 +73,21 @@ void USBEndpoint2 (TUSBEndpoint *pThis, TUSBDevice *pDevice, const TUSBEndpointD
 		assert (0);	// endpoint configuration should be checked by function driver
 		return;
 	}
+  
+  printf("in usbendpoint2 a4-1\r\n");
 	
 	pThis->m_ucNumber       = pDesc->bEndpointAddress & 0x0F;
-	pThis->m_bDirectionIn   = pDesc->bEndpointAddress & 0x80 ? TRUE : FALSE;
-	pThis->m_nMaxPacketSize = pDesc->wMaxPacketSize;
+
+  printf("in usbendpoint2 a4-2\r\n");
+  pThis->m_bDirectionIn   = pDesc->bEndpointAddress & 0x80 ? TRUE : FALSE;
+
+  printf("in usbendpoint2 a4-3\r\n");
+  pThis->m_nMaxPacketSize = read16(&pDesc->wMaxPacketSize);
+
+  printf("read maxpacketsize: %d\r\n",pThis->m_nMaxPacketSize);
 	
+  printf("in usbendpoint2 b\r\n");
+  
 	if (pThis->m_Type == EndpointTypeInterrupt)
 	{
 		u8 ucInterval = pDesc->bInterval;
@@ -74,10 +95,12 @@ void USBEndpoint2 (TUSBEndpoint *pThis, TUSBDevice *pDevice, const TUSBEndpointD
 		{
 			ucInterval = 1;
 		}
+    printf("in usbendpoint2 c\r\n");
 
 		// see USB 2.0 spec chapter 9.6.6
 		if (USBDeviceGetSpeed (pThis->m_pDevice) != USBSpeedHigh)
 		{
+      printf("in usbendpoint2 d\r\n");
 			pThis->m_nInterval = ucInterval;
 		}
 		else
@@ -89,6 +112,7 @@ void USBEndpoint2 (TUSBEndpoint *pThis, TUSBDevice *pDevice, const TUSBEndpointD
 
 			unsigned nValue = 1 << (ucInterval - 1);
 
+      printf("in usbendpoint2 e\r\n");
 			pThis->m_nInterval = nValue / 8;
 
 			if (pThis->m_nInterval < 1)

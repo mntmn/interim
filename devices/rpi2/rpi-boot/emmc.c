@@ -40,9 +40,7 @@
 #include "timer.h"
 #include "util.h"
 
-#ifdef DEBUG2
-#define EMMC_DEBUG
-#endif
+//#define EMMC_DEBUG
 
 // Configuration options
 
@@ -91,9 +89,9 @@ static uint32_t capabilities_1 = 0;
 
 struct sd_scr
 {
-    uint32_t    scr[2];
-    uint32_t    sd_bus_widths;
-    int         sd_version;
+  uint32_t    scr[2];
+  uint32_t    sd_bus_widths;
+  int         sd_version;
 };
 
 struct emmc_block_dev
@@ -110,8 +108,8 @@ struct emmc_block_dev
 
 	int failed_voltage_switch;
 
-    uint32_t last_cmd_reg;
-    uint32_t last_cmd;
+  uint32_t last_cmd_reg;
+  uint32_t last_cmd;
 	uint32_t last_cmd_success;
 	uint32_t last_r0;
 	uint32_t last_r1;
@@ -126,7 +124,7 @@ struct emmc_block_dev
 	uint32_t base_clock;
 };
 
-#define EMMC_BASE		0x20300000
+#define EMMC_BASE		0x3f300000
 #define	EMMC_ARG2		0
 #define EMMC_BLKSIZECNT		4
 #define EMMC_ARG1		8
@@ -465,13 +463,17 @@ static void sd_power_off()
 
 static uint32_t sd_get_base_clock_hz()
 {
-    uint32_t base_clock;
+  uint32_t base_clock;
 #if SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_GENERIC
-    capabilities_0 = mmio_read(EMMC_BASE + EMMC_CAPABILITIES_0);
-    base_clock = ((capabilities_0 >> 8) & 0xff) * 1000000;
+  capabilities_0 = mmio_read(EMMC_BASE + EMMC_CAPABILITIES_0);
+  base_clock = ((capabilities_0 >> 8) & 0xff) * 1000000;
 #elif SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_BCM_2708
-	uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
-	volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
+  //uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
+
+
+  volatile uint32_t mailbuffer[8] __attribute__ ((aligned (16)));
+    
+  //volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
 	/* Get the base clock rate */
 	// set up the buffer
@@ -489,32 +491,32 @@ static uint32_t sd_get_base_clock_hz()
 	mailbuffer[7] = 0;
 
 	// send the message
-	mbox_write(MBOX_PROP, mb_addr);
+	mbox_write(MBOX_PROP, (uint32_t)mailbuffer);
 
 	// read the response
 	mbox_read(MBOX_PROP);
 
 	if(mailbuffer[1] != MBOX_SUCCESS)
 	{
-	    printf("EMMC: property mailbox did not return a valid response.\n");
+	    printf("EMMC: property mailbox did not return a valid response.\r\n");
 	    return 0;
 	}
 
 	if(mailbuffer[5] != 0x1)
 	{
-	    printf("EMMC: property mailbox did not return a valid clock id.\n");
+	    printf("EMMC: property mailbox did not return a valid clock id.\r\n");
 	    return 0;
 	}
 
 	base_clock = mailbuffer[6];
 #else
     printf("EMMC: get_base_clock_hz() is not implemented for this "
-           "architecture.\n");
+           "architecture.\r\n");
     return 0;
 #endif
 
 #ifdef EMMC_DEBUG
-    printf("EMMC: base clock rate is %i Hz\n", base_clock);
+    printf("EMMC: base clock rate is %i Hz\r\n", base_clock);
 #endif
     return base_clock;
 }
@@ -522,7 +524,9 @@ static uint32_t sd_get_base_clock_hz()
 #if SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_BCM_2708
 static int bcm_2708_power_off()
 {
-	uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
+  volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
+  
+	//uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
 	volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
 	/* Power off the SD card */
@@ -541,27 +545,27 @@ static int bcm_2708_power_off()
 	mailbuffer[7] = 0;
 
 	// send the message
-	mbox_write(MBOX_PROP, mb_addr);
+	mbox_write(MBOX_PROP, (uint32_t)mb_addr);
 
 	// read the response
 	mbox_read(MBOX_PROP);
 
 	if(mailbuffer[1] != MBOX_SUCCESS)
 	{
-	    printf("EMMC: bcm_2708_power_off(): property mailbox did not return a valid response.\n");
+	    printf("EMMC: bcm_2708_power_off(): property mailbox did not return a valid response.\r\n");
 	    return -1;
 	}
 
 	if(mailbuffer[5] != 0x0)
 	{
-	    printf("EMMC: property mailbox did not return a valid device id.\n");
+	    printf("EMMC: property mailbox did not return a valid device id.\r\n");
 	    return -1;
 	}
 
 	if((mailbuffer[6] & 0x3) != 0)
 	{
 #ifdef EMMC_DEBUG
-		printf("EMMC: bcm_2708_power_off(): device did not power off successfully (%08x).\n", mailbuffer[6]);
+		printf("EMMC: bcm_2708_power_off(): device did not power off successfully (%08x).\r\n", mailbuffer[6]);
 #endif
 		return 1;
 	}
@@ -571,8 +575,10 @@ static int bcm_2708_power_off()
 
 static int bcm_2708_power_on()
 {
-	uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
-	volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
+	//uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
+  volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
+  
+  volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
 	/* Power on the SD card */
 	// set up the buffer
@@ -590,27 +596,27 @@ static int bcm_2708_power_on()
 	mailbuffer[7] = 0;
 
 	// send the message
-	mbox_write(MBOX_PROP, mb_addr);
+	mbox_write(MBOX_PROP, (uint32_t)mb_addr);
 
 	// read the response
 	mbox_read(MBOX_PROP);
 
 	if(mailbuffer[1] != MBOX_SUCCESS)
 	{
-	    printf("EMMC: bcm_2708_power_on(): property mailbox did not return a valid response.\n");
+	    printf("EMMC: bcm_2708_power_on(): property mailbox did not return a valid response.\r\n");
 	    return -1;
 	}
 
 	if(mailbuffer[5] != 0x0)
 	{
-	    printf("EMMC: property mailbox did not return a valid device id.\n");
+	    printf("EMMC: property mailbox did not return a valid device id.\r\n");
 	    return -1;
 	}
 
 	if((mailbuffer[6] & 0x3) != 1)
 	{
 #ifdef EMMC_DEBUG
-		printf("EMMC: bcm_2708_power_on(): device did not power on successfully (%08x).\n", mailbuffer[6]);
+		printf("EMMC: bcm_2708_power_on(): device did not power on successfully (%08x).\r\n", mailbuffer[6]);
 #endif
 		return 1;
 	}
@@ -693,7 +699,7 @@ static uint32_t sd_get_clock_divider(uint32_t base_clock, uint32_t target_rate)
             denominator = divisor * 2;
         int actual_clock = base_clock / denominator;
         printf("EMMC: base_clock: %i, target_rate: %i, divisor: %08x, "
-               "actual_clock: %i, ret: %08x\n", base_clock, target_rate,
+               "actual_clock: %i, ret: %08x\r\n", base_clock, target_rate,
                divisor, actual_clock, ret);
 #endif
 
@@ -701,7 +707,7 @@ static uint32_t sd_get_clock_divider(uint32_t base_clock, uint32_t target_rate)
     }
     else
     {
-        printf("EMMC: unsupported host version\n");
+        printf("EMMC: unsupported host version\r\n");
         return SD_GET_CLOCK_DIVIDER_FAIL;
     }
 
@@ -714,7 +720,7 @@ static int sd_switch_clock_rate(uint32_t base_clock, uint32_t target_rate)
     uint32_t divider = sd_get_clock_divider(base_clock, target_rate);
     if(divider == SD_GET_CLOCK_DIVIDER_FAIL)
     {
-        printf("EMMC: couldn't get a valid divider for target rate %i Hz\n",
+        printf("EMMC: couldn't get a valid divider for target rate %i Hz\r\n",
                target_rate);
         return -1;
     }
@@ -741,7 +747,7 @@ static int sd_switch_clock_rate(uint32_t base_clock, uint32_t target_rate)
     usleep(2000);
 
 #ifdef EMMC_DEBUG
-    printf("EMMC: successfully set clock rate to %i Hz\n", target_rate);
+    printf("EMMC: successfully set clock rate to %i Hz\r\n", target_rate);
 #endif
     return 0;
 }
@@ -755,7 +761,7 @@ static int sd_reset_cmd()
 	TIMEOUT_WAIT((mmio_read(EMMC_BASE + EMMC_CONTROL1) & SD_RESET_CMD) == 0, 1000000);
 	if((mmio_read(EMMC_BASE + EMMC_CONTROL1) & SD_RESET_CMD) != 0)
 	{
-		printf("EMMC: CMD line did not reset properly\n");
+		printf("EMMC: CMD line did not reset properly\r\n");
 		return -1;
 	}
 	return 0;
@@ -770,7 +776,7 @@ static int sd_reset_dat()
 	TIMEOUT_WAIT((mmio_read(EMMC_BASE + EMMC_CONTROL1) & SD_RESET_DAT) == 0, 1000000);
 	if((mmio_read(EMMC_BASE + EMMC_CONTROL1) & SD_RESET_DAT) != 0)
 	{
-		printf("EMMC: DAT line did not reset properly\n");
+		printf("EMMC: DAT line did not reset properly\r\n");
 		return -1;
 	}
 	return 0;
@@ -808,7 +814,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
     if((cmd_reg & SD_CMD_ISDATA) && (dev->use_sdma))
     {
 #ifdef EMMC_DEBUG
-        printf("SD: performing SDMA transfer, current INTERRUPT: %08x\n",
+        printf("SD: performing SDMA transfer, current INTERRUPT: %08x\r\n",
                mmio_read(EMMC_BASE + EMMC_INTERRUPT));
 #endif
         is_sdma = 1;
@@ -828,7 +834,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
     //  host SDMA buffer boundary = 4 kiB
     if(dev->blocks_to_transfer > 0xffff)
     {
-        printf("SD: blocks_to_transfer too great (%i)\n",
+        printf("SD: blocks_to_transfer too great (%i)\r\n",
                dev->blocks_to_transfer);
         dev->last_cmd_success = 0;
         return;
@@ -861,7 +867,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
     if((irpts & 0xffff0001) != 0x1)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: error occured whilst waiting for command complete interrupt\n");
+        printf("SD: error occured whilst waiting for command complete interrupt\r\n");
 #endif
         dev->last_error = irpts & 0xffff0000;
         dev->last_interrupt = irpts;
@@ -905,7 +911,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
         {
 #ifdef EMMC_DEBUG
 			if(dev->blocks_to_transfer > 1)
-				printf("SD: multi block transfer, awaiting block %i ready\n",
+				printf("SD: multi block transfer, awaiting block %i ready\r\n",
 				cur_block);
 #endif
             TIMEOUT_WAIT(mmio_read(EMMC_BASE + EMMC_INTERRUPT) & (wr_irpt | 0x8000), timeout);
@@ -915,7 +921,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
             if((irpts & (0xffff0000 | wr_irpt)) != wr_irpt)
             {
 #ifdef EMMC_DEBUG
-            printf("SD: error occured whilst waiting for data ready interrupt\n");
+            printf("SD: error occured whilst waiting for data ready interrupt\r\n");
 #endif
                 dev->last_error = irpts & 0xffff0000;
                 dev->last_interrupt = irpts;
@@ -941,7 +947,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
             }
 
 #ifdef EMMC_DEBUG
-			printf("SD: block %i transfer complete\n", cur_block);
+			printf("SD: block %i transfer complete\r\n", cur_block);
 #endif
 
             cur_block++;
@@ -966,7 +972,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
             if(((irpts & 0xffff0002) != 0x2) && ((irpts & 0xffff0002) != 0x100002))
             {
 #ifdef EMMC_DEBUG
-                printf("SD: error occured whilst waiting for transfer complete interrupt\n");
+                printf("SD: error occured whilst waiting for transfer complete interrupt\r\n");
 #endif
                 dev->last_error = irpts & 0xffff0000;
                 dev->last_interrupt = irpts;
@@ -993,7 +999,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
             if((irpts & 0x8000) && ((irpts & 0x2) != 0x2))
             {
 #ifdef EMMC_DEBUG
-                printf("SD: error occured whilst waiting for transfer complete interrupt\n");
+                printf("SD: error occured whilst waiting for transfer complete interrupt\r\n");
 #endif
                 dev->last_error = irpts & 0xffff0000;
                 dev->last_interrupt = irpts;
@@ -1006,7 +1012,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
             if((irpts & 0x8) && ((irpts & 0x2) != 0x2))
             {
 #ifdef EMMC_DEBUG
-                printf("SD: error: DMA interrupt occured without transfer complete\n");
+                printf("SD: error: DMA interrupt occured without transfer complete\r\n");
 #endif
                 dev->last_error = irpts & 0xffff0000;
                 dev->last_interrupt = irpts;
@@ -1027,11 +1033,11 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
                 // Unknown error
 #ifdef EMMC_DEBUG
                 if(irpts == 0)
-                    printf("SD: timeout waiting for SDMA transfer to complete\n");
+                    printf("SD: timeout waiting for SDMA transfer to complete\r\n");
                 else
-                    printf("SD: unknown SDMA transfer error\n");
+                    printf("SD: unknown SDMA transfer error\r\n");
 
-                printf("SD: INTERRUPT: %08x, STATUS %08x\n", irpts,
+                printf("SD: INTERRUPT: %08x, STATUS %08x\r\n", irpts,
                        mmio_read(EMMC_BASE + EMMC_STATUS));
 #endif
 
@@ -1040,7 +1046,7 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
                     // The data transfer is ongoing, we should attempt to stop
                     //  it
 #ifdef EMMC_DEBUG
-                    printf("SD: aborting transfer\n");
+                    printf("SD: aborting transfer\r\n");
 #endif
                     mmio_write(EMMC_BASE + EMMC_CMDTM, sd_commands[STOP_TRANSMISSION]);
 
@@ -1067,8 +1073,8 @@ static void sd_handle_card_interrupt(struct emmc_block_dev *dev)
 #ifdef EMMC_DEBUG
     uint32_t status = mmio_read(EMMC_BASE + EMMC_STATUS);
 
-    printf("SD: card interrupt\n");
-    printf("SD: controller status: %08x\n", status);
+    printf("SD: card interrupt\r\n");
+    printf("SD: controller status: %08x\r\n", status);
 #endif
 
     // Get the card status
@@ -1079,20 +1085,20 @@ static void sd_handle_card_interrupt(struct emmc_block_dev *dev)
         if(FAIL(dev))
         {
 #ifdef EMMC_DEBUG
-            printf("SD: unable to get card status\n");
+            printf("SD: unable to get card status\r\n");
 #endif
         }
         else
         {
 #ifdef EMMC_DEBUG
-            printf("SD: card status: %08x\n", dev->last_r0);
+            printf("SD: card status: %08x\r\n", dev->last_r0);
 #endif
         }
     }
     else
     {
 #ifdef EMMC_DEBUG
-        printf("SD: no card currently selected\n");
+        printf("SD: no card currently selected\r\n");
 #endif
     }
 }
@@ -1105,7 +1111,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_COMMAND_COMPLETE)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: spurious command complete interrupt\n");
+        printf("SD: spurious command complete interrupt\r\n");
 #endif
         reset_mask |= SD_COMMAND_COMPLETE;
     }
@@ -1113,7 +1119,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_TRANSFER_COMPLETE)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: spurious transfer complete interrupt\n");
+        printf("SD: spurious transfer complete interrupt\r\n");
 #endif
         reset_mask |= SD_TRANSFER_COMPLETE;
     }
@@ -1121,7 +1127,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_BLOCK_GAP_EVENT)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: spurious block gap event interrupt\n");
+        printf("SD: spurious block gap event interrupt\r\n");
 #endif
         reset_mask |= SD_BLOCK_GAP_EVENT;
     }
@@ -1129,7 +1135,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_DMA_INTERRUPT)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: spurious DMA interrupt\n");
+        printf("SD: spurious DMA interrupt\r\n");
 #endif
         reset_mask |= SD_DMA_INTERRUPT;
     }
@@ -1137,7 +1143,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_BUFFER_WRITE_READY)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: spurious buffer write ready interrupt\n");
+        printf("SD: spurious buffer write ready interrupt\r\n");
 #endif
         reset_mask |= SD_BUFFER_WRITE_READY;
         sd_reset_dat();
@@ -1146,7 +1152,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_BUFFER_READ_READY)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: spurious buffer read ready interrupt\n");
+        printf("SD: spurious buffer read ready interrupt\r\n");
 #endif
         reset_mask |= SD_BUFFER_READ_READY;
         sd_reset_dat();
@@ -1155,7 +1161,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_CARD_INSERTION)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: card insertion detected\n");
+        printf("SD: card insertion detected\r\n");
 #endif
         reset_mask |= SD_CARD_INSERTION;
     }
@@ -1163,7 +1169,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_CARD_REMOVAL)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: card removal detected\n");
+        printf("SD: card removal detected\r\n");
 #endif
         reset_mask |= SD_CARD_REMOVAL;
         dev->card_removal = 1;
@@ -1172,7 +1178,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & SD_CARD_INTERRUPT)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: card interrupt detected\n");
+        printf("SD: card interrupt detected\r\n");
 #endif
         sd_handle_card_interrupt(dev);
         reset_mask |= SD_CARD_INTERRUPT;
@@ -1181,7 +1187,7 @@ static void sd_handle_interrupts(struct emmc_block_dev *dev)
     if(irpts & 0x8000)
     {
 #ifdef EMMC_DEBUG
-        printf("SD: spurious error interrupt: %08x\n", irpts);
+        printf("SD: spurious error interrupt: %08x\r\n", irpts);
 #endif
         reset_mask |= 0xffff0000;
     }
@@ -1207,12 +1213,12 @@ static void sd_issue_command(struct emmc_block_dev *dev, uint32_t command, uint3
     {
         command &= 0xff;
 #ifdef EMMC_DEBUG
-        printf("SD: issuing command ACMD%i\n", command);
+        printf("SD: issuing command ACMD%i\r\n", command);
 #endif
 
         if(sd_acommands[command] == SD_CMD_RESERVED(0))
         {
-            printf("SD: invalid command ACMD%i\n", command);
+            printf("SD: invalid command ACMD%i\r\n", command);
             dev->last_cmd_success = 0;
             return;
         }
@@ -1231,12 +1237,12 @@ static void sd_issue_command(struct emmc_block_dev *dev, uint32_t command, uint3
     else
     {
 #ifdef EMMC_DEBUG
-        printf("SD: issuing command CMD%i\n", command);
+        printf("SD: issuing command CMD%i\r\n", command);
 #endif
 
         if(sd_commands[command] == SD_CMD_RESERVED(0))
         {
-            printf("SD: invalid command CMD%i\n", command);
+            printf("SD: invalid command CMD%i\r\n", command);
             dev->last_cmd_success = 0;
             return;
         }
@@ -1262,10 +1268,10 @@ static void sd_issue_command(struct emmc_block_dev *dev, uint32_t command, uint3
                 }
             }
         }
-		printf("\n");
+		printf("\r\n");
     }
     else
-        printf("SD: command completed successfully\n");
+        printf("SD: command completed successfully\r\n");
 #endif
 }
 
@@ -1275,14 +1281,14 @@ int sd_card_init(struct block_device **dev)
     if(sizeof(sd_commands) != (64 * sizeof(uint32_t)))
     {
         printf("EMMC: fatal error, sd_commands of incorrect size: %i"
-               " expected %i\n", sizeof(sd_commands),
+               " expected %i\r\n", sizeof(sd_commands),
                64 * sizeof(uint32_t));
         return -1;
     }
     if(sizeof(sd_acommands) != (64 * sizeof(uint32_t)))
     {
         printf("EMMC: fatal error, sd_acommands of incorrect size: %i"
-               " expected %i\n", sizeof(sd_acommands),
+               " expected %i\r\n", sizeof(sd_acommands),
                64 * sizeof(uint32_t));
         return -1;
     }
@@ -1291,11 +1297,11 @@ int sd_card_init(struct block_device **dev)
 	// Power cycle the card to ensure its in its startup state
 	if(bcm_2708_power_cycle() != 0)
 	{
-		printf("EMMC: BCM2708 controller did not power cycle successfully\n");
+		printf("EMMC: BCM2708 controller did not power cycle successfully\r\n");
 		return -1;
 	}
 #ifdef EMMC_DEBUG
-	printf("EMMC: BCM2708 controller power-cycled\n");
+	printf("EMMC: BCM2708 controller power-cycled\r\n");
 #endif
 #endif
 
@@ -1304,18 +1310,18 @@ int sd_card_init(struct block_device **dev)
 	uint32_t vendor = ver >> 24;
 	uint32_t sdversion = (ver >> 16) & 0xff;
 	uint32_t slot_status = ver & 0xff;
-	printf("EMMC: vendor %x, sdversion %x, slot_status %x\n", vendor, sdversion, slot_status);
+	printf("EMMC: vendor %x, sdversion %x, slot_status %x\r\n", vendor, sdversion, slot_status);
 	hci_ver = sdversion;
 
 	if(hci_ver < 2)
 	{
-		printf("EMMC: only SDHCI versions >= 3.0 are supported\n");
+		printf("EMMC: only SDHCI versions >= 3.0 are supported\r\n");
 		return -1;
 	}
 
 	// Reset the controller
 #ifdef EMMC_DEBUG
-	printf("EMMC: resetting controller\n");
+	printf("EMMC: resetting controller\r\n");
 #endif
 	uint32_t control1 = mmio_read(EMMC_BASE + EMMC_CONTROL1);
 	control1 |= (1 << 24);
@@ -1326,11 +1332,11 @@ int sd_card_init(struct block_device **dev)
 	TIMEOUT_WAIT((mmio_read(EMMC_BASE + EMMC_CONTROL1) & (0x7 << 24)) == 0, 1000000);
 	if((mmio_read(EMMC_BASE + EMMC_CONTROL1) & (0x7 << 24)) != 0)
 	{
-		printf("EMMC: controller did not reset properly\n");
+		printf("EMMC: controller did not reset properly\r\n");
 		return -1;
 	}
 #ifdef EMMC_DEBUG
-	printf("EMMC: control0: %08x, control1: %08x, control2: %08x\n",
+	printf("EMMC: control0: %08x, control1: %08x, control2: %08x\r\n",
 			mmio_read(EMMC_BASE + EMMC_CONTROL0),
 			mmio_read(EMMC_BASE + EMMC_CONTROL1),
             mmio_read(EMMC_BASE + EMMC_CONTROL2));
@@ -1340,22 +1346,22 @@ int sd_card_init(struct block_device **dev)
 	capabilities_0 = mmio_read(EMMC_BASE + EMMC_CAPABILITIES_0);
 	capabilities_1 = mmio_read(EMMC_BASE + EMMC_CAPABILITIES_1);
 #ifdef EMMC_DEBUG
-	printf("EMMC: capabilities: %08x%08x\n", capabilities_1, capabilities_0);
+	printf("EMMC: capabilities: %08x%08x\r\n", capabilities_1, capabilities_0);
 #endif
 
 	// Check for a valid card
 #ifdef EMMC_DEBUG
-	printf("EMMC: checking for an inserted card\n");
+	printf("EMMC: checking for an inserted card\r\n");
 #endif
     TIMEOUT_WAIT(mmio_read(EMMC_BASE + EMMC_STATUS) & (1 << 16), 500000);
 	uint32_t status_reg = mmio_read(EMMC_BASE + EMMC_STATUS);
 	if((status_reg & (1 << 16)) == 0)
 	{
-		printf("EMMC: no card inserted\n");
+		printf("EMMC: no card inserted\r\n");
 		return -1;
 	}
 #ifdef EMMC_DEBUG
-	printf("EMMC: status: %08x\n", status_reg);
+	printf("EMMC: status: %08x\r\n", status_reg);
 #endif
 
 	// Clear control2
@@ -1365,13 +1371,13 @@ int sd_card_init(struct block_device **dev)
 	uint32_t base_clock = sd_get_base_clock_hz();
 	if(base_clock == 0)
 	{
-	    printf("EMMC: assuming clock rate to be 100MHz\n");
+	    printf("EMMC: assuming clock rate to be 100MHz\r\n");
 	    base_clock = 100000000;
 	}
 
 	// Set clock rate to something slow
 #ifdef EMMC_DEBUG
-	printf("EMMC: setting clock rate\n");
+	printf("EMMC: setting clock rate\r\n");
 #endif
 	control1 = mmio_read(EMMC_BASE + EMMC_CONTROL1);
 	control1 |= 1;			// enable clock
@@ -1380,7 +1386,7 @@ int sd_card_init(struct block_device **dev)
 	uint32_t f_id = sd_get_clock_divider(base_clock, SD_CLOCK_ID);
 	if(f_id == SD_GET_CLOCK_DIVIDER_FAIL)
 	{
-		printf("EMMC: unable to get a valid clock divider for ID frequency\n");
+		printf("EMMC: unable to get a valid clock divider for ID frequency\r\n");
 		return -1;
 	}
 	control1 |= f_id;
@@ -1390,18 +1396,18 @@ int sd_card_init(struct block_device **dev)
 	TIMEOUT_WAIT(mmio_read(EMMC_BASE + EMMC_CONTROL1) & 0x2, 0x1000000);
 	if((mmio_read(EMMC_BASE + EMMC_CONTROL1) & 0x2) == 0)
 	{
-		printf("EMMC: controller's clock did not stabilise within 1 second\n");
+		printf("EMMC: controller's clock did not stabilise within 1 second\r\n");
 		return -1;
 	}
 #ifdef EMMC_DEBUG
-	printf("EMMC: control0: %08x, control1: %08x\n",
+	printf("EMMC: control0: %08x, control1: %08x\r\n",
 			mmio_read(EMMC_BASE + EMMC_CONTROL0),
 			mmio_read(EMMC_BASE + EMMC_CONTROL1));
 #endif
 
 	// Enable the SD clock
 #ifdef EMMC_DEBUG
-	printf("EMMC: enabling SD clock\n");
+	printf("EMMC: enabling SD clock\r\n");
 #endif
 	usleep(2000);
 	control1 = mmio_read(EMMC_BASE + EMMC_CONTROL1);
@@ -1409,7 +1415,7 @@ int sd_card_init(struct block_device **dev)
 	mmio_write(EMMC_BASE + EMMC_CONTROL1, control1);
 	usleep(2000);
 #ifdef EMMC_DEBUG
-	printf("EMMC: SD clock enabled\n");
+	printf("EMMC: SD clock enabled\r\n");
 #endif
 
 	// Mask off sending interrupts to the ARM
@@ -1424,7 +1430,7 @@ int sd_card_init(struct block_device **dev)
 	mmio_write(EMMC_BASE + EMMC_IRPT_MASK, irpt_mask);
 
 #ifdef EMMC_DEBUG
-	printf("EMMC: interrupts disabled\n");
+	printf("EMMC: interrupts disabled\r\n");
 #endif
 	usleep(2000);
 
@@ -1450,14 +1456,14 @@ int sd_card_init(struct block_device **dev)
 	ret->base_clock = base_clock;
 
 #ifdef EMMC_DEBUG
-	printf("EMMC: device structure created\n");
+	printf("EMMC: device structure created\r\n");
 #endif
 
 	// Send CMD0 to the card (reset to idle state)
 	sd_issue_command(ret, GO_IDLE_STATE, 0, 500000);
 	if(FAIL(ret))
 	{
-        printf("SD: no CMD0 response\n");
+        printf("SD: no CMD0 response\r\n");
         return -1;
 	}
 
@@ -1466,7 +1472,7 @@ int sd_card_init(struct block_device **dev)
 	// Check pattern = 10101010b (as per PLSS 4.3.13) = 0xAA
 #ifdef EMMC_DEBUG
     printf("SD: note a timeout error on the following command (CMD8) is normal "
-           "and expected if the SD card version is less than 2.0\n");
+           "and expected if the SD card version is less than 2.0\r\n");
 #endif
 	sd_issue_command(ret, SEND_IF_COND, 0x1aa, 500000);
 	int v2_later = 0;
@@ -1481,16 +1487,16 @@ int sd_card_init(struct block_device **dev)
     }
     else if(FAIL(ret))
     {
-        printf("SD: failure sending CMD8 (%08x)\n", ret->last_interrupt);
+        printf("SD: failure sending CMD8 (%08x)\r\n", ret->last_interrupt);
         return -1;
     }
     else
     {
         if((ret->last_r0 & 0xfff) != 0x1aa)
         {
-            printf("SD: unusable card\n");
+            printf("SD: unusable card\r\n");
 #ifdef EMMC_DEBUG
-            printf("SD: CMD8 response %08x\n", ret->last_r0);
+            printf("SD: CMD8 response %08x\r\n", ret->last_r0);
 #endif
             return -1;
         }
@@ -1502,7 +1508,7 @@ int sd_card_init(struct block_device **dev)
     // It only returns if the card is a SDIO card
 #ifdef EMMC_DEBUG
     printf("SD: note that a timeout error on the following command (CMD5) is "
-           "normal and expected if the card is not a SDIO card.\n");
+           "normal and expected if the card is not a SDIO card.\r\n");
 #endif
     sd_issue_command(ret, IO_SET_OP_COND, 0, 10000);
     if(!TIMEOUT(ret))
@@ -1515,9 +1521,9 @@ int sd_card_init(struct block_device **dev)
         }
         else
         {
-            printf("SD: SDIO card detected - not currently supported\n");
+            printf("SD: SDIO card detected - not currently supported\r\n");
 #ifdef EMMC_DEBUG
-            printf("SD: CMD5 returned %08x\n", ret->last_r0);
+            printf("SD: CMD5 returned %08x\r\n", ret->last_r0);
 #endif
             return -1;
         }
@@ -1525,16 +1531,16 @@ int sd_card_init(struct block_device **dev)
 
     // Call an inquiry ACMD41 (voltage window = 0) to get the OCR
 #ifdef EMMC_DEBUG
-    printf("SD: sending inquiry ACMD41\n");
+    printf("SD: sending inquiry ACMD41\r\n");
 #endif
     sd_issue_command(ret, ACMD(41), 0, 500000);
     if(FAIL(ret))
     {
-        printf("SD: inquiry ACMD41 failed\n");
+        printf("SD: inquiry ACMD41 failed\r\n");
         return -1;
     }
 #ifdef EMMC_DEBUG
-    printf("SD: inquiry ACMD41 returned %08x\n", ret->last_r0);
+    printf("SD: inquiry ACMD41 returned %08x\r\n", ret->last_r0);
 #endif
 
 	// Call initialization ACMD41
@@ -1562,7 +1568,7 @@ int sd_card_init(struct block_device **dev)
 	    sd_issue_command(ret, ACMD(41), 0x00ff8000 | v2_flags, 500000);
 	    if(FAIL(ret))
 	    {
-	        printf("SD: error issuing ACMD41\n");
+	        printf("SD: error issuing ACMD41\r\n");
 	        return -1;
 	    }
 
@@ -1583,14 +1589,14 @@ int sd_card_init(struct block_device **dev)
 	    {
 	        // Card is still busy
 #ifdef EMMC_DEBUG
-            printf("SD: card is busy, retrying\n");
+            printf("SD: card is busy, retrying\r\n");
 #endif
             usleep(500000);
 	    }
 	}
 
 #ifdef EMMC_DEBUG
-	printf("SD: card identified: OCR: %04x, 1.8v support: %i, SDHC support: %i\n",
+	printf("SD: card identified: OCR: %04x, 1.8v support: %i, SDHC support: %i\r\n",
 			ret->card_ocr, ret->card_supports_18v, ret->card_supports_sdhc);
 #endif
 
@@ -1605,7 +1611,7 @@ int sd_card_init(struct block_device **dev)
 	if(ret->card_supports_18v)
 	{
 #ifdef EMMC_DEBUG
-        printf("SD: switching to 1.8V mode\n");
+        printf("SD: switching to 1.8V mode\r\n");
 #endif
 	    // As per HCSS 3.6.1
 
@@ -1614,7 +1620,7 @@ int sd_card_init(struct block_device **dev)
 	    if(FAIL(ret))
 	    {
 #ifdef EMMC_DEBUG
-            printf("SD: error issuing VOLTAGE_SWITCH\n");
+            printf("SD: error issuing VOLTAGE_SWITCH\r\n");
 #endif
 	        ret->failed_voltage_switch = 1;
 			sd_power_off();
@@ -1632,7 +1638,7 @@ int sd_card_init(struct block_device **dev)
 	    if(dat30 != 0)
 	    {
 #ifdef EMMC_DEBUG
-            printf("SD: DAT[3:0] did not settle to 0\n");
+            printf("SD: DAT[3:0] did not settle to 0\r\n");
 #endif
 	        ret->failed_voltage_switch = 1;
 			sd_power_off();
@@ -1652,7 +1658,7 @@ int sd_card_init(struct block_device **dev)
 	    if(((control0 >> 8) & 0x1) == 0)
 	    {
 #ifdef EMMC_DEBUG
-            printf("SD: controller did not keep 1.8V signal enable high\n");
+            printf("SD: controller did not keep 1.8V signal enable high\r\n");
 #endif
 	        ret->failed_voltage_switch = 1;
 			sd_power_off();
@@ -1673,7 +1679,7 @@ int sd_card_init(struct block_device **dev)
 	    if(dat30 != 0xf)
 	    {
 #ifdef EMMC_DEBUG
-            printf("SD: DAT[3:0] did not settle to 1111b (%01x)\n", dat30);
+            printf("SD: DAT[3:0] did not settle to 1111b (%01x)\r\n", dat30);
 #endif
 	        ret->failed_voltage_switch = 1;
 			sd_power_off();
@@ -1681,7 +1687,7 @@ int sd_card_init(struct block_device **dev)
 	    }
 
 #ifdef EMMC_DEBUG
-        printf("SD: voltage switch complete\n");
+        printf("SD: voltage switch complete\r\n");
 #endif
 	}
 
@@ -1689,7 +1695,7 @@ int sd_card_init(struct block_device **dev)
 	sd_issue_command(ret, ALL_SEND_CID, 0, 500000);
 	if(FAIL(ret))
 	{
-	    printf("SD: error sending ALL_SEND_CID\n");
+	    printf("SD: error sending ALL_SEND_CID\r\n");
 	    return -1;
 	}
 	uint32_t card_cid_0 = ret->last_r0;
@@ -1698,7 +1704,7 @@ int sd_card_init(struct block_device **dev)
 	uint32_t card_cid_3 = ret->last_r3;
 
 #ifdef EMMC_DEBUG
-	printf("SD: card CID: %08x%08x%08x%08x\n", card_cid_3, card_cid_2, card_cid_1, card_cid_0);
+	printf("SD: card CID: %08x%08x%08x%08x\r\n", card_cid_3, card_cid_2, card_cid_1, card_cid_0);
 #endif
 	uint32_t *dev_id = (uint32_t *)malloc(4 * sizeof(uint32_t));
 	dev_id[0] = card_cid_0;
@@ -1712,14 +1718,14 @@ int sd_card_init(struct block_device **dev)
 	sd_issue_command(ret, SEND_RELATIVE_ADDR, 0, 500000);
 	if(FAIL(ret))
     {
-        printf("SD: error sending SEND_RELATIVE_ADDR\n");
+        printf("SD: error sending SEND_RELATIVE_ADDR\r\n");
         free(ret);
         return -1;
     }
 
 	uint32_t cmd3_resp = ret->last_r0;
 #ifdef EMMC_DEBUG
-	printf("SD: CMD3 response: %08x\n", cmd3_resp);
+	printf("SD: CMD3 response: %08x\r\n", cmd3_resp);
 #endif
 
 	ret->card_rca = (cmd3_resp >> 16) & 0xffff;
@@ -1731,7 +1737,7 @@ int sd_card_init(struct block_device **dev)
 
 	if(crc_error)
 	{
-		printf("SD: CRC error\n");
+		printf("SD: CRC error\r\n");
 		free(ret);
 		free(dev_id);
 		return -1;
@@ -1739,7 +1745,7 @@ int sd_card_init(struct block_device **dev)
 
 	if(illegal_cmd)
 	{
-		printf("SD: illegal command\n");
+		printf("SD: illegal command\r\n");
 		free(ret);
 		free(dev_id);
 		return -1;
@@ -1747,7 +1753,7 @@ int sd_card_init(struct block_device **dev)
 
 	if(error)
 	{
-		printf("SD: generic error\n");
+		printf("SD: generic error\r\n");
 		free(ret);
 		free(dev_id);
 		return -1;
@@ -1755,21 +1761,21 @@ int sd_card_init(struct block_device **dev)
 
 	if(!ready)
 	{
-		printf("SD: not ready for data\n");
+		printf("SD: not ready for data\r\n");
 		free(ret);
 		free(dev_id);
 		return -1;
 	}
 
 #ifdef EMMC_DEBUG
-	printf("SD: RCA: %04x\n", ret->card_rca);
+	printf("SD: RCA: %04x\r\n", ret->card_rca);
 #endif
 
 	// Now select the card (toggles it to transfer state)
 	sd_issue_command(ret, SELECT_CARD, ret->card_rca << 16, 500000);
 	if(FAIL(ret))
 	{
-	    printf("SD: error sending CMD7\n");
+	    printf("SD: error sending CMD7\r\n");
 	    free(ret);
 	    return -1;
 	}
@@ -1779,7 +1785,7 @@ int sd_card_init(struct block_device **dev)
 
 	if((status != 3) && (status != 4))
 	{
-		printf("SD: invalid status (%i)\n", status);
+		printf("SD: invalid status (%i)\r\n", status);
 		free(ret);
 		free(dev_id);
 		return -1;
@@ -1791,7 +1797,7 @@ int sd_card_init(struct block_device **dev)
 	    sd_issue_command(ret, SET_BLOCKLEN, 512, 500000);
 	    if(FAIL(ret))
 	    {
-	        printf("SD: error sending SET_BLOCKLEN\n");
+	        printf("SD: error sending SET_BLOCKLEN\r\n");
 	        free(ret);
 	        return -1;
 	    }
@@ -1811,7 +1817,7 @@ int sd_card_init(struct block_device **dev)
 	ret->block_size = 512;
 	if(FAIL(ret))
 	{
-	    printf("SD: error sending SEND_SCR\n");
+	    printf("SD: error sending SEND_SCR\r\n");
 	    free(ret->scr);
         free(ret);
 	    return -1;
@@ -1843,10 +1849,10 @@ int sd_card_init(struct block_device **dev)
     }
 
 #ifdef EMMC_DEBUG
-    printf("SD: &scr: %08x\n", &ret->scr->scr[0]);
-    printf("SD: SCR[0]: %08x, SCR[1]: %08x\n", ret->scr->scr[0], ret->scr->scr[1]);;
-    printf("SD: SCR: %08x%08x\n", byte_swap(ret->scr->scr[0]), byte_swap(ret->scr->scr[1]));
-    printf("SD: SCR: version %s, bus_widths %01x\n", sd_versions[ret->scr->sd_version],
+    printf("SD: &scr: %08x\r\n", &ret->scr->scr[0]);
+    printf("SD: SCR[0]: %08x, SCR[1]: %08x\r\n", ret->scr->scr[0], ret->scr->scr[1]);;
+    printf("SD: SCR: %08x%08x\r\n", byte_swap(ret->scr->scr[0]), byte_swap(ret->scr->scr[1]));
+    printf("SD: SCR: version %s, bus_widths %01x\r\n", sd_versions[ret->scr->sd_version],
            ret->scr->sd_bus_widths);
 #endif
 
@@ -1856,7 +1862,7 @@ int sd_card_init(struct block_device **dev)
         // See HCSS 3.4 for the algorithm
 #ifdef SD_4BIT_DATA
 #ifdef EMMC_DEBUG
-        printf("SD: switching to 4-bit data mode\n");
+        printf("SD: switching to 4-bit data mode\r\n");
 #endif
 
         // Disable card interrupt in host
@@ -1867,7 +1873,7 @@ int sd_card_init(struct block_device **dev)
         // Send ACMD6 to change the card's bit mode
         sd_issue_command(ret, SET_BUS_WIDTH, 0x2, 500000);
         if(FAIL(ret))
-            printf("SD: switch to 4-bit data mode failed\n");
+            printf("SD: switch to 4-bit data mode failed\r\n");
         else
         {
             // Change bit mode for Host
@@ -1879,15 +1885,15 @@ int sd_card_init(struct block_device **dev)
             mmio_write(EMMC_BASE + EMMC_IRPT_MASK, old_irpt_mask);
 
 #ifdef EMMC_DEBUG
-                printf("SD: switch to 4-bit complete\n");
+                printf("SD: switch to 4-bit complete\r\n");
 #endif
         }
 #endif
     }
 
-	printf("SD: found a valid version %s SD card\n", sd_versions[ret->scr->sd_version]);
+	printf("SD: found a valid version %s SD card\r\n", sd_versions[ret->scr->sd_version]);
 #ifdef EMMC_DEBUG
-	printf("SD: setup successful (status %i)\n", status);
+	printf("SD: setup successful (status %i)\r\n", status);
 #endif
 
 	// Reset interrupt register
@@ -1916,7 +1922,7 @@ static int sd_ensure_data_mode(struct emmc_block_dev *edev)
     sd_issue_command(edev, SEND_STATUS, edev->card_rca << 16, 500000);
     if(FAIL(edev))
     {
-        printf("SD: ensure_data_mode() error sending CMD13\n");
+        printf("SD: ensure_data_mode() error sending CMD13\r\n");
         edev->card_rca = 0;
         return -1;
     }
@@ -1924,7 +1930,7 @@ static int sd_ensure_data_mode(struct emmc_block_dev *edev)
 	uint32_t status = edev->last_r0;
 	uint32_t cur_state = (status >> 9) & 0xf;
 #ifdef EMMC_DEBUG
-	printf("status %i\n", cur_state);
+	printf("status %i\r\n", cur_state);
 #endif
 	if(cur_state == 3)
 	{
@@ -1932,7 +1938,7 @@ static int sd_ensure_data_mode(struct emmc_block_dev *edev)
 		sd_issue_command(edev, SELECT_CARD, edev->card_rca << 16, 500000);
 		if(FAIL(edev))
 		{
-			printf("SD: ensure_data_mode() no response from CMD17\n");
+			printf("SD: ensure_data_mode() no response from CMD17\r\n");
 			edev->card_rca = 0;
 			return -1;
 		}
@@ -1943,7 +1949,7 @@ static int sd_ensure_data_mode(struct emmc_block_dev *edev)
 		sd_issue_command(edev, STOP_TRANSMISSION, 0, 500000);
 		if(FAIL(edev))
 		{
-			printf("SD: ensure_data_mode() no response from CMD12\n");
+			printf("SD: ensure_data_mode() no response from CMD12\r\n");
 			edev->card_rca = 0;
 			return -1;
 		}
@@ -1968,7 +1974,7 @@ static int sd_ensure_data_mode(struct emmc_block_dev *edev)
         sd_issue_command(edev, SEND_STATUS, edev->card_rca << 16, 500000);
         if(FAIL(edev))
 		{
-			printf("SD: ensure_data_mode() no response from CMD13\n");
+			printf("SD: ensure_data_mode() no response from CMD13\r\n");
 			edev->card_rca = 0;
 			return -1;
 		}
@@ -1976,13 +1982,13 @@ static int sd_ensure_data_mode(struct emmc_block_dev *edev)
 		cur_state = (status >> 9) & 0xf;
 
 #ifdef EMMC_DEBUG
-		printf("%i\n", cur_state);
+		printf("%i\r\n", cur_state);
 #endif
 
 		if(cur_state != 4)
 		{
 			printf("SD: unable to initialise SD card to "
-					"data mode (state %i)\n", cur_state);
+					"data mode (state %i)\r\n", cur_state);
 			edev->card_rca = 0;
 			return -1;
 		}
@@ -2012,7 +2018,7 @@ static int sd_do_data_command(struct emmc_block_dev *edev, int is_write, uint8_t
 	if(buf_size < edev->block_size)
 	{
 	    printf("SD: do_data_command() called with buffer size (%i) less than "
-            "block size (%i)\n", buf_size, edev->block_size);
+            "block size (%i)\r\n", buf_size, edev->block_size);
         return -1;
 	}
 
@@ -2020,7 +2026,7 @@ static int sd_do_data_command(struct emmc_block_dev *edev, int is_write, uint8_t
 	if(buf_size % edev->block_size)
 	{
 	    printf("SD: do_data_command() called with buffer size (%i) not an "
-            "exact multiple of block size (%i)\n", buf_size, edev->block_size);
+            "exact multiple of block size (%i)\r\n", buf_size, edev->block_size);
         return -1;
 	}
 	edev->buf = buf;
@@ -2053,7 +2059,7 @@ static int sd_do_data_command(struct emmc_block_dev *edev, int is_write, uint8_t
         else
         {
 #ifdef EMMC_DEBUG
-            printf("SD: retrying without SDMA\n");
+            printf("SD: retrying without SDMA\r\n");
 #endif
             edev->use_sdma = 0;
         }
@@ -2071,9 +2077,9 @@ static int sd_do_data_command(struct emmc_block_dev *edev, int is_write, uint8_t
             printf("error = %08x.  ", edev->last_error);
             retry_count++;
             if(retry_count < max_retries)
-                printf("Retrying...\n");
+                printf("Retrying...\r\n");
             else
-                printf("Giving up.\n");
+                printf("Giving up.\r\n");
         }
 	}
 	if(retry_count == max_retries)
@@ -2093,14 +2099,14 @@ int sd_read(struct block_device *dev, uint8_t *buf, size_t buf_size, uint32_t bl
         return -1;
 
 #ifdef EMMC_DEBUG
-	printf("SD: read() card ready, reading from block %u\n", block_no);
+	printf("SD: read() card ready, reading from block %u\r\n", block_no);
 #endif
 
     if(sd_do_data_command(edev, 0, buf, buf_size, block_no) < 0)
         return -1;
 
 #ifdef EMMC_DEBUG
-	printf("SD: data read successful\n");
+	printf("SD: data read successful\r\n");
 #endif
 
 	return buf_size;
@@ -2115,14 +2121,14 @@ int sd_write(struct block_device *dev, uint8_t *buf, size_t buf_size, uint32_t b
         return -1;
 
 #ifdef EMMC_DEBUG
-	printf("SD: write() card ready, reading from block %u\n", block_no);
+	printf("SD: write() card ready, reading from block %u\r\n", block_no);
 #endif
 
     if(sd_do_data_command(edev, 1, buf, buf_size, block_no) < 0)
         return -1;
 
 #ifdef EMMC_DEBUG
-	printf("SD: write read successful\n");
+	printf("SD: write read successful\r\n");
 #endif
 
 	return buf_size;

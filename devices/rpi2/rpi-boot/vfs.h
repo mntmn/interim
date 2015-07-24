@@ -57,7 +57,7 @@ struct vfs_entry
 
 #define VFS_FLAGS_EOF	1
 #define VFS_FLAGS_ERROR	2
-
+/*
 struct vfs_file
 {
     struct fs *fs;
@@ -68,7 +68,7 @@ struct vfs_file
 	int flags;
 	int (*fflush_cb)(FILE *f);
 };
-
+*/
 /*int fseek(FILE *stream, long offset, int whence);
 long ftell(FILE *stream);
 long fsize(FILE *stream);

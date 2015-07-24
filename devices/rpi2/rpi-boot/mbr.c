@@ -27,9 +27,7 @@
 #include "vfs.h"
 #include "util.h"
 
-#ifdef DEBUG2
 #define MBR_DEBUG
-#endif
 
 // Code for interpreting an mbr
 
@@ -55,7 +53,7 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 	/* Check the validity of the parent device */
 	if(parent == (void*)0)
 	{
-		printf("MBR: invalid parent device\n");
+		printf("MBR: invalid parent device\r\n");
 		return -1;
 	}
 
@@ -65,19 +63,19 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 		return -1;
 
 #ifdef MBR_DEBUG
-	printf("MBR: reading block 0 from device %s\n", parent->device_name);
+	printf("MBR: reading block 0 from device %s\r\n", parent->device_name);
 #endif
 
 	int ret = block_read(parent, block_0, 512, 0);
 	if(ret < 0)
 	{
-		printf("MBR: block_read failed (%i)\n", ret);
+		printf("MBR: block_read failed (%i)\r\n", ret);
 		free(block_0);
 		return ret;
 	}
 	if(ret != 512)
 	{
-		printf("MBR: unable to read first 512 bytes of device %s, only %d bytes read\n",
+		printf("MBR: unable to read first 512 bytes of device %s, only %d bytes read\r\n",
 				parent->device_name, ret);
 		free(block_0);
 		return -1;
@@ -86,12 +84,12 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 	/* Check the MBR signature */
 	if((block_0[0x1fe] != 0x55) || (block_0[0x1ff] != 0xaa))
 	{
-		printf("MBR: no valid mbr signature on device %s (bytes are %x %x)\n",
+		printf("MBR: no valid mbr signature on device %s (bytes are %x %x)\r\n",
 				parent->device_name, block_0[0x1fe], block_0[0x1ff]);
 		free(block_0);
 		return -1;
 	}
-	printf("MBR: found valid MBR on device %s\n", parent->device_name);
+	printf("MBR: found valid MBR on device %s\r\n", parent->device_name);
 
 #ifdef MBR_DEBUG
 	/* Dump the first sector */
@@ -99,10 +97,10 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 	for(int dump_idx = 0; dump_idx < 512; dump_idx++)
 	{
 		if((dump_idx & 0xf) == 0)
-			printf("\n%03x: ", dump_idx);
+			printf("\r\n%03x: ", dump_idx);
 		printf("%02x ", block_0[dump_idx]);
 	}
-	printf("\n");
+	printf("\r\n");
 #endif
 
     // If parent block size is not 512, we have to coerce start_block
@@ -110,7 +108,7 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
     if(parent->block_size < 512)
     {
         // We do not support parent device block sizes < 512
-        printf("MBR: parent block device is too small (%i)\n", parent->block_size);
+        printf("MBR: parent block device is too small (%i)\r\n", parent->block_size);
 		free(block_0);
         return -1;
     }
@@ -120,7 +118,7 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
     {
         // We do not support parent device block sizes that are not a
         //  multiple of 512
-        printf("MBR: parent block size is not a multiple of 512 (%i)\n",
+        printf("MBR: parent block size is not a multiple of 512 (%i)\r\n",
                parent->block_size);
 		free(block_0);
         return -1;
@@ -129,7 +127,7 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 #ifdef MBR_DEBUG
     if(block_size_adjust > 1)
     {
-        printf("MBR: block_size_adjust: %i\n", block_size_adjust);
+        printf("MBR: block_size_adjust: %i\r\n", block_size_adjust);
     }
 #endif
 
@@ -172,7 +170,7 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 			if(d->start_block % block_size_adjust)
 			{
 			    printf("MBR: partition number %i does not start on a block "
-                    "boundary (%i).\n", d->part_no, d->start_block);
+                    "boundary (%i).\r\n", d->part_no, d->start_block);
                 return -1;
 			}
 			d->start_block /= block_size_adjust;
@@ -180,7 +178,7 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 			if(d->blocks % block_size_adjust)
 			{
 			    printf("MBR: partition number %i does not have a length "
-                    "that is an exact multiple of the block length (%i).\n",
+                    "that is an exact multiple of the block length (%i).\r\n",
                     d->part_no, d->start_block);
                 return -1;
 			}
@@ -190,7 +188,7 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 			parts[cur_p++] = (struct block_device *)d;
 #ifdef MBR_DEBUG
 			printf("MBR: partition number %i (%s) of type %x, start sector %u, "
-					"sector count %u, p_offset %03x\n",
+					"sector count %u, p_offset %03x\r\n",
 					d->part_no, d->bd.device_name, d->part_id,
 					d->start_block, d->blocks, p_offset);
 #endif
@@ -205,7 +203,7 @@ int read_mbr(struct block_device *parent, struct block_device ***partitions, int
 		free(parts);
 	if (NULL != part_count)
 		*part_count = cur_p;
-	printf("MBR: found total of %i partition(s)\n", cur_p);
+	printf("MBR: found total of %i partition(s)\r\n", cur_p);
 
 	free(block_0);
 

@@ -421,7 +421,6 @@ u32 DWHCITransferStageDataGetStatusMask (TDWHCITransferStageData *pThis)
 {
 	assert (pThis != 0);
 	u32 nMask =   DWHCI_HOST_CHAN_INT_XFER_COMPLETE
-		    | DWHCI_HOST_CHAN_INT_HALTED
 		    | DWHCI_HOST_CHAN_INT_ERROR_MASK;
 		    
 	if (   pThis->m_bSplitTransaction

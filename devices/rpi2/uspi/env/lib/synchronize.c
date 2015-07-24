@@ -36,12 +36,12 @@ void EnterCritical (void)
 		s_bWereEnabled = nFlags & 0x80 ? FALSE : TRUE;
 	}
 
-	DataMemBarrier ();
+	arm_dmb();
 }
 
 void LeaveCritical (void)
 {
-	DataMemBarrier ();
+	arm_dmb();
 
 	assert (s_nCriticalLevel > 0);
 	if (--s_nCriticalLevel == 0)

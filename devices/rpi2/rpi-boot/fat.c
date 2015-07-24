@@ -23,15 +23,14 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-#include <dirent.h>
-#include "vfs.h"
+#include "dirent.h"
+//#include "vfs.h"
 #include "fs.h"
 #include "errno.h"
 #include "util.h"
+#include <malloc.h>
 
-#ifdef DEBUG2
 #define FAT_DEBUG
-#endif
 
 struct fat_fs {
 	struct fs b;
@@ -65,7 +64,7 @@ struct fat_extBS_32
 	uint32_t		volume_id;
 	char			volume_label[11];
 	uint8_t			fat_type_label[8];
-} __attribute__ ((packed));
+};// __attribute__ ((packed));
 
 // FAT 12/16 extended fields
 struct fat_extBS_16
@@ -74,34 +73,63 @@ struct fat_extBS_16
 	uint8_t			reserved1;
 	uint8_t			boot_signature;
 	uint32_t		volume_id;
-	char			volume_label[11];
+	char			  volume_label[11];
 	uint8_t			fat_type_label[8];
-} __attribute__ ((packed));
+};// __attribute__ ((packed));
 
 // Generic FAT fields
 struct fat_BS
 {
-	uint8_t			bootjmp[3];
+	uint8_t			bootjmp[3]; // skip 1, we can't have odd struct
 	uint8_t			oem_name[8];
-	uint16_t		bytes_per_sector;
-	uint8_t			sectors_per_cluster;
-	uint16_t		reserved_sector_count;
-	uint8_t			table_count;
-	uint16_t		root_entry_count;
-	uint16_t		total_sectors_16;
-	uint8_t			media_type;
-	uint16_t		table_size_16;
-	uint16_t		sectors_per_track;
-	uint16_t		head_side_count;
-	uint32_t		hidden_sector_count;
-	uint32_t		total_sectors_32;
+	uint16_t		bytes_per_sector;       // 11
+	uint8_t			sectors_per_cluster;    // 13
+	uint16_t		reserved_sector_count;  // 14
+	uint8_t			table_count;            // 16
+	uint16_t		root_entry_count;       // 17
+	uint16_t		total_sectors_16;       // 19
+	uint8_t			media_type;             // 21
+	uint16_t		table_size_16;          // 22
+	uint16_t		sectors_per_track;      // 24
+	uint16_t		head_side_count;        // 26
+	uint32_t		hidden_sector_count;    // 28
+	uint32_t		total_sectors_32;       // 32
 
 	union
 	{
-		struct fat_extBS_32	fat32;
+		struct fat_extBS_32	fat32; // 36
 		struct fat_extBS_16	fat16;
 	} ext;
-} __attribute__ ((packed));
+};// __attribute__ ((packed));
+
+void read_fat_bs(uint8_t* buf, struct fat_BS* bs) {
+  memcpy(bs->bootjmp,buf,3);
+  memcpy(bs->oem_name,buf+3,8);
+  
+  bs->bytes_per_sector      = read_halfword(buf, 11);
+  bs->sectors_per_cluster   = read_byte(buf, 13);
+  bs->reserved_sector_count = read_halfword(buf, 14);
+  bs->table_count           = read_byte(buf, 16);
+  bs->root_entry_count      = read_halfword(buf, 17);
+  bs->total_sectors_16      = read_halfword(buf, 19);
+  bs->media_type            = read_byte(buf, 21);
+  bs->table_size_16         = read_halfword(buf, 22);
+  bs->sectors_per_track     = read_halfword(buf, 24);
+  bs->head_side_count       = read_halfword(buf, 26);
+  bs->hidden_sector_count   = read_word(buf, 28);
+  bs->total_sectors_32      = read_word(buf, 32);
+
+  if (bs->table_size_16==0) {
+    memcpy(&bs->ext,buf+36,sizeof(struct fat_extBS_32));
+  } else {
+    bs->ext.fat16.bios_drive_num = read_byte(buf,36);
+    bs->ext.fat16.reserved1 = read_byte(buf,37);
+    bs->ext.fat16.boot_signature = read_byte(buf,38);
+    bs->ext.fat16.volume_id = read_word(buf,39);
+    memcpy(&bs->ext.fat16.volume_label,buf+43,11);
+    memcpy(&bs->ext.fat16.fat_type_label,buf+54,8);
+  }
+}
 
 #define FAT12		0
 #define FAT16		1
@@ -110,7 +138,7 @@ struct fat_BS
 
 static struct dirent *fat_read_dir(struct fat_fs *fs, struct dirent *d);
 struct dirent *fat_read_directory(struct fs *fs, char **name);
-static uint32_t fat_get_next_bdev_block_num(uint32_t f_block_idx, FILE *s, void *opaque, int add_blocks);
+static uint32_t fat_get_next_bdev_block_num(uint32_t f_block_idx, fs_file *s, void *opaque, int add_blocks);
 
 struct fat_file_block_offset
 {
@@ -120,22 +148,22 @@ struct fat_file_block_offset
 
 static const char *fat_names[] = { "FAT12", "FAT16", "FAT32", "VFAT" };
 
-static FILE *fat_fopen(struct fs *fs, struct dirent *path, const char *mode)
+static fs_file *fat_fopen(struct fs *fs, struct dirent *path, const char *mode)
 {
-	if(fs != path->fs)
+	/*if(fs != path->fs)
 	{
 		errno = EFAULT;
-		return (FILE *)0;
-	}
+		return (vfs_file *)0;
+    }*/
 
 	if(strcmp(mode, "r"))
 	{
 		errno = EROFS;
-		return (FILE *)0;
+		return NULL;
 	}
 
-	struct vfs_file *ret = (struct vfs_file *)malloc(sizeof(struct vfs_file));
-	memset(ret, 0, sizeof(struct vfs_file));
+	struct fs_file *ret = (struct fs_file *)memalign(16,sizeof(struct fs_file));
+	memset(ret, 0, sizeof(struct fs_file));
 	ret->fs = fs;
 	ret->pos = 0;
 	ret->opaque = path->opaque;
@@ -145,7 +173,7 @@ static FILE *fat_fopen(struct fs *fs, struct dirent *path, const char *mode)
 	return ret;
 }
 
-static size_t fat_fread(struct fs *fs, void *ptr, size_t byte_size, FILE *stream)
+static size_t fat_fread(struct fs *fs, void *ptr, size_t byte_size, fs_file *stream)
 {
 	if(stream->fs != fs)
 		return -1;
@@ -158,7 +186,7 @@ static size_t fat_fread(struct fs *fs, void *ptr, size_t byte_size, FILE *stream
 	return fs_fread(fat_get_next_bdev_block_num, fs, ptr, byte_size, stream, (void*)&opaque);
 }
 
-static int fat_fclose(struct fs *fs, FILE *fp)
+static int fat_fclose(struct fs *fs, fs_file *fp)
 {
 	(void)fs;
 	(void)fp;
@@ -169,24 +197,25 @@ int fat_init(struct block_device *parent, struct fs **fs)
 {
 	// Interpret a FAT file system
 #ifdef FAT_DEBUG
-	printf("FAT: looking for a filesytem on %s\n", parent->device_name);
+	printf("FAT: looking for a filesytem on %s\r\n", parent->device_name);
 #endif
 
 	// Read block 0
-	uint8_t *block_0 = (uint8_t *)malloc(512);
+	uint8_t *block_0 = (uint8_t *)memalign(16,512);
 	int r = block_read(parent, block_0, 512, 0);
 	if(r < 0)
 	{
-		printf("FAT: error %i reading block 0\n", r);
+		printf("FAT: error %i reading block 0\r\n", r);
 		return r;
 	}
 	if(r != 512)
 	{
-		printf("FAT: error reading block 0 (only %i bytes read)\n", r);
+		printf("FAT: error reading block 0 (only %i bytes read)\r\n", r);
 		return -1;
 	}
 
 	// Dump the boot block
+  
 #ifdef FAT_DEBUG
 	int j = 0;
 	for(int i = 0; i < 90; i++)
@@ -196,26 +225,36 @@ int fat_init(struct block_device *parent, struct fs **fs)
 		if(j == 8)
 		{
 			j = 0;
-			printf("\n");
+			printf("\r\n");
 		}
 	}
 	if(j != 0)
-		printf("\n");
+		printf("\r\n");
 #endif
 
-	struct fat_BS *bs = (struct fat_BS *)block_0;
-	if(bs->bootjmp[0] != 0xeb)
+  //struct fat_BS _bs; // = (struct fat_BS *)block_0;
+  struct fat_BS* bs = malloc(sizeof(struct fat_BS)+128); //&_bs;
+  read_fat_bs(block_0, bs);
+  
+	if(block_0[0] != 0xeb)
 	{
-		printf("FAT: not a valid FAT filesystem on %s (%x)\n", parent->device_name,
-				bs->bootjmp[0]);
+		printf("FAT: not a valid FAT filesystem on %s (%x)\r\n", parent->device_name,
+				block_0[0]);
 		return -1;
 	}
 
+  printf("FAT: filesystem seems valid\r\n");
+  
 	uint32_t total_sectors = (uint32_t)bs->total_sectors_16;
 	if(total_sectors == 0)
 		total_sectors = bs->total_sectors_32;
+  
+  printf("FAT: sectors: %d\r\n",total_sectors);
 
 	struct fat_fs *ret = (struct fat_fs *)malloc(sizeof(struct fat_fs));
+
+  printf("FAT: 0\r\n");
+  
 	memset(ret, 0, sizeof(struct fat_fs));
 	ret->b.fopen = fat_fopen;
 	ret->b.fread = fat_fread;
@@ -223,6 +262,8 @@ int fat_init(struct block_device *parent, struct fs **fs)
 	ret->b.read_directory = fat_read_directory;
 	ret->b.parent = parent;
 
+  printf("FAT: 1\r\n");
+  
 	ret->total_sectors = total_sectors;
 
 	ret->bytes_per_sector = (uint32_t)bs->bytes_per_sector;
@@ -230,13 +271,19 @@ int fat_init(struct block_device *parent, struct fs **fs)
 	ret->root_dir_sectors = (ret->root_dir_entries * 32 + ret->bytes_per_sector - 1) /
 		ret->bytes_per_sector;	// The + bytes_per_sector - 1 rounds up the sector no
 
+  printf("FAT: 2\r\n");
+
 	uint32_t fat_size = bs->table_size_16;
 	if(fat_size == 0)
 	    fat_size = bs->ext.fat32.table_size_32;
+  
+  printf("FAT: 3\r\n");
 
 	uint32_t data_sec = total_sectors - (bs->reserved_sector_count + 
 			bs->table_count * fat_size + ret->root_dir_sectors);
 
+  printf("FAT: 4\r\n");
+  
 	uint32_t total_clusters = data_sec / bs->sectors_per_cluster;
 	if(total_clusters < 4085)
 		ret->fat_type = FAT12;
@@ -246,13 +293,18 @@ int fat_init(struct block_device *parent, struct fs **fs)
 		ret->fat_type = FAT32;
 	ret->b.fs_name = fat_names[ret->fat_type];
 	ret->sectors_per_cluster = (uint32_t)bs->sectors_per_cluster;
+  
+  printf("FAT: 5\r\n");
 
 #ifdef FAT_DEBUG
 	printf("FAT: reading a %s filesystem: total_sectors %i, sectors_per_cluster %i, "
-		       "bytes_per_sector %i\n",
+		       "bytes_per_sector %i\r\n",
 	       ret->b.fs_name, ret->total_sectors, ret->sectors_per_cluster,
 		ret->bytes_per_sector);
 #endif
+
+  
+  printf("FAT: 6\r\n");
 
 	// Interpret the extended bpb
 	ret->vol_label = (char *)malloc(12);
@@ -261,7 +313,7 @@ int fat_init(struct block_device *parent, struct fs **fs)
 		// FAT32
 		strcpy(ret->vol_label, bs->ext.fat32.volume_label);
 		ret->vol_label[11] = 0;
-		printf("FAT: volume label: %s\n", ret->vol_label);
+		printf("FAT32: volume label: %s\r\n", ret->vol_label);
 
 		ret->first_data_sector = bs->reserved_sector_count + (bs->table_count *
 			bs->ext.fat32.table_size_32);
@@ -270,7 +322,7 @@ int fat_init(struct block_device *parent, struct fs **fs)
 		ret->sectors_per_fat = bs->ext.fat32.table_size_32;
 
 #ifdef FAT_DEBUG
-		printf("FAT: first_data_sector: %i, first_fat_sector: %i\n",
+		printf("FAT32: first_data_sector: %i, first_fat_sector: %i\r\n",
 				ret->first_data_sector,
 				ret->first_fat_sector);
 #endif
@@ -284,7 +336,7 @@ int fat_init(struct block_device *parent, struct fs **fs)
 		strcpy(ret->vol_label, bs->ext.fat16.volume_label);
 		ret->vol_label[11] = 0;
 #ifdef FAT_DEBUG
-		printf("FAT: volume label: %s\n", ret->vol_label);
+		printf("FAT16: volume label: %s\r\n", ret->vol_label);
 #endif
 
 		ret->first_data_sector = bs->reserved_sector_count + (bs->table_count *
@@ -293,11 +345,11 @@ int fat_init(struct block_device *parent, struct fs **fs)
 		ret->sectors_per_fat = bs->table_size_16;
 
 #ifdef FAT_DEBUG
-		printf("FAT: first_data_sector: %i, first_fat_sector: %i\n",
+		printf("FAT16: first_data_sector: %i, first_fat_sector: %i\r\n",
 				ret->first_data_sector,
 				ret->first_fat_sector);
 
-		printf("FAT: root_dir_entries: %i, root_dir_sectors: %i\n",
+		printf("FAT16: root_dir_entries: %i, root_dir_sectors: %i\r\n",
 				ret->root_dir_entries,
 				ret->root_dir_sectors);
 #endif
@@ -306,11 +358,13 @@ int fat_init(struct block_device *parent, struct fs **fs)
 		ret->root_dir_cluster = 2;
 	}
 
+  printf("FAT: 7\r\n");
+  
 	ret->b.block_size = ret->bytes_per_sector * ret->sectors_per_cluster;
 	*fs = (struct fs *)ret;
 	free(block_0);
 
-	printf("FAT: found a %s filesystem on %s\n", ret->b.fs_name, ret->b.parent->device_name);
+	printf("FAT: found a %s filesystem on %s\r\n", ret->b.fs_name, ret->b.parent->device_name);
 
 	return 0;
 }
@@ -318,7 +372,7 @@ int fat_init(struct block_device *parent, struct fs **fs)
 uint32_t get_sector(struct fat_fs *fs, uint32_t rel_cluster)
 {
 #ifdef FAT_DEBUG
-	printf("FAT: get_sector rel_cluster %i, sector %i\n",
+	printf("FAT: get_sector rel_cluster %i, sector %i\r\n",
 			rel_cluster,
 			fs->first_non_root_sector + (rel_cluster - 2) * fs->sectors_per_cluster);
 #endif
@@ -335,11 +389,11 @@ static uint32_t get_next_fat_entry(struct fat_fs *fs, uint32_t current_cluster)
 				uint32_t fat_offset = current_cluster << 1; // *2
 				uint32_t fat_sector = fs->first_fat_sector +
 					(fat_offset / fs->bytes_per_sector);
-				uint8_t *buf = (uint8_t *)malloc(512);
+				uint8_t *buf = (uint8_t *)memalign(16,512);
 				int br_ret = block_read(fs->b.parent, buf, 512, fat_sector);
 				if(br_ret < 0)
 				{
-					printf("FAT: block_read returned %i\n");
+					printf("FAT: block_read returned %i\r\n");
 					return 0x0ffffff7;
 				}
 				uint32_t fat_index = fat_offset % fs->bytes_per_sector;
@@ -355,11 +409,11 @@ static uint32_t get_next_fat_entry(struct fat_fs *fs, uint32_t current_cluster)
 				uint32_t fat_offset = current_cluster << 2; // *4
 				uint32_t fat_sector = fs->first_fat_sector +
 					(fat_offset / fs->bytes_per_sector);
-				uint8_t *buf = (uint8_t *)malloc(512);
+				uint8_t *buf = (uint8_t *)memalign(16,512);
 				int br_ret = block_read(fs->b.parent, buf, 512, fat_sector);
 				if(br_ret < 0)
 				{
-					printf("FAT: block_read returned %i\n");
+					printf("FAT: block_read returned %i\r\n");
 					return 0x0ffffff7;
 				}
 				uint32_t fat_index = fat_offset % fs->bytes_per_sector;
@@ -368,7 +422,7 @@ static uint32_t get_next_fat_entry(struct fat_fs *fs, uint32_t current_cluster)
 				return next_cluster & 0x0fffffff; // FAT32 is actually FAT28
 			}
 		default:
-			printf("FAT: fat type %s not supported\n", fs->b.fs_name);
+			printf("FAT: fat type %s not supported\r\n", fs->b.fs_name);
 			return 0;
 	}
 }
@@ -399,7 +453,7 @@ struct dirent *fat_read_directory(struct fs *fs, char **name)
 		if(!found)
 		{
 #ifdef FAT_DEBUG
-			printf("FAT: path part %s not found\n", *name);
+			printf("FAT: path part %s not found\r\n", *name);
 #endif
 			errno = ENOENT;
 			return (void*)0;
@@ -408,7 +462,7 @@ struct dirent *fat_read_directory(struct fs *fs, char **name)
 	return cur_dir;
 }
 
-static uint32_t fat_get_next_bdev_block_num(uint32_t f_block_idx, FILE *s, void *opaque, int add_blocks)
+static uint32_t fat_get_next_bdev_block_num(uint32_t f_block_idx, fs_file *s, void *opaque, int add_blocks)
 {
 	struct fat_file_block_offset *ffbo = (struct fat_file_block_offset *)opaque;
 
@@ -425,9 +479,9 @@ static uint32_t fat_get_next_bdev_block_num(uint32_t f_block_idx, FILE *s, void 
 	{
 		if(add_blocks)
 		{
-			printf("FAT: request to extend cluster chain not currently supported\n");
+			printf("FAT: request to extend cluster chain not currently supported\r\n");
 		}
-		s->flags |= VFS_FLAGS_EOF;
+		s->flags |= EOF;
 		return 0xffffffff;
 	}
 }
@@ -451,36 +505,48 @@ struct dirent *fat_read_dir(struct fat_fs *fs, struct dirent *d)
 	struct dirent *prev = (void *)0;
 
 #ifdef FAT_DEBUG
-	printf("FAT: read_dir: starting directory read from cluster %i\n", cur_cluster);
+	printf("FAT: read_dir: starting directory read from cluster %i\r\n", cur_cluster);
 #endif
 
 	do
 	{
 		/* Read this cluster */
 		uint32_t cluster_size = fat->bytes_per_sector * fat->sectors_per_cluster;
-		uint8_t *buf = (uint8_t *)malloc(cluster_size);
+    
+    //("FAT: 10\r\n");
+  
+		uint8_t *buf = (uint8_t *)memalign(16,cluster_size);
 
 		/* Interpret the cluster number to an absolute address */
 		uint32_t absolute_cluster = cur_cluster - 2;
 		uint32_t first_data_sector = fat->first_data_sector;
+
+    //printf("FAT: 11\r\n");
+  
 		if(!is_root)
 			first_data_sector = fat->first_non_root_sector;
-		
+
+    //printf("FAT: 12\r\n");
+  
 #ifdef FAT_DEBUG
-		printf("FAT: reading cluster %i (sector %i)\n", cur_cluster,
+		printf("FAT: reading cluster %i (sector %i)\r\n", cur_cluster,
 				absolute_cluster * fat->sectors_per_cluster + first_data_sector);
 #endif
 		int br_ret = block_read(fat->b.parent, buf, cluster_size, 
 				absolute_cluster * fat->sectors_per_cluster + first_data_sector);
 
+    //printf("FAT: 13\r\n");
+  
 		if(br_ret < 0)
 		{
-			printf("FAT: block_read returned %i\n", br_ret);
+			printf("FAT: block_read returned %i\r\n", br_ret);
 			return (void*)0;
 		}
 
 		for(uint32_t ptr = 0; ptr < cluster_size; ptr += 32)
 		{
+      //printf("FAT: 14 %d\r\n",ptr);
+  
 			// Does the entry exist (if the first byte is zero of 0xe5 it doesn't)
 			if((buf[ptr] == 0) || (buf[ptr] == 0xe5))
 				continue;
@@ -494,7 +560,7 @@ struct dirent *fat_read_dir(struct fat_fs *fs, struct dirent *d)
 				continue;
 
 			// Else read it
-			struct dirent *de = (struct dirent *)malloc(sizeof(struct dirent));
+			struct dirent *de = (struct dirent *)memalign(16,sizeof(struct dirent));
 			memset(de, 0, sizeof(struct dirent));
 			if(ret == (void *)0)
 				ret = de;
@@ -502,8 +568,9 @@ struct dirent *fat_read_dir(struct fat_fs *fs, struct dirent *d)
 				prev->next = de;
 			prev = de;
 
-			de->name = (char *)malloc(13);
+			de->name = (char *)memalign(16,13);
 			de->fs = &fs->b;
+      
 			// Convert to lowercase on load
 			int d_idx = 0;
 			int in_ext = 0;
@@ -539,7 +606,7 @@ struct dirent *fat_read_dir(struct fat_fs *fs, struct dirent *d)
 			de->opaque = (void*)opaque;
 
 #ifdef FAT_DEBUG
-			printf("FAT: read dir entry: %s, size %i, cluster %i, ptr %i\n", 
+			printf("FAT: read dir entry: %s, size %i, cluster %i, ptr %i\r\n", 
 					de->name, de->byte_size, opaque, ptr);
 #endif
 		}
@@ -559,7 +626,7 @@ struct dirent *fat_read_dir(struct fat_fs *fs, struct dirent *d)
 			cur_cluster = get_next_fat_entry(fat, cur_cluster);
 
 #ifdef FAT_DEBUG
-		printf("FAT: read dir: next cluster %x\n", cur_cluster);
+		printf("FAT: read dir: next cluster %x\r\n", cur_cluster);
 #endif
 	} while(cur_cluster < 0x0ffffff7);
 

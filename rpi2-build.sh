@@ -21,6 +21,13 @@ $COMPILE -c -o obj/debug_util.o  os/debug_util.c
 $COMPILE -c -o obj/uspi_glue.o  devices/rpi2/uspi_glue.c
 
 $COMPILE -c -o obj/timer2.o  devices/rpi2/rpi-boot/timer.c
+#$COMPILE -c -o obj/vfs.o  devices/rpi2/rpi-boot/vfs.c
+$COMPILE -c -o obj/libfs.o  devices/rpi2/rpi-boot/libfs.c
+$COMPILE -c -o obj/block.o  devices/rpi2/rpi-boot/block.c
+$COMPILE -c -o obj/mbr.o  devices/rpi2/rpi-boot/mbr.c
+$COMPILE -c -o obj/fat.o  devices/rpi2/rpi-boot/fat.c
+$COMPILE -c -o obj/emmc.o  devices/rpi2/rpi-boot/emmc.c
+$COMPILE -c -o obj/mbox.o  devices/rpi2/rpi-boot/mbox.c
 
 $COMPILE -c -o obj/timer.o            devices/rpi2/uspi/env/lib/timer.c
 $COMPILE -c -o obj/interrupt.o        devices/rpi2/uspi/env/lib/interrupt.c
@@ -42,6 +49,12 @@ $COMPILE -o build/interim-arm.elf -T devices/rpi2/arm.ld devices/rpi2/arm_start.
          devices/rpi2/uspi/lib/libuspi.a\
          \
          obj/timer2.o\
+         obj/libfs.o\
+         obj/block.o\
+         obj/mbr.o\
+         obj/fat.o\
+         obj/emmc.o\
+         obj/mbox.o\
          \
          obj/timer.o\
          obj/interrupt.o\

@@ -14,13 +14,19 @@ _start:
 	blt 1b	// if not repeat
   
   // enable FPU (VFP/NEON)
-        mrc p15, #0, r1, c1, c0, #2	
+  mrc p15, #0, r1, c1, c0, #2	
 	orr r1, r1, #(0xf << 20)
 	mcr p15, #0, r1, c1, c0, #2
 	mov r1, #0
 	mcr p15, #0, r1, c7, c5, #4
 	mov r0,#0x40000000
 	fmxr FPEXC, r0
+
+  // enable unaligned access
+  mrc p15, #0, r0, c1, c0, #0
+  orr r0, #0x400000         // 1<<22 set U bit
+  bic r0, r0, #2 // clear A bit
+	mcr p15, #0, r0, c1, c0, #0
   
 	// jump to kernel_main
 	ldr r3, =_cstartup

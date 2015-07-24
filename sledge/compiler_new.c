@@ -887,6 +887,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_call(read_string,"read_string");
       break;
     }
+    case BUILTIN_EVAL: {
+      load_cell(ARGR0,argdefs[0], frame);
+      jit_call(platform_eval_string,"eval_string");
+      break;
+    }
     case BUILTIN_SIZE: {
       load_cell(ARGR0,argdefs[0], frame);
       jit_addi(ARGR0,PTRSZ); // fetch size -> R0
@@ -1047,9 +1052,8 @@ void init_compiler() {
   
   insert_symbol(alloc_sym("write"), alloc_builtin(BUILTIN_WRITE, alloc_list((Cell*[]){alloc_int(TAG_ANY), alloc_int(TAG_STR)},2)), &global_env);
   insert_symbol(alloc_sym("read"), alloc_builtin(BUILTIN_READ, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
-  //insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL, alloc_list((Cell*[]){alloc_int(TAG_ANY)},1)), &global_env);
+  insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL, alloc_list((Cell*[]){alloc_int(TAG_ANY)},1)), &global_env);
 
-  
   insert_symbol(alloc_sym("mount"), alloc_builtin(BUILTIN_MOUNT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_CONS)},2)), &global_env);
   insert_symbol(alloc_sym("open"), alloc_builtin(BUILTIN_OPEN, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
   insert_symbol(alloc_sym("mmap"), alloc_builtin(BUILTIN_MMAP, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);

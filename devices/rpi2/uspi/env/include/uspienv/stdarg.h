@@ -27,3 +27,4 @@ typedef __builtin_va_list va_list;
 #define va_arg(arg, type)	__builtin_va_arg (arg, type)
 
 #endif
+

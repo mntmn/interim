@@ -18,7 +18,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //
 #include <uspienv/debug.h>
-#include <uspienv/logger.h>
+#include <stdio.h>
 #include <uspienv/string.h>
 #include <uspienv/sysconfig.h>
 
@@ -35,12 +35,12 @@ void debug_hexdump (const void *pStart, unsigned nBytes, const char *pSource)
 		pSource = FromDebug;
 	}
 
-	LoggerWrite (LoggerGet (), pSource, LogDebug, "Dumping 0x%X bytes starting at 0x%X", nBytes, (unsigned) pOffset);
+	printf("Dumping 0x%X bytes starting at 0x%X\r\n", nBytes, (unsigned) pOffset);
 	
 	while (nBytes > 0)
 	{
-		LoggerWrite (LoggerGet (), pSource, LogDebug,
-				"%04X: %02X %02X %02X %02X %02X %02X %02X %02X-%02X %02X %02X %02X %02X %02X %02X %02X",
+		printf(
+				"%04X: %02X %02X %02X %02X %02X %02X %02X %02X-%02X %02X %02X %02X %02X %02X %02X %02X\r\n",
 				(unsigned) pOffset & 0xFFFF,
 				(unsigned) pOffset[0],  (unsigned) pOffset[1],  (unsigned) pOffset[2],  (unsigned) pOffset[3],
 				(unsigned) pOffset[4],  (unsigned) pOffset[5],  (unsigned) pOffset[6],  (unsigned) pOffset[7],
@@ -69,12 +69,12 @@ void debug_stacktrace (const u32 *pStackPtr, const char *pSource)
 	
 	for (unsigned i = 0; i < 64; i++, pStackPtr++)
 	{
-		extern unsigned char _etext;
+		extern unsigned char rodata;
 
 		if (   *pStackPtr >= MEM_KERNEL_START
-		    && *pStackPtr < (u32) &_etext)
+		    && *pStackPtr < (u32) &rodata)
 		{
-			LoggerWrite (LoggerGet (), pSource, LogDebug, "stack[%u] is 0x%X", i, (unsigned) *pStackPtr);
+			printf("stack[%u] is 0x%X\r\n", i, (unsigned) *pStackPtr);
 		}
 	}
 }

@@ -16,7 +16,7 @@ ENTRY(_start)
 SECTIONS
 {
 /* Starts at LOADER_ADDR. */
-. = 0x42000000;
+. = 0x8000;
 .text : {
 KEEP(*(.text.boot))
 *(.text)

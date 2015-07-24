@@ -7,7 +7,7 @@ static Cell* fs_list;
 static int num_fs;
 static int stream_id;
 
-typedef jit_word_t (*funcptr)();
+typedef Cell* (*funcptr2)(Cell* a1, Cell* a2);
 
 // TODO: include fs_list in gc mark
 
@@ -44,7 +44,7 @@ Cell* fs_open(Cell* path) {
       //printf("[open] open_fn: %p\n", s->fs->open_fn);
       if (s->fs->open_fn && s->fs->open_fn->next) {
         Cell* open_fn = s->fs->open_fn;
-        ((funcptr)open_fn->next)();
+        ((funcptr2)open_fn->next)(path, NULL);
       }
 
       return stream_cell;
@@ -69,7 +69,7 @@ Cell* fs_mmap(Cell* path) {
 
       if (fs->mmap_fn && fs->mmap_fn->next) {
         Cell* mmap_fn = fs->mmap_fn;
-        return (Cell*)((funcptr)mmap_fn->next)();
+        return (Cell*)((funcptr2)mmap_fn->next)(path, NULL);
       } else {
         printf("[mmap] error: fs has no mmap implementation.");
         return alloc_nil();
@@ -106,11 +106,14 @@ Cell* fs_mount(Cell* path, Cell* handlers) {
   
   printf("[fs] mounted: %s\n",path->addr);
   fs_list = alloc_cons(fs_cell, fs_list);
+
+  return fs_cell;
 }
 
 Cell* wrap_in_lambda(void* cfunc) {
   Cell* lbd = alloc_lambda(alloc_nil());
   lbd->next = cfunc;
+  return lbd;
 }
 
 // TODO: pass stream (context) to handlers
@@ -118,20 +121,20 @@ Cell* wrap_in_lambda(void* cfunc) {
 Cell* stream_read(Cell* stream) {
   Stream* s = (Stream*)stream->addr;
   Cell* read_fn = s->fs->read_fn;
-  char debug_buf[256];
-  lisp_write(read_fn, debug_buf, 256);
+  //char debug_buf[256];
+  //lisp_write(read_fn, debug_buf, 256);
   //printf("[stream_read] fn: %s ptr: %p\n",debug_buf,read_fn->next);
-  return (Cell*)((funcptr)read_fn->next)();
+  return (Cell*)((funcptr2)read_fn->next)(stream,NULL);
 }
 
 Cell* stream_write(Cell* stream, Cell* arg) {
   Stream* s = (Stream*)stream->addr;
   Cell* write_fn = s->fs->write_fn;
-  char debug_buf[256];
-  lisp_write(arg, debug_buf, 256);
+  //char debug_buf[256];
+  //lisp_write(arg, debug_buf, 256);
   //printf("[stream_write] fn: %s ptr: %p\n",debug_buf,write_fn->next);
   //printf("[stream_write] arg: %s\n",debug_buf);
-  return (Cell*)((funcptr)write_fn->next)(arg);
+  return (Cell*)((funcptr2)write_fn->next)(stream,arg);
 }
 
 void fs_mount_builtin(char* path, void* open_handler, void* read_handler, void* write_handler, void* delete_handler, void* mmap_handler) {
@@ -155,7 +158,7 @@ Cell* consolefs_read() {
   return alloc_int(c);
 }
 
-Cell* consolefs_write(Cell* arg) {
+Cell* consolefs_write(Cell* a1,Cell* arg) {
   fputc(arg->value, stdout);
   return arg;
 }

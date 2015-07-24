@@ -19,9 +19,9 @@
 //
 #include <uspienv/exceptionhandler.h>
 #include <uspienv/synchronize.h>
-#include <uspienv/logger.h>
 #include <uspienv/debug.h>
 #include <uspienv/assert.h>
+#include <stdio.h>
 
 static const char FromExcept[] = "except";
 
@@ -74,7 +74,7 @@ void ExceptionHandlerThrow (TExceptionHandler *pThis, unsigned nException)
 {
 	assert (pThis != 0);
 
-	LoggerWrite (LoggerGet (), FromExcept, LogPanic, "Exception: %s", s_pExceptionName[nException]);
+	printf("Exception: %s\r\n", s_pExceptionName[nException]);
 }
 
 void ExceptionHandlerThrow2 (TExceptionHandler *pThis, unsigned nException, TAbortFrame *pFrame)
@@ -112,8 +112,7 @@ void ExceptionHandlerThrow2 (TExceptionHandler *pThis, unsigned nException, TAbo
 	debug_stacktrace ((u32 *) sp, FromExcept);
 #endif
 
-	LoggerWrite (LoggerGet (), FromExcept, LogPanic,
-		"%s (PC 0x%X, FSR 0x%X, FAR 0x%X, SP 0x%X, LR 0x%X, PSR 0x%X)",
+	printf ("%s (PC 0x%X, FSR 0x%X, FAR 0x%X, SP 0x%X, LR 0x%X, PSR 0x%X)",
 		s_pExceptionName[nException],
 		pFrame->pc, FSR, FAR,
 		sp, lr, pFrame->spsr);
@@ -127,7 +126,8 @@ TExceptionHandler *ExceptionHandlerGet (void)
 
 void ExceptionHandler (u32 nException, TAbortFrame *pFrame)
 {
-	DataMemBarrier ();
+	DataMemBarrier();
 
 	ExceptionHandlerThrow2 (ExceptionHandlerGet (), nException, pFrame);
+  while(1) {};
 }

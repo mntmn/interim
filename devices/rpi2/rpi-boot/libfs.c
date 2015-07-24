@@ -180,9 +180,9 @@ int fs_interpret_mode(const char *mode)
  * fs_fread fills in as many of the parameters of get_next_block_num as it can
  */
 
-size_t fs_fread(uint32_t (*get_next_bdev_block_num)(uint32_t f_block_idx, FILE *s, void *opaque, int add_blocks),
+size_t fs_fread(uint32_t (*get_next_bdev_block_num)(uint32_t f_block_idx, fs_file *s, void *opaque, int add_blocks),
 	struct fs *fs, void *ptr, size_t byte_size,
-	FILE *stream, void *opaque)
+	fs_file *stream, void *opaque)
 {
 	uint32_t fs_block_size = fs->block_size;
 
@@ -240,7 +240,7 @@ size_t fs_fread(uint32_t (*get_next_bdev_block_num)(uint32_t f_block_idx, FILE *
 				block_segment_length = last_block_offset - start_block_offset;
 
 			// Copy from the temporary buffer to the save buffer
-			qmemcpy(save_buf, &temp_buf[start_block_offset], block_segment_length);
+			memcpy(save_buf, &temp_buf[start_block_offset], block_segment_length);
 
 			// Increment the pointers
 			total_bytes_read += block_segment_length;
@@ -259,9 +259,9 @@ size_t fs_fread(uint32_t (*get_next_bdev_block_num)(uint32_t f_block_idx, FILE *
 	return total_bytes_read;
 }
 
-size_t fs_fwrite(uint32_t (*get_next_bdev_block_num)(uint32_t f_block_idx, FILE *s, void *opaque, int add_blocks),
+size_t fs_fwrite(uint32_t (*get_next_bdev_block_num)(uint32_t f_block_idx, fs_file *s, void *opaque, int add_blocks),
 	struct fs *fs, void *ptr, size_t byte_size,
-	FILE *stream, void *opaque)
+	fs_file *stream, void *opaque)
 {
 	uint32_t fs_block_size = fs->block_size;
 
@@ -322,7 +322,7 @@ size_t fs_fwrite(uint32_t (*get_next_bdev_block_num)(uint32_t f_block_idx, FILE 
 				return total_bytes_written;
 
 			// Edit the buffer
-			qmemcpy(&temp_buf[start_block_offset], save_buf, block_segment_length);
+			memcpy(&temp_buf[start_block_offset], save_buf, block_segment_length);
 
 			// Save the buffer
 			size_t bytes_written = block_write(fs->parent, temp_buf, fs_block_size, cur_bdev_block);

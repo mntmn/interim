@@ -174,6 +174,8 @@ int InterruptSystemCallIRQHandler (TInterruptSystem *pThis, unsigned nIRQ)
 	return 0;
 }
 
+#include <stdio.h>
+
 void InterruptHandler (void)
 {
 	assert (s_pThis != 0);
@@ -187,6 +189,9 @@ void InterruptHandler (void)
 		
 		if (read32 (nPendReg) & nIRQMask)
 		{
+      /*if (nIRQ!=3) { // 3 is timer?
+        printf("[irq%d]\r\n",nIRQ);
+        }*/
 			if (InterruptSystemCallIRQHandler (s_pThis, nIRQ))
 			{
 				write32 (nPendReg, nIRQMask);

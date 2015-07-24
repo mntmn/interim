@@ -56,14 +56,12 @@ void main()
   uart_puts("-- INTERIM/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
   
-  //libfs_init();
-
   init_rpi_qpu();
   uart_puts("-- QPU enabled.\r\n");
 
   FB = init_rpi_gfx();
   FB_MEM = FB;
-
+  
   //init_blitter(FB);
   
   sprintf(buf, "-- framebuffer at %p.\r\n",FB);
@@ -97,24 +95,15 @@ void main()
 
   eth_rx_buffer=malloc(64*1024);
   
+  libfs_init();
+  
   memset(FB, 0x44, 1920*1080*4);
   
   uart_repl();
 }
 
-static struct fs* fat_fs;
-
-void vfs_register(struct fs *fs) {
-  printf("~~ vfs_register: %s/%s block_size: %d\r\n",fs->parent->device_name,fs->fs_name,fs->block_size);
-  printf("~~ read_directory: %p fopen: %p\r\n",fs->read_directory,fs->fopen);
-
-  //char* name = "/";
-
-  //struct dirent* dir = fs->read_directory(fs,&name);
-
-  //printf("~~ dirent: %p name: %s\r\n",dir,dir->name);
-  fat_fs = fs;
-}
+#include "devices/fbfs.c"
+#include "devices/rpi2/fatfs.c"
 
 #include <os/libc_glue.c>
 
@@ -301,69 +290,9 @@ Cell* machine_save_file(Cell* cell, char* path) {
   return alloc_int(0);
 }
 
-static char sysfs_tmp[1024];
-
-Cell* machine_load_file(char* path) {
-  // sysfs
-  if (!strcmp(path,"/sys/mem")) {
-    MemStats* mst = alloc_stats();
-    sprintf(sysfs_tmp, "(%d %d %d %d)", mst->byte_heap_used, mst->byte_heap_max, mst->cells_used, mst->cells_max);
-    return read_string(sysfs_tmp);
-  }
-
-  if (!strncmp(path,"/sd/",4) && fat_fs) {
-    char* name = NULL;
-    struct dirent* dir = fat_fs->read_directory(fat_fs,&name);
-
-    char* filename = NULL;
-    if (strlen(path)>4) {
-      filename = path+4;
-    }
-    
-    printf("~~ dirent: %p name: %s\r\n",dir,dir->name);
-
-    if (filename) {
-      // look for the file
-      printf("FAT looking for %s...\r\n",filename);
-      while (dir) {
-        if (!strcmp(filename, dir->name)) {
-          // found it
-          printf("FAT found file. opening...\r\n");
-          FILE* f = fat_fs->fopen(fat_fs, dir, "r");
-          if (f) {
-            printf("FAT trying to read file of len %d...\r\n",f->len);
-            Cell* res = alloc_num_string(f->len);
-            int len = fat_fs->fread(fat_fs, res->addr, f->len, f);
-            printf("FAT bytes read: %d\r\n",len);
-            // TODO: close?
-            return res;
-          } else {
-            // TODO should return error
-            printf("FAT could not open file :(\r\n");
-            return alloc_string_copy("<error: couldn't open file.>");
-          }
-        }
-        dir = dir->next;
-      }
-      return alloc_string_copy("<error: file not found.>");
-    } else {
-      Cell* res = alloc_num_string(4096);
-      char* ptr = (char*)res->addr;
-      while (dir) {
-        int len = sprintf(ptr,"%s",dir->name);
-        ptr[len] = '\n';
-        ptr+=len+1;
-        dir = dir->next;
-      }
-      return res;
-    }
-  }
-
-  Cell* result_cell = alloc_int(0);
-  return result_cell;
-}
-
 typedef jit_word_t (*funcptr)();
+
+Cell* platform_eval_string(Cell* strc); // FIXME
 
 #include "compiler_new.c"
 
@@ -408,6 +337,8 @@ typedef jit_word_t (*funcptr)();
   init_mini_ip(udp_cell);
   }*/
 
+#define CODESZ 4096
+
 void uart_repl() {
   uart_puts("~~ trying to malloc repl buffers\r\n");
   char* out_buf = malloc(1024*10);
@@ -417,8 +348,10 @@ void uart_repl() {
   
   init_compiler();
   //insert_rootfs_symbols();
-
-  uart_puts("\r\n~~ compiler initialized.\r\n");
+  mount_fbfs(FB);
+  mount_fatfs();
+  
+  uart_puts("\r\n~~ fs initialized.\r\n");
   
   memset(out_buf,0,1024*10);
   memset(in_line,0,1024*2);
@@ -433,9 +366,9 @@ void uart_repl() {
   int linec = 0;
 
   Cell* expr;
-  char c = 13;
+  char c = 0;
 
-  strcpy(in_line,"(eval (load \"/sd/boot.l\"))\n");
+  //strcpy(in_line,"(eval (load \"/sd/boot.l\"))\n");
   
   r3d_init(FB);
   uart_puts("-- R3D initialized.\r\n");
@@ -484,11 +417,23 @@ void uart_repl() {
       }
     }
     
-    funcptr compiled;
-
     if (expr) {
       int success = 0;
       Cell* res = NULL;
+
+      code = malloc(CODESZ);
+      memset(code, 0, CODESZ);
+      jit_init(512);
+      register void* sp asm ("sp"); // FIXME maybe unportable
+      Frame empty_frame = {NULL, 0, 0, sp};
+      int tag = compile_expr(expr, &empty_frame, TAG_ANY);
+      jit_ret();
+
+      if (tag) {
+        funcptr fn = (funcptr)code;
+        res = (Cell*)fn();
+        success = 1;
+      }
 
       if (success) {
         if (!res) {
@@ -502,4 +447,66 @@ void uart_repl() {
       uart_puts("\r\n");
     }
   }
+}
+
+
+Cell* platform_eval_string(Cell* strc) {
+
+  if (!strc || strc->tag!=TAG_STR) {
+    printf("[platform_eval_string] error: no string given.\r\n");
+    return NULL;
+  }
+  
+  char* str = strc->addr;
+  int len = strc->size;
+  
+  Cell* res = alloc_nil();
+  int l = 0;
+  str[len] = 0;
+  int linec = 0;
+
+  int parens = 0;
+  int comment = 0;
+  for (int i=0; i<len; i++) {
+    char c = str[i];
+    if (comment) {
+      if (c=='\n' || c=='\r') comment = 0;
+    }
+    else {
+      if (c=='(') {
+        parens++;
+      }
+      else if (c==')') {
+        parens--;
+
+        if (parens == 0 && i > 0) {
+          str[i+1]=0;
+          i++;
+          Cell* expr = read_string(&str[l]);
+          l=i+1;
+          
+          if (expr) {
+            printf("compiling expression %d…\r\n", linec++);
+            // eval this piece
+            code = malloc(CODESZ);
+            memset(code, 0, CODESZ);
+            jit_init(512);
+            register void* sp asm ("sp"); // FIXME maybe unportable
+            Frame empty_frame = {NULL, 0, 0, sp};
+            int tag = compile_expr(expr, &empty_frame, TAG_ANY);
+            jit_ret();
+            if (tag) {
+              funcptr fn = (funcptr)code;
+              res = (Cell*)fn();
+              //success = 1;
+            }
+          }
+        }
+      }
+      else if (c==';') {
+        comment = 1;
+      }
+    }
+  }
+  return res;
 }

@@ -130,7 +130,7 @@ void USPiGetMACAddress (unsigned char Buffer[6]);
 int USPiSendFrame (const void *pBuffer, unsigned nLength);
 
 // pBuffer must have size USPI_FRAME_BUFFER_SIZE
-// returns 0 if no frame is available or on failure
+// returns 0 on failure
 #define USPI_FRAME_BUFFER_SIZE	1600
 int USPiReceiveFrame (void *pBuffer, unsigned *pResultLength);
 

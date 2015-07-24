@@ -28,6 +28,8 @@
 extern "C" {
 #endif
 
+extern int printf(const char *format, ...);
+
 typedef enum
 {
 	EndpointTypeControl,

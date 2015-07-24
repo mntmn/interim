@@ -989,13 +989,6 @@ void DWHCIDeviceChannelInterruptHandler (TDWHCIDevice *pThis, unsigned nChannel)
 		TDWHCIRegister ChanInterrupt;
 		DWHCIRegister (&ChanInterrupt, DWHCI_HOST_CHAN_INT (nChannel));
 
-		// restart halted transaction
-		if (DWHCIRegisterRead (&ChanInterrupt) == DWHCI_HOST_CHAN_INT_HALTED)
-		{
-			DWHCIDeviceStartTransaction (pThis, pStageData);
-			return;
-		}
-
 		assert (   !DWHCITransferStageDataIsPeriodic (pStageData)
 			||    DWHCI_HOST_CHAN_XFER_SIZ_PID (DWHCIRegisterGet (&TransferSize))
 			   != DWHCI_HOST_CHAN_XFER_SIZ_PID_MDATA);

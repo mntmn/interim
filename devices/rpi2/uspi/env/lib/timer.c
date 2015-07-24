@@ -22,8 +22,8 @@
 #include <uspienv/memio.h>
 #include <uspienv/synchronize.h>
 #include <uspienv/sysconfig.h>
-#include <uspienv/alloc.h>
-#include <uspienv/logger.h>
+#include <stdio.h>
+#include <malloc.h>
 #include <uspienv/debug.h>
 #include <uspienv/assert.h>
 
@@ -41,11 +41,11 @@ void Timer (TTimer *pThis, TInterruptSystem *pInterruptSystem)
 	pThis->m_pInterruptSystem = pInterruptSystem;
 	pThis->m_nTicks = 0;
 	pThis->m_nTime = 0;
-#ifdef ARM_DISABLE_MMU
-	pThis->m_nMsDelay = 12500;
-#else
-	pThis->m_nMsDelay = 350000;
-#endif
+  
+	//pThis->m_nMsDelay = 350000;
+  pThis->m_nMsDelay = 12000;
+
+
 	pThis->m_nusDelay = pThis->m_nMsDelay / 1000;
 
 	assert (s_pThis == 0);
@@ -62,19 +62,25 @@ void _Timer (TTimer *pThis)
 	s_pThis = 0;
 }
 
+#include <stdio.h>
+
 boolean TimerInitialize (TTimer *pThis)
 {
 	assert (pThis != 0);
 
 	assert (pThis->m_pInterruptSystem != 0);
+  printf(".. InterruptSystemConnectIRQ\r\n");
 	InterruptSystemConnectIRQ (pThis->m_pInterruptSystem, ARM_IRQ_TIMER3, TimerInterruptHandler, pThis);
 
 	DataMemBarrier ();
 
+  printf(".. ARM_SYSTIMER_CLO\r\n");
 	write32 (ARM_SYSTIMER_CLO, -(30 * CLOCKHZ));	// timer wraps soon, to check for problems
 
+  printf(".. ARM_SYSTIMER_C3\r\n");
 	write32 (ARM_SYSTIMER_C3, read32 (ARM_SYSTIMER_CLO) + CLOCKHZ / HZ);
 	
+  printf(".. TimerTuneMsDelay\r\n");
 	TimerTuneMsDelay (pThis);
 
 	DataMemBarrier ();
@@ -309,5 +315,5 @@ void TimerTuneMsDelay (TTimer *pThis)
 	pThis->m_nMsDelay = pThis->m_nMsDelay * nFactor / 100;
 	pThis->m_nusDelay = (pThis->m_nMsDelay + 500) / 1000;
 
-	//LoggerWrite (LoggerGet (), "timer", LogNotice, "SpeedFactor is %u.%02u", nFactor / 100, nFactor % 100);
+	printf("[uspi-timer] SpeedFactor is %u.%02u\r\n", nFactor / 100, nFactor % 100);
 }

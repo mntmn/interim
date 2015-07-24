@@ -238,6 +238,9 @@ boolean SMSC951xDeviceConfigure (TUSBDevice *pUSBDevice)
 
 				pThis->m_pEndpointBulkIn = (TUSBEndpoint *) malloc (sizeof (TUSBEndpoint));
 				assert (pThis->m_pEndpointBulkIn);
+
+        printf("[smsc951x] create input endpoint bulkin: %p desc: %p\r\n",pThis->m_pEndpointBulkIn,pEndpointDesc);
+        
 				USBEndpoint2 (pThis->m_pEndpointBulkIn, &pThis->m_USBDevice, pEndpointDesc);
 			}
 			else							// Output
@@ -253,6 +256,8 @@ boolean SMSC951xDeviceConfigure (TUSBDevice *pUSBDevice)
 
 				pThis->m_pEndpointBulkOut = (TUSBEndpoint *) malloc (sizeof (TUSBEndpoint));
 				assert (pThis->m_pEndpointBulkOut);
+        
+        printf("[smsc951x] create output endpoint bulkout: %p desc: %p\r\n",pThis->m_pEndpointBulkOut,pEndpointDesc);
 				USBEndpoint2 (pThis->m_pEndpointBulkOut, &pThis->m_USBDevice, pEndpointDesc);
 			}
 		}

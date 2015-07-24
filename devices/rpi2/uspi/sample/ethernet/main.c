@@ -8,7 +8,7 @@
 #include <uspienv/macros.h>
 #include <uspienv/types.h>
 
-#define	OWN_IP_ADDRESS		{192, 168, 0, 250}	// must be a valid IP address on your LAN
+#define	OWN_IP_ADDRESS		{192, 168, 1, 242}	// must be a valid IP address on your LAN
 
 #define MAC_ADDRESS_SIZE	6
 #define IP_ADDRESS_SIZE		4
