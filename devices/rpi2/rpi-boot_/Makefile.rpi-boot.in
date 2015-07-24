@@ -1,0 +1,153 @@
+#include "config.h"
+
+ARMCC ?= arm-none-eabi-gcc
+ARMLD ?= arm-none-eabi-ld
+ARMOBJCOPY ?= arm-none-eabi-objcopy
+ARMOBJDUMP ?= arm-none-eabi-objdump
+ARMAR ?= arm-none-eabi-ar
+QEMU ?= qemu-system-arm
+
+MAKEFILE ?= Makefile.rpi-boot
+CONFIG_H = config.h
+DISASM_DUMP = kernel.list
+
+all: kernel.img
+
+CFLAGS += -pedantic -pedantic-errors -nostdlib -nostartfiles -ffreestanding -Wall -Wextra -Werror -Wshadow
+CFLAGS += -std=gnu99
+CFLAGS += -I.
+CFLAGS += -DBUILDING_RPIBOOT
+
+#ifdef DEBUG
+CFLAGS += -g -O0
+ASSERT_OBJS = assert.o
+#else
+CFLAGS += -O3
+#endif
+
+ASFLAGS += -Wa,-mcpu=arm1176jzf-s
+
+QEMUFLAGS = -cpu arm1176 -m 256 -M raspi -kernel kernel-qemu.img -usb -nographic 
+SDFLAGS = -sd sd.img
+
+#ifdef ENABLE_FRAMEBUFFER
+FB_OBJS = fb.o console.o
+#endif
+
+#ifdef ENABLE_SD
+SD_OBJS = emmc.o
+#endif
+
+#ifdef ENABLE_FAT
+FAT_OBJS = fat.o
+#endif
+
+#ifdef ENABLE_EXT2
+EXT2_OBJS = ext2.o
+#endif
+
+#ifdef ENABLE_USB
+USB_OBJS = dwc_usb.o
+#endif
+
+#ifdef ENABLE_RASPBOOTIN
+RASPBOOTIN_OBJS = raspbootin.o
+#endif
+
+#ifdef ENABLE_SERIAL
+SERIAL_OBJS = uart.o
+#endif
+
+#ifdef ENABLE_DEFAULT_FONT
+FONT_OBJS = font.o
+#endif
+
+#ifdef ENABLE_RAMDISK
+RAMDISK_OBJS = ramdisk.o
+#endif
+
+#ifdef ENABLE_NOFS
+NOFS_OBJS = nofs.o
+#endif
+
+#ifdef ENABLE_BLOCK_CACHE
+CACHE_OBJS = block_cache.o
+#endif
+
+#ifdef ENABLE_CONSOLE_LOGFILE
+LOGFILE_OBJS = log.o
+#endif
+
+#ifdef HAVE_UNWIND_H
+#ifdef DEBUG
+CFLAGS += -funwind-tables
+#endif
+#endif
+
+/* Thanks to James Cone (https://github.com/JamesC1) for the idea here */
+#ifdef ENABLE_ALTERNATIVE_FONT
+FONT_OBJS = $(addsuffix .o,ALTERNATIVE_FONT)
+FONT_BIN = $(addsuffix .bin,ALTERNATIVE_FONT)
+FONT_OLDNAME = $(addsuffix $(addsuffix _bin_start, ALTERNATIVE_FONT), _binary_)
+FONT_NEWNAME = altfont
+
+$(FONT_OBJS): $(FONT_BIN) $(MAKEFILE) $(CONFIG_H)
+	$(ARMOBJCOPY) -I binary -O elf32-littlearm -B arm $(FONT_BIN) --rename-section .data=.rodata --redefine-sym $(FONT_OLDNAME)=$(FONT_NEWNAME) $(FONT_OBJS)
+#endif
+
+#ifdef ENABLE_MBR
+MBR_OBJS = mbr.o
+#endif
+
+OBJS = main.o boot.o libfs.o $(SERIAL_OBJS) stdio.o stream.o atag.o mbox.o $(FONT_OBJS) $(FB_OBJS) stdlib.o mmio.o heap.o malloc.o printf.o $(SD_OBJS) block.o $(MBR_OBJS) $(FAT_OBJS) vfs.o multiboot.o memchunk.o $(EXT2_OBJS) elf.o timer.o strtol.o strtoll.o $(ASSERT_OBJS) ctype.o $(USB_OBJS) output.o $(RASPBOOTIN_OBJS) $(RAMDISK_OBJS) $(NOFS_OBJS) $(CACHE_OBJS) $(LOGFILE_OBJS) crc32.o
+
+LIBFS_OBJS = libfs.o $(SD_OBJS) block.o $(MBR_OBJS) $(FAT_OBJS) vfs.o $(EXT2_OBJS) timer.o mmio.o $(RASPBOOTIN_OBJS) $(RAMDISK_OBJS) $(NOFS_OBJS) $(CACHE_OBJS) crc32.o $(ASSERT_OBJS)
+
+.PHONY: clean
+.PHONY: qemu
+.PHONY: qemu-gdb
+.PHONY: dump
+
+dump: $(DISASM_DUMP)
+
+libfs.a: $(LIBFS_OBJS)
+	$(ARMAR) rcs $@ $(LIBFS_OBJS)
+
+kernel.elf: $(OBJS) linker.ld
+	$(ARMCC) -nostdlib $(OBJS) -Wl,-T,linker.ld -o $@ -lgcc
+
+kernel.img: kernel.elf
+	$(ARMOBJCOPY) kernel.elf -O binary kernel.img
+
+kernel-qemu.elf: $(OBJS) linker-qemu.ld
+	$(ARMCC) -nostdlib $(OBJS) -Wl,-T,linker-qemu.ld -o $@ -lgcc
+
+kernel-qemu.img: kernel-qemu.elf
+	$(ARMOBJCOPY) kernel-qemu.elf -O binary kernel-qemu.img
+
+clean:
+	$(RM) -f $(OBJS) $(DISASM_DUMP) kernel.elf kernel.img kernel-qemu.img kernel-qemu.elf $(MAKEFILE)
+
+%.o: %.c $(MAKEFILE) $(CONFIG_H)
+	$(ARMCC) $(CFLAGS) -include $(CONFIG_H) -c $< -o $@
+
+%.o: %.s $(MAKEFILE) $(CONFIG_H)
+	$(ARMCC) $(ASFLAGS) -include $(CONFIG_H) -c $< -o $@
+
+qemu: kernel-qemu.img
+	if [ -f sd.img ]; then \
+		$(QEMU) $(QEMUFLAGS) -sd sd.img; \
+	else \
+		$(QEMU) $(QEMUFLAGS); \
+	fi
+
+qemu-gdb: kernel-qemu.img
+	if [ -f sd.img ]; then \
+		$(QEMU) $(QEMUFLAGS) -sd sd.img -s -S; \
+	else \
+		$(QEMU) $(QEMUFLAGS) -s -S; \
+	fi
+
+$(DISASM_DUMP): kernel.elf
+	$(ARMOBJDUMP) -D kernel.elf > $(DISASM_DUMP)
+

@@ -1,0 +1,7 @@
+README
+
+This sample is an Ethernet ARP responder which works on Raspberry Pi models with on-board Ethernet controller only. Before building it you have to set a valid IP address from your local network to the OWN_IP_ADDRESS define in main.c.
+
+After building and running it you can call "arping <ipaddress>" from another computer on your network where <ipaddress> is the selected address. arping sends an ARP (address resolution protocol) request every second. If every thing goes right your Raspberry Pi will respond to that request und arping will display it. arping is normally available on Linux computers. You may need root properties to use it.
+
+If arping is not available you can also use "ping <ipaddress>". In this case only one ARP request is sent and answered. After that ping sends ICMP echo packets which will not be answered. You can watch the network traffic with a network monitor like Wireshark (if you have).

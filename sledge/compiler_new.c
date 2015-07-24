@@ -963,7 +963,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
   }
 
+#ifdef CPU_X64
   fflush(jit_out);
+#endif
 
   // at this point, registers R1-R6 are filled, execute
   return compiled_type;

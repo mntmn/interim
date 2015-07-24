@@ -1,0 +1,5 @@
+README
+
+This directory contains a sample environment to get USPi running. It provides all required functions in a library which can be linked to a program using USPi.
+
+This environment uses the MMU do be able to enable all caches. On the Raspberry Pi 1 this can be disabled in include/uspienv/sysconfig.h. On the Raspberry Pi 2 this does not work because it is too slow without the caches enabled to use the USB code.

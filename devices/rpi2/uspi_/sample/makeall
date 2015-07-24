@@ -1,0 +1,10 @@
+#!/bin/sh
+
+for sample in * ;  do
+	if test -d $sample ; then
+		echo $sample:
+		cd $sample
+		make $1 $2 || exit
+		cd ..
+	fi
+done

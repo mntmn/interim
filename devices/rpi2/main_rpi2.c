@@ -9,8 +9,7 @@
 
 #include "devices/rpi2/raspi.h"
 #include "devices/rpi2/r3d.h"
-#include "devices/rpi2/rpi-boot/fs.h"
-#include "devices/rpi2/rpi-boot/dirent.h"
+#include "devices/rpi2/rpi-boot/vfs.h"
 #include "devices/rpi2/rpi-boot/util.h"
 #include "devices/rpi2/uspi/include/uspi.h"
 
@@ -330,7 +329,7 @@ Cell* machine_load_file(char* path) {
         if (!strcmp(filename, dir->name)) {
           // found it
           printf("FAT found file. opening...\r\n");
-          fs_file* f = fat_fs->fopen(fat_fs, dir, "r");
+          FILE* f = fat_fs->fopen(fat_fs, dir, "r");
           if (f) {
             printf("FAT trying to read file of len %d...\r\n",f->len);
             Cell* res = alloc_num_string(f->len);

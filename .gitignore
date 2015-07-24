@@ -1,6 +1,8 @@
 .DS_Store
 obj/*.o
 *.o
+*.elf
+*.img
 a.out
 os/rootfs/grumpy.data
 sledge/sledge

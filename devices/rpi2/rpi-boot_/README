@@ -1,0 +1,101 @@
+rpi-boot
+--------
+
+A simple second stage boot loader for the Raspberry Pi to assist in the
+development of hobby kernels.
+
+
+Features
+--------
+
+* Supports booting flat binary files, ELF executables and ELF and a.out
+executables with a Multiboot header.  Linux kernels are currently not
+supported (but support is planned for a future version).
+
+* Supports FAT(16/32) and ext2 filesystems.
+
+* Supports loading additional modules when in Multiboot mode.
+
+* Proviedes functions to the loaded kernel to allow it to easily
+access the framebuffer (via a printf() interface) and the filesystem
+(via fopen/fread/fclose/opendir/readdir/closedir).
+
+
+Installation
+------------
+
+Edit config.h to your needs to enable/disable certain functionality.
+
+Run make in the source directory and copy the kernel.img file to the SD card
+containing your Raspian distribution.  You are recommended to backup your
+original kernel.img file first.
+
+
+Usage
+-----
+
+The rpi-boot bootloader will initially search for files called
+/boot/rpi_boot.cfg, /boot/rpi-boot.cfg and /boot/grub/grub.cfg (in that order)
+on the first partition of the SD card.  If one is not found, it searches for
+those files on each filesystem known to the system.
+
+It understands the following commands:
+
+multiboot <kernel> [cmdline]
+	- Load a multiboot compliant kernel
+
+module <file> [name]
+	- Load an additional Multiboot module
+
+kernel <kernel>
+	- Load a non-multiboot compliant kernel
+
+boot
+	- Boot the kernel
+
+binary_load_addr <address>
+	- Set the load address for a flat binary file subsequently loaded by the
+		'kernel' command
+
+entry_addr <address>
+	- Set the entry point that is jumped to by a subsequent 'boot' command
+
+console_log <file>[+] [buffer_size]
+	- Copy the console log to a file.  If '+' is specified after the file name
+		then append to the file instead of overwriting it.  If 'buffer_size'
+		is specified then it is the number of bytes to buffer before writing
+		to the file.  This prevents the log quickly using up all the write
+		cycles on solid state media, but runs the risk of some messages being
+		lost on a kernel crash.  Call fflush(get_log_file()) from the guest
+		OS to manually flush the buffer.  Support for console_log requires
+		that ENABLE_CONSOLE_LOGFILE be enabled in config.h
+
+
+System state on kernel start
+----------------------------
+
+For Multiboot kernels, the system state is defined in MULTIBOOT-ARM, otherwise:
+
+r0 will be 0
+r1 will be the ARM machine type
+r2 will be the address of the ATAGs
+
+(the above 3 are identical to the ARM Linux boot protocol)
+
+r3 will be the address of the multiboot_arm_functions structure as defined in
+MULTIBOOT-ARM.
+
+See the test-kernel directory for an example.
+
+
+Caveats
+-------
+
+rpi-boot occupies the first 1 MiB of memory for itself.  If you wish to make
+use of the multiboot_arm_functions functions you need to preserve this.  If
+not you can overwrite it from within your kernel.  If you do overwrite it,
+you should make sure you have already obtained all the information you need
+from the various Multiboot structures (or copied them elsewhere).
+
+Because of this, rpi-boot will not boot kernels which are linked below 1 MiB.
+

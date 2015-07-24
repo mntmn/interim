@@ -1,0 +1,13 @@
+#!/bin/sh
+
+cd lib
+make $1 $2 || exit
+cd ..
+
+cd env/lib
+make $1 $2 || exit
+cd ../..
+
+cd sample
+./makeall $1 $2 || exit
+cd ..
