@@ -37,7 +37,13 @@ Building
 
 2. To build the hosted variant, cd to ````sledge```` and ````./build_x64.sh````.
 
-3. To cross-compile for bare metal, use ````./rpi2-build.sh```` or ````imx233-build.sh````.
+3. To cross-compile for bare metal, use ````./rpi2-build.sh```` or ````./imx233-build.sh````.
+
+Running (Hosted)
+----------------
+
+    cd sledge
+    ./sledge
 
 Running (Raspberry Pi 2)
 ------------------------

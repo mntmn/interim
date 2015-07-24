@@ -34,6 +34,7 @@ Cell* get_cell_heap();
 void* cell_malloc(int num_bytes);
 void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes);
 Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer);
+Cell* list_symbols(env_t* global_env);
 
 Cell* alloc_cons(Cell* ar, Cell* dr);
 Cell* alloc_list(Cell** items, int num);

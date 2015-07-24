@@ -138,6 +138,18 @@ void mark_tree(Cell* c) {
   }
 }
 
+static Cell* _symbols_list;
+void list_symbols_iter(const char *key, void *value, const void *obj)
+{
+  env_entry* e = (env_entry*)value;
+  _symbols_list = alloc_cons(alloc_sym(e->name), _symbols_list);
+}
+Cell* list_symbols(env_t* global_env) {
+  _symbols_list = alloc_nil();
+  sm_enum(global_env, list_symbols_iter, NULL);
+  return _symbols_list;
+}
+
 void collect_garbage_iter(const char *key, void *value, const void *obj)
 {
   env_entry* e = (env_entry*)value;

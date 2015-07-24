@@ -902,6 +902,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_call(collect_garbage,"collect_garbage");
       break;
     }
+    case BUILTIN_SYMBOLS: {
+      jit_lea(ARGR0,global_env);
+      jit_call(list_symbols,"list_symbols");
+      break;
+    }
     case BUILTIN_PRINT: {
       load_cell(ARGR0,argdefs[0], frame);
       jit_call(lisp_print,"lisp_print");
@@ -1042,7 +1047,7 @@ void init_compiler() {
   
   insert_symbol(alloc_sym("write"), alloc_builtin(BUILTIN_WRITE, alloc_list((Cell*[]){alloc_int(TAG_ANY), alloc_int(TAG_STR)},2)), &global_env);
   insert_symbol(alloc_sym("read"), alloc_builtin(BUILTIN_READ, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
-  insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL, alloc_list((Cell*[]){alloc_int(TAG_ANY)},1)), &global_env);
+  //insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL, alloc_list((Cell*[]){alloc_int(TAG_ANY)},1)), &global_env);
 
   
   insert_symbol(alloc_sym("mount"), alloc_builtin(BUILTIN_MOUNT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_CONS)},2)), &global_env);
