@@ -1,9 +1,6 @@
 .DS_Store
 obj/*.o
-bin/bmfs.image
-fs-notes.txt
 a.out
-sledge/udis86/
-bjos/rpi2/uspi/
-bjos/rootfs/grumpy.data
-bjos/sledge/sledge
+os/rootfs/grumpy.data
+sledge/sledge
+build/*.elf
