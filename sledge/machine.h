@@ -1,8 +1,13 @@
 #include "minilisp.h"
 #include <stdint.h>
 
-int machine_video_set_pixel(uint32_t x,uint32_t y,uint32_t c);
-int machine_video_rect(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint32_t c);
+#define SCREEN_W 640
+#define SCREEN_H 480
+#define COLOR_TYPE uint8_t
+#define SCREEN_BPP 1 // bytes per pixel
+
+int machine_video_set_pixel(uint32_t x,uint32_t y,COLOR_TYPE c);
+int machine_video_rect(uint32_t x,uint32_t y,uint32_t w,uint32_t h,COLOR_TYPE c);
 int machine_video_flip();
 
 int machine_get_key();

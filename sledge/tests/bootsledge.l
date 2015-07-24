@@ -1,0 +1,7 @@
+(def keymap (load "keymap"))
+(eval (load "lists.l"))
+(eval (load "string.l"))
+(eval (load "editor.l"))
+(eval (load "irc.l"))
+(eval (load "web.l"))
+(eval editor)

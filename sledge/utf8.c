@@ -13,9 +13,9 @@ unsigned int utf8_rune_len(uint8_t b) {
   return 1;
 }
 
-int utf8_strlen(char *s) {
+int utf8_strlen(char *s, int len) {
   int i = 0, j = 0;
-  while (s[i]) {
+  while (s[i] && i<len) {
     if ((s[i] & 0xc0) != 0x80) j++;
     i++;
   }
@@ -51,7 +51,9 @@ unsigned int utf8_rune_at(char* s, int idx) {
 
     // next char
     if (state == 0) {
-      if (idx == j) return rune;
+      if (idx == j) {
+        return rune;
+      }
       j++;
     }
     i++;
@@ -122,9 +124,45 @@ int rune_to_utf8(jit_word_t c, void* tempbuf, int* count)
   return 0;
 }
 
+int utf8_str_to_runestr(char* ustr, int len_bytes, uint32_t* dest) {
+  uint32_t desti = 0;
+  uint32_t rune = 0;
+  int state = 0;
+  for (int i=0; i<len_bytes; i++) {
+    uint8_t b1 = ustr[i];
+
+    if ((b1 & 0x80)==0) { // ascii
+      rune = b1;
+      state = 0;
+    } else if (state>0) {
+      rune=(rune<<6) | (b1 & 0x3fu);
+      state--;
+    } else if ((b1 & 0xe0) == 0xc0) {
+      // 16 bit
+      rune = b1 & 0x1f;
+      state = 1;
+    } else if ((b1 & 0xf0) == 0xe0) {
+      // 24 bit
+      rune = b1 & 0x0f;
+      state = 2;
+    } else if ((b1 & 0xf8) == 0xf0) {
+      // 32 bit
+      rune = b1 & 0x07;
+      state = 3;
+    }
+
+    // next char
+    if (state == 0) {
+      dest[desti++] = rune;
+    }
+  }
+  return desti;
+}
+
+/*
 jit_word_t utf8_strlen_cell(Cell* cell) {
   if (!cell || (cell->tag!=TAG_STR && cell->tag!=TAG_BYTES) || !cell->addr) return 0;
-  return utf8_strlen(cell->addr);
+  return utf8_strlen(cell->addr, cell->size);
 }
 
 jit_word_t utf8_rune_at_cell(Cell* cell, Cell* c_idx) {
@@ -136,7 +174,10 @@ jit_word_t utf8_rune_at_cell(Cell* cell, Cell* c_idx) {
     printf("error: string with NULL addr at %p!\n",cell);
     return 0;
   }
-  return utf8_rune_at(cell->addr, c_idx->value);
+  
+  unsigned int result = utf8_rune_at(cell->addr, c_idx->value);
+
+  return result;
 }
 
 jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
@@ -159,7 +200,7 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
   }
 
   // how long is the existing rune at target spot?
-  j = utf8_rune_len(s[i]);
+  int existing_len = utf8_rune_len(s[i]);
 
   int rune_len = 0;
   char tmp[10];
@@ -169,14 +210,15 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
 
   //printf("-- existing rune length at %d: %d new rune length: %d\n",idx,j,rune_len);
   
-  if (j>rune_len) {
+  if (existing_len>rune_len) {
     // new rune is smaller
-    int movelen = cell->size - (i+rune_len);
+    int movelen = cell->size - (i+existing_len);
     if (movelen<rune_len) {
       //printf("-- utf8_put_rune_at error: rune %d doesn't fit into string at %d\n",rune,idx);
       return 0;
     }
-    memmove(cell->addr+i+rune_len, cell->addr+i+j, movelen);
+    printf("move a: %d -> %d len %d / size %d\r\n",i+existing_len,i+rune_len,movelen,cell->size);
+    memmove(cell->addr+i+rune_len, cell->addr+i+existing_len, movelen);
   } else if (j<rune_len) {
     // new rune is bigger
     int movelen = cell->size - (i+rune_len);
@@ -184,7 +226,8 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
       //printf("-- utf8_put_rune_at error: rune %d doesn't fit into string at %d\n",rune,idx);
       return 0;
     }
-    memmove(cell->addr+i+rune_len, cell->addr+i+j, movelen);
+    printf("move b: %d -> %d len %d / size %d\r\n",i+existing_len,i+rune_len,movelen,cell->size);
+    memmove(cell->addr+i+rune_len, cell->addr+i+existing_len, movelen);
   }
 
   // write the new rune
@@ -194,3 +237,4 @@ jit_word_t utf8_put_rune_at(Cell* cell, Cell* c_idx, Cell* c_rune) {
 
   return i;
 }
+*/

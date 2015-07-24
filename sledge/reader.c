@@ -1,6 +1,7 @@
 #include "reader.h"
 #include "alloc.h"
 #include <string.h>
+#include <stdint.h>
 
 Cell* reader_next_list_cell(Cell* cell, ReaderState* rs) {
   cell->next = alloc_nil();
@@ -78,8 +79,8 @@ ReaderState* read_char(char c, ReaderState* rs) {
       // symbol
       rs->state = PST_SYM;
       rs->sym_len = 1;
-      new_cell = alloc_sym(0);
-      new_cell->addr = cell_malloc(SYM_INIT_BUFFER_SIZE);
+      new_cell = alloc_num_bytes(SYM_INIT_BUFFER_SIZE);
+      new_cell->tag = TAG_SYM;
       memset(new_cell->addr, 0, SYM_INIT_BUFFER_SIZE);
       ((char*)new_cell->addr)[0] = c;
       new_cell->size = SYM_INIT_BUFFER_SIZE; // buffer space
@@ -87,8 +88,7 @@ ReaderState* read_char(char c, ReaderState* rs) {
     }
 
   } else if (rs->state == PST_COMMENT) {
-    //printf("c[%c]\n",c);
-    if (c=='\n' || c=='0') {
+    if (c=='\n' || c==0) {
       rs->state = PST_ATOM;
     }
   } else if (rs->state == PST_NUM || rs->state == PST_NUM_NEG) {
@@ -145,6 +145,8 @@ ReaderState* read_char(char c, ReaderState* rs) {
           rs->state = PST_NUM_NEG;
           vcell->tag = TAG_INT;
           vcell->value = -(c-'0');
+        } else {
+          append = 1;
         }
       } else {
         append = 1;
@@ -186,9 +188,9 @@ ReaderState* read_char(char c, ReaderState* rs) {
         vcell->size = 2*vcell->size;
       }
       if (idx%2==0) { // even digit
-        ((byte*)vcell->addr)[idx/2] = n<<4; // high nybble
+        ((uint8_t*)vcell->addr)[idx/2] = n<<4; // high nybble
       } else { // odd digit
-        ((byte*)vcell->addr)[idx/2] |= n;
+        ((uint8_t*)vcell->addr)[idx/2] |= n;
       }
       
     } else if (c==' ' || c==13 || c==10) {

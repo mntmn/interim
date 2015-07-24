@@ -18,16 +18,14 @@
 #define VST_DEFAULT 0
 #define VST_HEX 1
 
-#define uint unsigned int
-
 typedef struct ReaderState {
-  uint state;
+  unsigned int state;
   Cell* cell;
-  uint sym_len;
-  uint valuestate; // i.e. dec/hex/char
+  unsigned int sym_len;
+  unsigned int valuestate; // i.e. dec/hex/char
 
   Cell** stack;
-  uint level; // "stack pointer"
+  unsigned int level;
 } ReaderState;
 
 ReaderState* read_char(char c, ReaderState* rs);

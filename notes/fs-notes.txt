@@ -1,0 +1,17 @@
+
+
+a process is an independent root namespace (module?)
+
+
+(def x (module ... )) ; code inside of "module" can by default see only an empty / fs
+(copy x /modules/foo) ; save the module's source (and maybe compiled form) somewhere
+(append /modules/foo /proc) ; /proc is managed by a process fs that spawns an instance of the module and creates its fs namespaces
+
+/proc
+
+> wenn du eine fn callst sieht sie dasselbe was dein modul sieht
+
+> und dann gibt es für alle machine-(IO)-ressources halt pfade. und libraryfunktionen die mit 
+diesen pfaden interagieren können, so dass man nicht ständig strings zusammenbauen muss.
+
+> (module) wäre im prinzip das gleiche wie (fn) mit dem unterschied dass fn den namespace erbt und module einen neuen macht

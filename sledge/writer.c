@@ -1,20 +1,46 @@
 #include "minilisp.h"
+#include "stream.h"
 #include <stdio.h>
+#include <stdint.h>
 
-#define TMP_BUF_SIZE 4096
+#define TMP_BUF_SIZE 1024
+#define INTFORMAT "%ld"
+
+char* tag_to_str(int tag) {
+  switch (tag) {
+  case TAG_FREED: return "freed"; 
+  case TAG_INT: return "int";
+  case TAG_CONS: return "cons";
+  case TAG_SYM: return "sym";
+  case TAG_LAMBDA: return "lambda";
+  case TAG_BUILTIN: return "builtin";
+  case TAG_BIGNUM: return "bignum";
+  case TAG_STR: return "string";
+  case TAG_BYTES: return "bytes";
+  case TAG_VEC: return "vector";
+  case TAG_ERROR: return "error";
+  case TAG_ANY: return "any";
+  case TAG_VOID: return "void";
+  case TAG_STREAM: return "stream";
+  case TAG_FS: return "filesystem";
+  case TAG_MARK: return "gc_mark";
+  default: return "unknown";
+  }
+}
 
 char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   //printf("writing %p (%d) to %p, size: %d\n",cell,cell->tag,buffer,bufsize);
-
+  bufsize--;
+  
   buffer[0]=0;
-  if (cell == 0) {
-    sprintf(buffer, "null");
+  if (cell == NULL) {
+    snprintf(buffer, bufsize, "null");
   } else if (cell->tag == TAG_INT) {
-    snprintf(buffer, bufsize, "%lld", cell->value);
+    snprintf(buffer, bufsize, INTFORMAT, cell->value);
   } else if (cell->tag == TAG_CONS) {
     if (cell->addr == 0 && cell->next == 0) {
       if (!in_list) {
-        sprintf(buffer, "nil");
+        snprintf(buffer, bufsize, "nil");
       }
     } else {
       char tmpl[TMP_BUF_SIZE];
@@ -47,28 +73,32 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
     snprintf(buffer, bufsize, "%s", (char*)cell->addr);
   } else if (cell->tag == TAG_LAMBDA) {
     char tmpr[TMP_BUF_SIZE];
-    snprintf(buffer, bufsize, "(proc %p)", cell->next);
+    write_((Cell*)cell->addr, tmpr, 0, TMP_BUF_SIZE);
+    snprintf(buffer, bufsize, "(fn %s) ; assembled at %p", tmpr, cell->next);
   } else if (cell->tag == TAG_BUILTIN) {
-    snprintf(buffer, bufsize, "(op %lld)", cell->value);
+    snprintf(buffer, bufsize, "(op "INTFORMAT")", cell->value);
   } else if (cell->tag == TAG_ERROR) {
     switch (cell->value) {
-      case ERR_SYNTAX: sprintf(buffer, "<e0:syntax error.>"); break;
-      case ERR_MAX_EVAL_DEPTH: sprintf(buffer, "<e1:deepest level of evaluation reached.>"); break;
-      case ERR_UNKNOWN_OP: sprintf(buffer, "<e2:unknown operation.>"); break;
-      case ERR_APPLY_NIL: sprintf(buffer, "<e3:cannot apply nil.>"); break;
-      case ERR_INVALID_PARAM_TYPE: sprintf(buffer, "<e4:invalid or no parameter given.>"); break;
-      case ERR_OUT_OF_BOUNDS: sprintf(buffer, "<e5:out of bounds.>"); break;
-      default: sprintf(buffer, "<e%lld:unknown>", cell->value); break;
+      case ERR_SYNTAX: snprintf(buffer, bufsize, "<e0:syntax error.>"); break;
+      case ERR_MAX_EVAL_DEPTH: snprintf(buffer, bufsize, "<e1:deepest level of evaluation reached.>"); break;
+      case ERR_UNKNOWN_OP: snprintf(buffer, bufsize, "<e2:unknown operation.>"); break;
+      case ERR_APPLY_NIL: snprintf(buffer, bufsize, "<e3:cannot apply nil.>"); break;
+      case ERR_INVALID_PARAM_TYPE: snprintf(buffer, bufsize, "<e4:invalid or no parameter given.>"); break;
+      case ERR_OUT_OF_BOUNDS: snprintf(buffer, bufsize, "<e5:out of bounds.>"); break;
+      default: snprintf(buffer, bufsize, "<e"INTFORMAT":unknown>", cell->value); break;
     }
   } else if (cell->tag == TAG_BYTES) {
-    char* hex_buffer = malloc(cell->size*2+1);
+    char* hex_buffer = malloc(cell->size*2+2);
     unsigned int i;
-    for (i=0; i<cell->size; i++) {
+    for (i=0; i<cell->size && i<bufsize; i++) {
       // FIXME: buffer overflow?
-      snprintf(hex_buffer+i*2, bufsize-i*2, "%02x",((byte*)cell->addr)[i]);
+      snprintf(hex_buffer+i*2, bufsize-i*2, "%02x",((uint8_t*)cell->addr)[i]);
     }
     snprintf(buffer, bufsize, "\[%s]", hex_buffer);
     free(hex_buffer);
+  } else if (cell->tag == TAG_STREAM) {
+    Stream* s = (Stream*)cell->addr;
+    snprintf(buffer, bufsize, "<stream:%d:%s:%s>", s->id, s->path->addr, s->fs->mount_point->addr);
   } else {
     snprintf(buffer, bufsize, "<tag:%i>", cell->tag);
   }
@@ -77,4 +107,11 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
 
 char* lisp_write(Cell* cell, char* buffer, int bufsize) {
   return write_(cell, buffer, 0, bufsize);
+}
+
+Cell* lisp_write_to_cell(Cell* cell, Cell* buffer_cell) {
+  if (buffer_cell->tag == TAG_STR && buffer_cell->tag == TAG_BYTES) {
+    lisp_write(cell, buffer_cell->addr, buffer_cell->size);
+  }
+  return buffer_cell;
 }
