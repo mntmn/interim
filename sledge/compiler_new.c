@@ -889,7 +889,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_EVAL: {
       load_cell(ARGR0,argdefs[0], frame);
+#ifdef platform_eval_string
       jit_call(platform_eval_string,"eval_string");
+#endif
       break;
     }
     case BUILTIN_SIZE: {
