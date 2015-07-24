@@ -466,6 +466,14 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_call(alloc_int, "alloc_int");
       break;
     }
+    case BUILTIN_MOD: {
+      load_int(ARGR0,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame);
+      jit_modr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
+      jit_call(alloc_int, "alloc_int");
+      break;
+    }
     case BUILTIN_GT: {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
@@ -989,7 +997,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("-"), alloc_builtin(BUILTIN_SUB, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
   insert_symbol(alloc_sym("*"), alloc_builtin(BUILTIN_MUL, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
   insert_symbol(alloc_sym("/"), alloc_builtin(BUILTIN_DIV, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  //insert_symbol(alloc_sym("%"), alloc_builtin(BUILTIN_MOD), &global_env);
+  insert_symbol(alloc_sym("%"), alloc_builtin(BUILTIN_MOD, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
   
   printf("[compiler] arithmetic…\r\n");
   

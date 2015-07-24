@@ -234,6 +234,16 @@ void jit_divr(int dreg, int sreg) {
   // later: http://thinkingeek.com/2013/08/11/arm-assembler-raspberry-pi-chapter-15/
 }
 
+int32_t inline_mod(int32_t a, int32_t b) {
+  return a%b;
+}
+void jit_modr(int dreg, int sreg) {
+  jit_movr(0,dreg);
+  jit_movr(1,sreg);
+  jit_call(inline_mod,"mod");
+  if (dreg!=0) jit_movr(dreg,0);
+}
+
 void jit_cmpr(int sreg, int dreg) {
   uint32_t op = 0xe1500000;
   op|=(sreg<<0);
