@@ -1,0 +1,17 @@
+
+Debugging
+---------
+
+Remote kernel debugging using QEMU und gdb:
+
+1. Add -s -S options to qemu commandline (in run.sh). -s will setup remote debugging. -S starts QEMU in halted state.
+2. Start gdb and enter ````target remote localhost:1234````
+3. Enter ````continue````
+4. The OS will boot. You can get a function's address by doing ````(write my-function eval-buf)````.
+5. Press Ctrl-C in gdb to stop the machine.
+5b. If you get strange errors, set up architecture: ````set architecture i386:x86-64:intel````
+6. Disassemble the function, example: ````disassemble 0xd26d1f,+100````
+7. Choose your breakpoint address and set it up: ````hbreak 0xd26d1f````
+8. Enter ````continue```` to continue.
+9. Call your function in bomberjacket, e.g. ````(my-function)````
+10. gdb should stop execution in your function. You can now inspect everything, example: ````info registers````.

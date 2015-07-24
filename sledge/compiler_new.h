@@ -1,6 +1,8 @@
 #ifndef SLEDGE_COMPILER_H
 #define SLEDGE_COMPILER_H
 
+#include <string.h>
+
 typedef jit_word_t (*funcptr)();
 
 typedef enum builtin_t {

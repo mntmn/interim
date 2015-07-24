@@ -1,9 +1,13 @@
-Hello
------
+Interim
+-------
 
-Bomberjacket OS is a radical new operating system with a focus on minimalism. It steals conceptually from Lisp machines and Plan 9.
+Interim OS is a radical new operating system with a focus on minimalism. It steals conceptually from Lisp machines (language-based kernel) and Plan 9 (everything is a file system). It boots to a JITting Lisp-like REPL and offers the programmer/user the system's resources as filesystems.
 
-There are currently two targets: Intel x86_64 PC and 32-bit ARM (currently Raspberry Pi Model B which is ancient ARMv6). Patches to bootstrap on 32-bit x86 are welcome.
+Interim runs on:
+- Raspberry Pi 2 (Broadcom VideoCore4/ARMv7, Bare Metal)
+- Olimex Olinuxino (Freescale IMX233/ARMv5, Bare Metal)
+- ARM5+ Linux (Hosted)
+- Intel/AMD x64 Linux (Hosted)
 
 ![Bomberjacket OS Logo](http://dump.mntmn.com/bjos.png)
 
@@ -12,14 +16,14 @@ There are currently two targets: Intel x86_64 PC and 32-bit ARM (currently Raspb
 Architecture
 ------------
 
-Layer 2: Jockey Graphical Terminal / Editor
+Layer 2: Bitmapped Terminal / Editor
 
 Layer 1: Sledge Lisp JIT Compiler
 
-Layer 0: Platform Interface. On X86-64, this is Pure64/BareMetal. The "alien hosted" variant uses SDL.
+Layer 0: Platform Interface (Startup code and filesystems)
 
-Rationale
----------
+Design Choices
+--------------
 
 - The shell is the editor is the REPL is the language is the compiler.
 - Namespacing allows sandboxing and network transparency.
@@ -29,50 +33,23 @@ Rationale
 Building
 --------
 
-1. Install the dependencies: `qemu`, `nasm`
-2. Create a fresh disk image: ````./init-disk.sh````
-3. Build and install the bootloader & kernel ("1" option rebuilds libraries): ````./build-kernel.sh 1````
-4. Build the OS: ````./build-os.sh````
+1. Get the dependencies. For a (Linux-)hosted version, this is only GCC and SDL1 or SDL2 if you want windowed graphics. Sledge can also use /dev/fb0 instead if available on your platform. If you want to cross-compile for an ARM platform, get *arm-none-eabi-gcc* and *libnewlib-arm-none-eabi*.
 
-Optionally, you can build newlib yourselves if you don't trust my included 64-bit binary: ````./build-newlib.sh````
+2. To build the hosted variant, cd to ````sledge```` and ````./build_x64.sh````.
 
-Running (X86/64 Emulator)
--------------------------
+3. To cross-compile for bare metal, use ````./rpi2-build.sh```` or ````imx233-build.sh````.
 
-1. Initialise a network bridge if you haven't done so before. Read and modify this script before running! ````./setup-bridge.sh```` 
-
-2. Launch QEMU: ````./run.sh````
-
-You can evaluate LISP-expressions in the editor by pressing Ctrl-E (or Super-E). Example: type ````(buf-load "goa")```` and press Ctrl-E. This will load a graphics demo into the editor. Start it by pressing Ctrl-E again.
-
-Running (Raspberry Pi)
-----------------------
+Running (Raspberry Pi 2)
+------------------------
 
 Prepare a bootable SD card with the usual FAT partition that has the Pi-specicic boot blobs in it and copy ````kernel.img```` into it. You can recycle any other Raspberry OS distribution, i.e. Raspian for this. Just replace the kernel.img and delete cmdline.txt. Keyboard input is currently only over UART, so you will probably want to connect a UART->USB cable to another computer and use it to control Bomberjacket/Pi. 
-
-Debugging
----------
-
-Remote kernel debugging using QEMU und gdb:
-
-1. Add -s -S options to qemu commandline (in run.sh). -s will setup remote debugging. -S starts QEMU in halted state.
-2. Start gdb and enter ````target remote localhost:1234````
-3. Enter ````continue````
-4. The OS will boot. You can get a function's address by doing ````(write my-function eval-buf)````.
-5. Press Ctrl-C in gdb to stop the machine.
-5b. If you get strange errors, set up architecture: ````set architecture i386:x86-64:intel````
-6. Disassemble the function, example: ````disassemble 0xd26d1f,+100````
-7. Choose your breakpoint address and set it up: ````hbreak 0xd26d1f````
-8. Enter ````continue```` to continue.
-9. Call your function in bomberjacket, e.g. ````(my-function)````
-10. gdb should stop execution in your function. You can now inspect everything, example: ````info registers````.
 
 Licenses
 --------
 
-Bomberjacket OS: GNU GPLv3 or later, (C) 2015 Lukas F. Hartmann / @mntmn
+Interim OS: GNU GPLv3 or later, (C) 2015 Lukas F. Hartmann / @mntmn
 
-Bomberjacket OS is free software: you can redistribute it and/or modify
+Interim OS is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
@@ -83,8 +60,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-Pure64/BareMetal: 3-clause BSD, (C) ReturnInfinity / Ian Seyler
+newlib: GNU GPLv2
 
-GNU Lightning: GNU GPL v3
+devices/rpi2/uspi: GNU GPLv3, Copyright (C) 2014-2015  R. Stange <rsta2@o2online.de>
 
-newlib: GNU GPL v2
+devices/rpi2/rpi-boot: Copyright (C) 2013 by John Cronin <jncronin@tysos.org>

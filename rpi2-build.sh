@@ -2,8 +2,10 @@
 
 # -mtune=cortex-a7 -mfpu=neon-vfpv4  -ftree-vectorize
 
+NEWLIB="/usr/lib/arm-none-eabi/newlib"
+
 set -e
-GCC_OPTS=" -g -O2 -nostartfiles -nostdlib -mhard-float -ffreestanding -fno-toplevel-reorder -mcpu=cortex-a7 -mfpu=neon-vfpv4 -std=c11 -L./newlib/arm-none-eabi/lib/fpu -I./sledge -I. -I./newlib/arm-none-eabi/include -Idevices/rpi2/uspi/env/include/ -DCPU_ARM "
+GCC_OPTS=" -g -O2 -nostartfiles -nostdlib -mhard-float -ffreestanding -fno-toplevel-reorder -mcpu=cortex-a7 -mfpu=neon-vfpv4 -std=gnu11 -L$NEWLIB/fpu -I./sledge -I. -I/usr/include/newlib -Idevices/rpi2/uspi/env/include/ -DCPU_ARM "
 
 COMPILE="arm-none-eabi-gcc $GCC_OPTS"
 

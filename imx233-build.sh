@@ -1,7 +1,9 @@
 #!/bin/sh
 
+NEWLIB="/usr/lib/arm-none-eabi/newlib"
+
 set -e
-GCC_OPTS=" -g -O2 -nostartfiles -nostdlib -msoft-float -ffreestanding -fno-toplevel-reorder -march=armv5 -std=c11 -L./newlib/arm-none-eabi/lib -I./newlib/arm-none-eabi/include -I./sledge -I. -DCPU_ARM "
+GCC_OPTS=" -g -O2 -nostartfiles -nostdlib -msoft-float -ffreestanding -fno-toplevel-reorder -march=armv5 -std=gnu11 -L$NEWLIB -I/usr/include/newlib -I./sledge -I. -DCPU_ARM "
 
 # -Wcast-align
 
