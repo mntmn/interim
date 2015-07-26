@@ -72,6 +72,7 @@ Cell* cell_alloc() {
 void* bytes_alloc(int num_bytes) {
 //#ifdef SLEDGE_MALLOC
   void* new_mem = malloc(num_bytes);
+  printf("bytes_alloc: %p +%d\r\n",new_mem,num_bytes);
   memset(new_mem, 0, num_bytes);
   return new_mem;
 //#endif

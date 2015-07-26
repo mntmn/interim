@@ -73,14 +73,14 @@ void main()
   sprintf(buf, "-- stack pointer at %p.\r\n", _get_stack_pointer());
   uart_puts(buf);
 
-  memset(FB, 0x88, 1920*1080*4);
+  memset(FB, 0xff, 1920*1080*2);
   
   // uspi glue
-  printf("uu uspi glue init…\r\n");
-  extern void uspi_glue_init();
-  uspi_glue_init();
+  //printf("uu uspi glue init…\r\n");
+  //extern void uspi_glue_init();
+  //uspi_glue_init();
 
-  printf("uu USPiInitialize…\r\n");
+  /*printf("uu USPiInitialize…\r\n");
   int res = USPiInitialize();
   printf("uu USPI initialization: %d\r\n", res);
   
@@ -93,11 +93,11 @@ void main()
   have_eth = USPiEthernetAvailable();
   printf("uu USPI has ethernet: %d\r\n", have_eth);
 
-  eth_rx_buffer=malloc(64*1024);
+  eth_rx_buffer=malloc(64*1024);*/
   
   libfs_init();
   
-  memset(FB, 0x44, 1920*1080*4);
+  memset(FB, 0x44, 1920*1080*2);
   
   uart_repl();
 }
@@ -336,6 +336,10 @@ Cell* platform_eval_string(Cell* strc); // FIXME
 
   init_mini_ip(udp_cell);
   }*/
+
+void data_handler() {
+  uart_puts("~~ data abort!\r\n");
+}
 
 #define CODESZ 4096
 

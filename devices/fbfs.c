@@ -1,7 +1,7 @@
 #define WIDTH 1920
 #define HEIGHT 1080
-#define BPP 4
-#define DEPTH 32
+#define BPP 2
+#define DEPTH 16
 
 #include "stream.h"
 

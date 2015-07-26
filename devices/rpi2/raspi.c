@@ -253,7 +253,7 @@ uint32_t* init_rpi_gfx()
     t_set_depth,
     4,
     4,
-    32,
+    16,
 
     t_set_virtual_offset,
     8,
@@ -367,5 +367,7 @@ void enable_mmu(void)
   /* Enable the MMU */
   __asm("mrc p15, 0, %0, c1, c0, 0" : "=r" (reg) : : "cc");
   reg|=MMU_MODE; // 0x1
+  reg&=~2;       // clear A bit
+  reg|=0x400000; // 1<<22 set U bit
   __asm("mcr p15, 0, %0, c1, c0, 0" : : "r" (reg) : "cc");
 }

@@ -1,4 +1,5 @@
 (def fb (mmap "/framebuffer"))
+(def f (open "/framebuffer"))
 
 (def draw-bg (fn c (do
     (let c (+ 1 c))
@@ -102,6 +103,7 @@
 
     ; collect garbage
     (let tick (+ tick 1))
+    (send f 0)
     (if (gt tick 100) (do
       (gc)
       (let tick 0)

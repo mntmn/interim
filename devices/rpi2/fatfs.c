@@ -82,7 +82,7 @@ Cell* fatfs_open(Cell* cpath) {
 }
 
 Cell* fatfs_read(Cell* stream) {
-  return _fatfs_stream;
+  return alloc_clone(_fatfs_stream);
 }
 
 Cell* fatfs_mmap(Cell* stream) {

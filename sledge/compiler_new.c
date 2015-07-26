@@ -755,25 +755,25 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_movi(R1,0);    
       load_cell(R3,argdefs[0], frame);
       load_int(R2,argdefs[1], frame); // offset -> R2
-      jit_cmpi(R2,0);
-      jit_jneg(label_skip); // negative offset?
+      //jit_cmpi(R2,0);
+      //jit_jneg(label_skip); // negative offset?
 
-      jit_movr(R0,R3);
-      jit_addi(R0,PTRSZ); // fetch size -> R0
-      jit_ldr(R0);
+      //jit_movr(R0,R3);
+      //jit_addi(R0,PTRSZ); // fetch size -> R0
+      //jit_ldr(R0);
 
-      jit_subr(R0,R2);
-      jit_jneg(label_skip); // overflow? (R2>R0)
-      jit_je(label_skip); // overflow? (R2==R0)
+      //jit_subr(R0,R2);
+      //jit_jneg(label_skip); // overflow? (R2>R0)
+      //jit_je(label_skip); // overflow? (R2==R0)
 
-      jit_movr(R1,R2);
+      //jit_movr(R1,R2);
       jit_ldr(R3); // string address
       jit_addr(R1,R3);
       jit_ldrb(R1);
 
-      jit_label(label_skip);
+      //jit_label(label_skip);
       
-      jit_movr(ARGR0, R0); // FIXME
+      jit_movr(ARGR0, R1);
       jit_call(alloc_int,"alloc_int");
       break;
     }
@@ -784,30 +784,32 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       //sprintf(label_noskip,"noskip_%d",label_skip_count);
     
       load_cell(R1,argdefs[0], frame);
-      jit_push(R1,R1);
-      frame->sp++;
+      //jit_push(R1,R1);
+      //frame->sp++;
       load_int(R2,argdefs[1], frame); // offset -> R2
-      jit_cmpi(R2,0);
-      jit_jneg(label_skip); // negative offset?
+      //jit_cmpi(R2,0);
+      //jit_jneg(label_skip); // negative offset?
       load_int(R3,argdefs[2], frame); // byte to store -> R3
 
-      jit_movr(R0,R1);
-      jit_addi(R0,PTRSZ); // fetch size -> R0
-      jit_ldr(R0);
+      //jit_movr(R0,R1);
+      //jit_addi(R0,PTRSZ); // fetch size -> R0
+      //jit_ldr(R0);
 
-      jit_subr(R0,R2);
-      jit_jneg(label_skip); // overflow? (R2>R0)
-      jit_je(label_skip); // overflow? (R2==R0)
+      //jit_subr(R0,R2);
+      //jit_jneg(label_skip); // overflow? (R2>R0)
+      //jit_je(label_skip); // overflow? (R2==R0)
 
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
       jit_strb(R1); // strb is always from R3
+
+      jit_movr(R0,R1);
       
       //jit_jmp(label_noskip);
       
-      jit_label(label_skip);
-      jit_pop(R0,R0); // restore arg0
-      frame->sp--;
+      //jit_label(label_skip);
+      //jit_pop(R0,R0); // restore arg0
+      //frame->sp--;
       //jit_lea(R0,alloc_error(ERR_OUT_OF_BOUNDS));
       //jit_label(label_noskip);
       
@@ -932,14 +934,18 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_RECV: {
       load_cell(ARGR0,argdefs[0], frame);
+      push_frame_regs(frame->f);
       jit_call(stream_read,"stream_read");
+      pop_frame_regs(frame->f);
       break;
     }
     case BUILTIN_SEND: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
       // FIXME clobbers stuff
+      push_frame_regs(frame->f);
       jit_call(stream_write,"stream_write");
+      pop_frame_regs(frame->f);
       break;
     }
     }

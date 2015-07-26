@@ -3,7 +3,7 @@
 #include "sledge/minilisp.h"
 #include "sledge/alloc.h"
 
-// mini-ip is part of bomberjacket OS, written in 2015 by mntmn.
+// mini-ip is part of interim OS, written in 2015 by mntmn.
 
 #define jit_word_t uint32_t
 typedef jit_word_t (*funcptr)();
@@ -168,7 +168,7 @@ void eth_task() {
 
   len = ethernet_rx(rx_packet);
   if (len) {
-    printf("eth_task rx: %d\r\n",len);
+    printf("[eth_task] rx: %d\r\n",len);
     //b_system_misc(debug_dump_mem, rx_packet, len);
     //printf("\n");
 
