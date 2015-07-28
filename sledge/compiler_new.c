@@ -503,7 +503,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_DEF: {
       // FIXME why no load_cell?
-      if (argdefs[1].type == ARGT_CONST) {
+      /*if (argdefs[1].type == ARGT_CONST) {
         jit_lea(ARGR1,argdefs[1].cell); // load cell
       } else if (argdefs[1].type == ARGT_CELL) {
         jit_movr(ARGR1,R0);
@@ -512,8 +512,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         jit_ldr(ARGR1); // load cell
       } else if (argdefs[1].type == ARGT_REG) {
         jit_movr(ARGR1, LBDREG+argdefs[1].slot);
-      }
+      }*/
+
       jit_lea(ARGR0,argdefs[0].cell); // load symbol address
+      load_cell(ARGR1,argdefs[1],frame);
       
       push_frame_regs(frame->f);
       jit_call(insert_global_symbol, "insert_global_symbol");
