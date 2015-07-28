@@ -24,7 +24,7 @@
 
 	.globl	\name
 \name:
-	mov	sp, #MEM_ABORT_STACK
+	ldr	sp, =MEM_ABORT_STACK
 	sub	lr, lr, #\pc_offset		/* lr: correct PC of aborted program */
 	stmfd	sp!, {lr}			/* store PC onto stack */
 	mrs	lr, spsr			/* lr can be overwritten now */

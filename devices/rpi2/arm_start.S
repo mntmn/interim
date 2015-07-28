@@ -1,35 +1,10 @@
 .global _start
 .global _get_stack_pointer
+.global DelayLoop  
 
 // https://github.com/dwelch67/raspberrypi/blob/master/float02/vectors.s
 
 _start:
-  ldr pc,reset_handler
-  ldr pc,undefined_handler
-  ldr pc,swi_handler
-  ldr pc,prefetch_handler
-  ldr pc,=data_handler
-  ldr pc,unused_handler
-  ldr pc,irq_handler
-  ldr pc,fiq_handler
-reset_handler:      .word reset
-undefined_handler:  .word undef
-swi_handler:        .word hang
-prefetch_handler:   .word hang
-data_handler:       .word hang
-unused_handler:     .word hang
-irq_handler:        .word hang
-fiq_handler:        .word hang
-
-reset:
-  // copy vectors to #0000
-  mov r0,#0x8000
-  mov r1,#0x0000
-  ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
-  stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
-  ldmia r0!,{r2,r3,r4,r5,r6,r7,r8,r9}
-  stmia r1!,{r2,r3,r4,r5,r6,r7,r8,r9}
-
   // init stack
   ldr     sp, =stack_top
   sub     sp, sp, #0x4
@@ -51,11 +26,11 @@ reset:
 	mov r0,#0x40000000
 	fmxr FPEXC, r0
 
-  // enable unaligned access
-  /*mrc p15, #0, r0, c1, c0, #0
+  // enable unaligned access (doesn't seem to work on rpi2)
+  mrc p15, #0, r0, c1, c0, #0
   bic r0, r0, #2 // clear A bit
   orr r0, #0x400000         // 1<<22 set U bit
-	mcr p15, #0, r0, c1, c0, #0*/
+	mcr p15, #0, r0, c1, c0, #0
   
 	// jump to kernel_main
 	ldr r3, =_cstartup
@@ -70,16 +45,11 @@ _get_stack_pointer:
   ldr     r0, [sp]
   mov     pc, lr
 
-hang:
-    b hang
-    .word 0
-    .word 0
-
-undef:
-    b .
-    .word 0
-    .word 0
-
+DelayLoop:
+	subs	r0, r0, #1
+	bhi	DelayLoop
+	mov	pc, lr
+  
 // constants for ldr macro
 constants:
 .ltorg

@@ -37,7 +37,7 @@
 #define MEM_KERNEL_START	0x8000
 //#define MEM_KERNEL_END		(MEM_KERNEL_START + KERNEL_MAX_SIZE)
 //#define MEM_KERNEL_STACK	(MEM_KERNEL_END + KERNEL_STACK_SIZE)		// expands down
-#define MEM_ABORT_STACK	(256 * MEGABYTE)	// expands down
+#define MEM_ABORT_STACK	(511 * MEGABYTE)	// expands down FIXME
 #define MEM_IRQ_STACK		(512 * MEGABYTE)	// expands down
 //#define MEM_PAGE_TABLE1		MEM_IRQ_STACK				// must be 16K aligned
 

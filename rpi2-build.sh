@@ -3,7 +3,7 @@
 # -mtune=cortex-a7 -mfpu=neon-vfpv4  -ftree-vectorize
 
 NEWLIB="/usr/lib/arm-none-eabi/newlib"
-
+# -fcall-saved-r1 -fcall-saved-r2 -fcall-saved-r3 
 set -e
 GCC_OPTS=" -g -O2 -nostartfiles -nostdlib -mhard-float -ffreestanding -mno-unaligned-access -fno-toplevel-reorder -mcpu=cortex-a7 -mfpu=neon-vfpv4 -std=gnu11 -L$NEWLIB/fpu -I./sledge -I. -I/usr/include/newlib -Idevices/rpi2/uspi/env/include/ -DCPU_ARM "
 
@@ -34,7 +34,6 @@ $COMPILE -c -o obj/interrupt.o        devices/rpi2/uspi/env/lib/interrupt.c
 $COMPILE -c -o obj/memio.o            devices/rpi2/uspi/env/lib/memio.c
 $COMPILE -c -o obj/assert.o           devices/rpi2/uspi/env/lib/assert.c
 $COMPILE -c -o obj/bcmpropertytags.o  devices/rpi2/uspi/env/lib/bcmpropertytags.c
-$COMPILE -c -o obj/delayloop.o        devices/rpi2/uspi/env/lib/delayloop.S
 $COMPILE -c -o obj/bcmmailbox.o       devices/rpi2/uspi/env/lib/bcmmailbox.c
 $COMPILE -c -o obj/exceptionstub.o    devices/rpi2/uspi/env/lib/exceptionstub.S
 $COMPILE -c -o obj/exceptionhandler.o devices/rpi2/uspi/env/lib/exceptionhandler.c
@@ -61,7 +60,6 @@ $COMPILE -o build/interim-arm.elf -T devices/rpi2/arm.ld devices/rpi2/arm_start.
          obj/memio.o\
          obj/assert.o\
          obj/bcmpropertytags.o\
-         obj/delayloop.o\
          obj/bcmmailbox.o\
          obj/exceptionstub.o\
          obj/exceptionhandler.o\

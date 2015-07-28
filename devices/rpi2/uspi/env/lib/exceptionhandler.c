@@ -43,7 +43,7 @@ void ExceptionHandler2 (TExceptionHandler *pThis)
 	assert (s_pThis == 0);
 	s_pThis = pThis;
 
-	TExceptionTable *pTable = (TExceptionTable *) ARM_EXCEPTION_TABLE_BASE;
+	TExceptionTable *pTable = (TExceptionTable *) ARM_EXCEPTION_TABLE_BASE; // #0000
 
 	pTable->UndefinedInstruction = ARM_OPCODE_BRANCH (ARM_DISTANCE (
 					pTable->UndefinedInstruction, UndefinedInstructionStub));
@@ -104,18 +104,20 @@ void ExceptionHandlerThrow2 (TExceptionHandler *pThis, unsigned nException, TAbo
 
 	if ((pFrame->spsr & 0x1F) == 0x12)	// IRQ mode?
 	{
+    printf("irq mode!\r\n");
 		lr = pFrame->lr_irq;
 		sp = pFrame->sp_irq;
 	}
 	
-#ifndef NDEBUG
-	debug_stacktrace ((u32 *) sp, FromExcept);
-#endif
 
-	printf ("%s (PC 0x%X, FSR 0x%X, FAR 0x%X, SP 0x%X, LR 0x%X, PSR 0x%X)",
+	printf ("%s (PC 0x%X, FSR 0x%X, FAR 0x%X, SP 0x%X, LR 0x%X, PSR 0x%X)\r\n",
 		s_pExceptionName[nException],
 		pFrame->pc, FSR, FAR,
 		sp, lr, pFrame->spsr);
+
+  printf("instruction: 0x%X\r\n",*((u32*)pFrame->pc));
+
+	debug_stacktrace ((u32 *) sp, FromExcept);
 }
 
 TExceptionHandler *ExceptionHandlerGet (void)

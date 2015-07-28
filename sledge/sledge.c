@@ -44,6 +44,11 @@ int main(int argc, char *argv[])
   void mount_linux_fbfs();
   mount_linux_fbfs();
 #endif
+
+#ifdef DEV_POSIXFS
+  void mount_posixfs();
+  mount_posixfs();
+#endif
   
   while (1) {
     expr = NULL;

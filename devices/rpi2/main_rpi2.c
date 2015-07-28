@@ -76,11 +76,11 @@ void main()
   memset(FB, 0xff, 1920*1080*2);
   
   // uspi glue
-  //printf("uu uspi glue init…\r\n");
-  //extern void uspi_glue_init();
-  //uspi_glue_init();
+  printf("uu uspi glue init…\r\n");
+  extern void uspi_glue_init();
+  uspi_glue_init();
 
-  /*printf("uu USPiInitialize…\r\n");
+  printf("uu USPiInitialize…\r\n");
   int res = USPiInitialize();
   printf("uu USPI initialization: %d\r\n", res);
   
@@ -93,11 +93,11 @@ void main()
   have_eth = USPiEthernetAvailable();
   printf("uu USPI has ethernet: %d\r\n", have_eth);
 
-  eth_rx_buffer=malloc(64*1024);*/
+  //eth_rx_buffer=malloc(64*1024);*/
   
   libfs_init();
   
-  memset(FB, 0x44, 1920*1080*2);
+  memset(FB, 0x40, 1920*1080*2);
   
   uart_repl();
 }
@@ -265,31 +265,6 @@ int machine_get_key(int modifiers) {
   return k;
 }
 
-/*
-Cell* machine_poll_udp() {
-  return NULL;
-}
-
-Cell* machine_send_udp(Cell* data_cell) {
-  return NULL;
-}
-
-Cell* machine_connect_tcp(Cell* host_cell, Cell* port_cell, Cell* connected_fn_cell, Cell* data_fn_cell) {
-  return NULL;
-}
-
-Cell* machine_bind_tcp(Cell* port_cell, Cell* fn_cell) {
-  return NULL;
-}
-
-Cell* machine_send_tcp(Cell* data_cell) {
-  return NULL;
-  }*/
-
-Cell* machine_save_file(Cell* cell, char* path) {
-  return alloc_int(0);
-}
-
 typedef jit_word_t (*funcptr)();
 
 Cell* platform_eval_string(Cell* strc); // FIXME
@@ -337,17 +312,14 @@ Cell* platform_eval_string(Cell* strc); // FIXME
   init_mini_ip(udp_cell);
   }*/
 
-void data_handler() {
-  uart_puts("~~ data abort!\r\n");
-}
-
 #define CODESZ 4096
+#define REPLBUFSZ 1024*6
 
 void uart_repl() {
   uart_puts("~~ trying to malloc repl buffers\r\n");
-  char* out_buf = malloc(1024*10);
-  char* in_line = malloc(1024*2);
-  char* in_buf = malloc(1024*10);
+  char* out_buf = malloc(REPLBUFSZ);
+  char* in_line = malloc(REPLBUFSZ);
+  char* in_buf = malloc(REPLBUFSZ);
   uart_puts("\r\n\r\n++ welcome to sledge arm/32 (c)2015 mntmn.\r\n");
   
   init_compiler();
@@ -357,9 +329,9 @@ void uart_repl() {
   
   uart_puts("\r\n~~ fs initialized.\r\n");
   
-  memset(out_buf,0,1024*10);
-  memset(in_line,0,1024*2);
-  memset(in_buf,0,1024*10);
+  memset(out_buf,0,REPLBUFSZ);
+  memset(in_line,0,REPLBUFSZ);
+  memset(in_buf,0,REPLBUFSZ);
 
   long count = 0;  
   int fullscreen = 0;
@@ -374,8 +346,8 @@ void uart_repl() {
 
   //strcpy(in_line,"(eval (load \"/sd/boot.l\"))\n");
   
-  r3d_init(FB);
-  uart_puts("-- R3D initialized.\r\n");
+  //r3d_init(FB);
+  //uart_puts("-- R3D initialized.\r\n");
   
   while (1) {
     expr = NULL;
@@ -384,7 +356,7 @@ void uart_repl() {
 
     int i = 0;
 
-    while (c!=13) {
+    while (c!=13 && i<(REPLBUFSZ-1)) {
       c = uart_getc();
       uart_putc(c);
       in_line[i++] = c;
@@ -392,7 +364,7 @@ void uart_repl() {
     }
     c = 0;
     
-    int len = strlen(in_line);
+    int len = strnlen(in_line,REPLBUFSZ);
 
     // recognize parens
     
@@ -429,13 +401,18 @@ void uart_repl() {
       memset(code, 0, CODESZ);
       jit_init(512);
       register void* sp asm ("sp"); // FIXME maybe unportable
+      printf("frame sp %p\r\n",sp);
+      
       Frame empty_frame = {NULL, 0, 0, sp};
       int tag = compile_expr(expr, &empty_frame, TAG_ANY);
       jit_ret();
 
-      if (tag) {
+      if (tag>0) {
         funcptr fn = (funcptr)code;
+        printf("fn at %p\r\n",fn);
+        __asm("stmfd sp!, {r5-r12, lr}"); // FIXME put in jit
         res = (Cell*)fn();
+        __asm("ldmfd sp!, {r5-r12, lr}");
         success = 1;
       }
 
@@ -443,7 +420,7 @@ void uart_repl() {
         if (!res) {
           uart_puts("null\n");
         } else {
-          lisp_write(res, out_buf, 1024*10);
+          lisp_write(res, out_buf, REPLBUFSZ);
           uart_puts(out_buf);
         }
       }
@@ -501,7 +478,11 @@ Cell* platform_eval_string(Cell* strc) {
             jit_ret();
             if (tag) {
               funcptr fn = (funcptr)code;
+              printf("fn at %p\r\n",fn);
+              
+              __asm("stmfd sp!, {r5-r12, lr}");
               res = (Cell*)fn();
+              __asm("ldmfd sp!, {r5-r12, lr}");
               //success = 1;
             }
           }

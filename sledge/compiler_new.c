@@ -26,7 +26,7 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_t** env) {
   
   if (found) {
     e->cell = cell;
-    //printf("[insert_symbol] update %s entry at %p (cell: %p value: %d)\r\n",symbol->addr,e,e->cell,e->cell->value);
+    printf("[insert_symbol] update %s entry at %p (cell: %p value: %d)\r\n",symbol->addr,e,e->cell,e->cell->value);
     return e->cell;
   }
     
@@ -44,6 +44,7 @@ Cell* insert_global_symbol(Cell* symbol, Cell* cell) {
   return insert_symbol(symbol, cell, &global_env);
 }
 
+// register used for passing args to functions
 #define LBDREG R4
 
 static FILE* jit_out;
@@ -271,6 +272,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       if (env) {
         Cell* value = env->cell;
         jit_movi(R0,(jit_word_t)value);
+        return value->tag;
       } else {
         printf("undefined symbol %s\n",expr->addr);
         jit_movi(R0,0);
@@ -361,6 +363,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           frame->sp+=(1+argi-1);
         }
         given_tag = compile_expr(arg, frame, signature_arg->value);
+        if (given_tag<1) return given_tag; // failure
+        
         argdefs[argi].cell = NULL; // cell is in R0 at runtime
         argdefs[argi].slot = argi;
 
@@ -510,7 +514,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
       jit_lea(ARGR0,argdefs[0].cell); // load symbol address
       
+      push_frame_regs(frame->f);
       jit_call(insert_global_symbol, "insert_global_symbol");
+      pop_frame_regs(frame->f);
       break;
     }
     case BUILTIN_LET: {
@@ -588,7 +594,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_dec_stack(num_lets*PTRSZ);
       
       Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
-      compile_expr(fn_body, &nframe, TAG_ANY); // new frame, fresh sp
+      int tag = compile_expr(fn_body, &nframe, TAG_ANY); // new frame, fresh sp
+      if (!tag) return 0;
 
       printf(">> fn has %d args and %d locals. predicted locals: %d\n",fn_argc,nframe.locals,num_lets);
       
@@ -618,7 +625,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_cmpi(R1,0);
       jit_je(label_skip);
 
-      compile_expr(argdefs[1].cell, frame, return_type);
+      int tag = compile_expr(argdefs[1].cell, frame, return_type);
+      if (!tag) return 0;
 
       // else?
       if (argdefs[2].cell) {
@@ -627,7 +635,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         jit_jmp(label_end);
         
         jit_label(label_skip);
-        compile_expr(argdefs[2].cell, frame, return_type);
+        tag = compile_expr(argdefs[2].cell, frame, return_type);
+        if (!tag) return 0;
+        
         jit_label(label_end);
       } else {
         jit_label(label_skip);
@@ -645,6 +655,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_label(label_loop);
       
       int compiled_type = compile_expr(argdefs[0].cell, frame, TAG_INT);
+      if (!compiled_type) return 0;
+      
       if (compiled_type != TAG_INT) {
         jit_ldr(R0);
         jit_cmpi(R0,0);
@@ -655,7 +667,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // compare to zero
       jit_je(label_skip);
 
-      compile_expr(argdefs[1].cell, frame, return_type);
+      int tag = compile_expr(argdefs[1].cell, frame, return_type);
+      if (!tag) return 0;
 
       jit_jmp(label_loop);
       jit_label(label_skip);
@@ -752,8 +765,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       char label_skip[64];
       sprintf(label_skip,"skip_%d",++label_skip_count);
 
-      jit_movi(R1,0);    
-      load_cell(R3,argdefs[0], frame);
+      jit_movi(R3,0);    
+      load_cell(R1,argdefs[0], frame);
       load_int(R2,argdefs[1], frame); // offset -> R2
       //jit_cmpi(R2,0);
       //jit_jneg(label_skip); // negative offset?
@@ -767,13 +780,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       //jit_je(label_skip); // overflow? (R2==R0)
 
       //jit_movr(R1,R2);
-      jit_ldr(R3); // string address
-      jit_addr(R1,R3);
-      jit_ldrb(R1);
+      jit_ldr(R1); // string address
+      jit_addr(R1,R2);
+      jit_ldrb(R1); // data in r3
 
       //jit_label(label_skip);
       
-      jit_movr(ARGR0, R1);
+      jit_movr(ARGR0, R3);
       jit_call(alloc_int,"alloc_int");
       break;
     }
@@ -784,12 +797,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       //sprintf(label_noskip,"noskip_%d",label_skip_count);
     
       load_cell(R1,argdefs[0], frame);
+      jit_movr(R0,R1);
       //jit_push(R1,R1);
       //frame->sp++;
       load_int(R2,argdefs[1], frame); // offset -> R2
+      load_int(R3,argdefs[2], frame); // byte to store -> R3
       //jit_cmpi(R2,0);
       //jit_jneg(label_skip); // negative offset?
-      load_int(R3,argdefs[2], frame); // byte to store -> R3
 
       //jit_movr(R0,R1);
       //jit_addi(R0,PTRSZ); // fetch size -> R0
@@ -801,10 +815,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
-      jit_strb(R1); // strb is always from R3
+      jit_strb(R1); // address is in r1, data in r3
 
-      jit_movr(R0,R1);
-      
       //jit_jmp(label_noskip);
       
       //jit_label(label_skip);

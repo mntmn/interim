@@ -34,7 +34,7 @@ void TimerTuneMsDelay (TTimer *pThis);
 
 static TTimer *s_pThis = 0;
 
-void Timer (TTimer *pThis, TInterruptSystem *pInterruptSystem)
+void Timer(TTimer *pThis, TInterruptSystem *pInterruptSystem)
 {
 	assert (pThis != 0);
 
@@ -70,20 +70,20 @@ boolean TimerInitialize (TTimer *pThis)
 
 	assert (pThis->m_pInterruptSystem != 0);
   printf(".. InterruptSystemConnectIRQ\r\n");
-	InterruptSystemConnectIRQ (pThis->m_pInterruptSystem, ARM_IRQ_TIMER3, TimerInterruptHandler, pThis);
+	InterruptSystemConnectIRQ(pThis->m_pInterruptSystem, ARM_IRQ_TIMER3, TimerInterruptHandler, pThis);
 
-	DataMemBarrier ();
+	DataMemBarrier();
 
   printf(".. ARM_SYSTIMER_CLO\r\n");
-	write32 (ARM_SYSTIMER_CLO, -(30 * CLOCKHZ));	// timer wraps soon, to check for problems
+	write32(ARM_SYSTIMER_CLO, -(30 * CLOCKHZ));	// timer wraps soon, to check for problems
 
   printf(".. ARM_SYSTIMER_C3\r\n");
-	write32 (ARM_SYSTIMER_C3, read32 (ARM_SYSTIMER_CLO) + CLOCKHZ / HZ);
+	write32(ARM_SYSTIMER_C3, read32 (ARM_SYSTIMER_CLO) + CLOCKHZ / HZ);
 	
   printf(".. TimerTuneMsDelay\r\n");
-	TimerTuneMsDelay (pThis);
+	TimerTuneMsDelay(pThis);
 
-	DataMemBarrier ();
+	DataMemBarrier();
 
 	return TRUE;
 }
@@ -216,13 +216,13 @@ void TimerusDelay (TTimer *pThis, unsigned nMicroSeconds)
 	}
 }
 
-TTimer *TimerGet (void)
+TTimer *TimerGet(void)
 {
 	assert (s_pThis != 0);
 	return s_pThis;
 }
 
-void TimerSimpleMsDelay (unsigned nMilliSeconds)
+void TimerSimpleMsDelay(unsigned nMilliSeconds)
 {
 	if (nMilliSeconds > 0)
 	{
@@ -230,21 +230,19 @@ void TimerSimpleMsDelay (unsigned nMilliSeconds)
 	}
 }
 
-void TimerSimpleusDelay (unsigned nMicroSeconds)
+void TimerSimpleusDelay(unsigned nMicroSeconds)
 {
 	if (nMicroSeconds > 0)
 	{
 		unsigned nTicks = nMicroSeconds * (CLOCKHZ / 1000000);
 
-		DataMemBarrier ();
+		DataMemBarrier();
 
-		unsigned nStartTicks = read32 (ARM_SYSTIMER_CLO);
-		while (read32 (ARM_SYSTIMER_CLO) - nStartTicks < nTicks)
+		unsigned nStartTicks = read32(ARM_SYSTIMER_CLO);
+		while (read32(ARM_SYSTIMER_CLO) - nStartTicks < nTicks)
 		{
 			// do nothing
 		}
-
-		DataMemBarrier ();
 	}
 }
 

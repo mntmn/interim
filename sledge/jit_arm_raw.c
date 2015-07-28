@@ -164,8 +164,8 @@ void jit_ldrw(int reg) {
 void jit_ldrb(int reg) {
   uint32_t op = 0xe5900000;
   op |= 1<<22; // byte access
-  op |= (3<<16); // r3
-  op |= (reg<<12); // dreg
+  op |= (reg<<16); // r3
+  op |= (3<<12); // dreg
   code[code_idx++] = op;
 }
 
@@ -173,8 +173,8 @@ void jit_ldrb(int reg) {
 void jit_strb(int reg) {
   uint32_t op = 0xe5800000;
   op |= 1<<22; // byte access
-  op |= (3<<16); // r3
-  op |= (reg<<12); // dreg
+  op |= (reg<<16); // r3
+  op |= (3<<12); // dreg
   code[code_idx++] = op;
 }
 

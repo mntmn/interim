@@ -427,6 +427,7 @@ Cell* alloc_error(unsigned int code) {
 
 Cell* alloc_clone(Cell* orig) {
   if (!orig) return 0;
+
   Cell* clone = cell_alloc();
   clone->tag  = orig->tag;
   clone->addr = 0;

@@ -183,9 +183,9 @@ static TTimer uspi_timer;
 
 void uspi_glue_init() {
   printf("uu ExceptionHandler2…\r\n");
-  ExceptionHandler2 (&uspi_exception_handler);
+  ExceptionHandler2(&uspi_exception_handler);
   printf("uu InterruptSystem…\r\n");
-	InterruptSystem (&uspi_interrupts);
+	InterruptSystem(&uspi_interrupts);
   printf("uu InterruptSystemInitialize…\r\n");
   InterruptSystemInitialize(&uspi_interrupts);
   printf("uu Timer…\r\n");
