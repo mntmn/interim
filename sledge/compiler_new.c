@@ -359,6 +359,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         if (argi>0) {
           // save registers
           // FIXME RETHINK
+
           jit_push(ARGR0,ARGR0+argi-1);
           frame->sp+=(1+argi-1);
         }
@@ -410,7 +411,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         argdefs[argi].slot = argi-1;
         argdefs[argi].type = ARGT_CELL;
 
-        if (given_tag == TAG_INT || given_tag == TAG_STR || given_tag == TAG_BYTES) {
+        if (given_tag == TAG_SYM || given_tag == TAG_CONS || given_tag == TAG_INT || given_tag == TAG_STR || given_tag == TAG_BYTES) {
           argdefs[argi].type = ARGT_CONST;
           //printf("const arg of type %d at %p\n",arg->tag,arg);
         }

@@ -8,3 +8,4 @@ os/rootfs/grumpy.data
 sledge/sledge
 build/*.elf
 newlib
+.#*

@@ -119,6 +119,10 @@ Cell* wrap_in_lambda(void* cfunc) {
 // TODO: pass stream (context) to handlers
 
 Cell* stream_read(Cell* stream) {
+  if (!stream || stream->tag!=TAG_STREAM) {
+    printf("[fs] error: non-stream passed to recv\r\n");
+    return alloc_nil();
+  }
   Stream* s = (Stream*)stream->addr;
   Cell* read_fn = s->fs->read_fn;
   //char debug_buf[256];
@@ -128,6 +132,10 @@ Cell* stream_read(Cell* stream) {
 }
 
 Cell* stream_write(Cell* stream, Cell* arg) {
+  if (!stream || stream->tag!=TAG_STREAM) {
+    printf("[fs] error: non-stream passed to send\r\n");
+    return alloc_nil();
+  }
   Stream* s = (Stream*)stream->addr;
   Cell* write_fn = s->fs->write_fn;
   //char debug_buf[256];
