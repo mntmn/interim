@@ -35,7 +35,7 @@ Cell* posixfs_open(Cell* cpath) {
         fseek(f, 0L, SEEK_SET);
         
         printf("[posixfs] trying to read file of len %d…\r\n",len);
-        Cell* res = alloc_num_string(len);
+        Cell* res = alloc_num_bytes(len);
         int read_len = fread(res->addr, len, 1, f);
         // TODO: close?
         _file_cell = res;

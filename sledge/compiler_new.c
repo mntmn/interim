@@ -359,7 +359,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         if (argi>0) {
           // save registers
           // FIXME RETHINK
-          jit_push(R1,R1+argi-1);
+          jit_push(ARGR0,ARGR0+argi-1);
           frame->sp+=(1+argi-1);
         }
         given_tag = compile_expr(arg, frame, signature_arg->value);
@@ -377,7 +377,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         }
         
         if (argi>0) {
-          jit_pop(R1,R1+argi-1);
+          jit_pop(ARGR0,ARGR0+argi-1);
           frame->sp-=(1+argi-1);
         }
       }
@@ -941,7 +941,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_OPEN: {
       load_cell(ARGR0,argdefs[0], frame);
+      push_frame_regs(frame->f);
       jit_call(fs_open,"fs_open");
+      pop_frame_regs(frame->f);
       break;
     }
     case BUILTIN_RECV: {
