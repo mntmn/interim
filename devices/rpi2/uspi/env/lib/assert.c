@@ -23,7 +23,7 @@
 #include <uspienv/debug.h>
 #include <uspienv/types.h>
 
-#ifndef NDEBUG
+//#ifndef NDEBUG
 
 void assertion_failed (const char *pExpr, const char *pFile, unsigned nLine)
 {
@@ -41,4 +41,4 @@ void assertion_failed (const char *pExpr, const char *pFile, unsigned nLine)
 	_String (&Source);
 }
 
-#endif
+//#endif

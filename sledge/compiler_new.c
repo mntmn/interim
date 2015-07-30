@@ -228,7 +228,7 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
             int existing = 0;
             for (int i=0; i<num_lets; i++) {
               if (!strcmp(analyze_buffer[i], sym->addr)) {
-                printf("-- we already know local %s\n",sym->addr);
+                //printf("-- we already know local %s\r\n",sym->addr);
                 existing = 1;
                 break;
               }
@@ -238,7 +238,7 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
               num_lets++;
             }
           } else {
-            printf("!! analyze error: malformed let!\n");
+            printf("!! analyze error: malformed let!\r\n");
           }
         }
       }
@@ -256,6 +256,9 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
 }
 
 int compile_expr(Cell* expr, Frame* frame, int return_type) {
+  if (!expr) return 0;
+  if (!frame) return 0;
+  
   int compiled_type = TAG_ANY;
   Arg* fn_frame = frame->f;
   
@@ -502,18 +505,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_DEF: {
-      // FIXME why no load_cell?
-      /*if (argdefs[1].type == ARGT_CONST) {
-        jit_lea(ARGR1,argdefs[1].cell); // load cell
-      } else if (argdefs[1].type == ARGT_CELL) {
-        jit_movr(ARGR1,R0);
-      } else if (argdefs[1].type == ARGT_ENV) {
-        jit_lea(ARGR1,argdefs[1].env);
-        jit_ldr(ARGR1); // load cell
-      } else if (argdefs[1].type == ARGT_REG) {
-        jit_movr(ARGR1, LBDREG+argdefs[1].slot);
-      }*/
-
+      // TODO in the future, we could pre-allocate symbols
+      // and especially their types based on type inference
+      
       jit_lea(ARGR0,argdefs[0].cell); // load symbol address
       load_cell(ARGR1,argdefs[1],frame);
       
@@ -600,7 +594,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       int tag = compile_expr(fn_body, &nframe, TAG_ANY); // new frame, fresh sp
       if (!tag) return 0;
 
-      printf(">> fn has %d args and %d locals. predicted locals: %d\n",fn_argc,nframe.locals,num_lets);
+      printf(">> fn has %d args and %d locals. predicted locals: %d\r\n",fn_argc,nframe.locals,num_lets);
       
       jit_inc_stack(num_lets*PTRSZ);
       jit_inc_stack(PTRSZ);
@@ -610,9 +604,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
 #ifdef CPU_ARM
       Label* fn_lbl = find_label(label_fn);
-      printf("fn_lbl idx: %d code: %p\n",fn_lbl->idx,code);
+      printf("fn_lbl idx: %d code: %p\r\n",fn_lbl->idx,code);
       lambda->next = code + fn_lbl->idx;
-      printf("fn_lbl next: %p\n",lambda->next);
+      printf("fn_lbl next: %p\r\n",lambda->next);
 #endif
       
       break;
@@ -900,15 +894,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_READ: {
       load_cell(ARGR0,argdefs[0], frame);
-      jit_ldr(ARGR0);
-      jit_call(read_string,"read_string");
+      jit_call(read_string_cell,"read_string_cell");
       break;
     }
     case BUILTIN_EVAL: {
       load_cell(ARGR0,argdefs[0], frame);
-#ifdef platform_eval_string
-      jit_call(platform_eval_string,"eval_string");
-#endif
+      jit_call(platform_eval,"platform_eval");
       break;
     }
     case BUILTIN_SIZE: {

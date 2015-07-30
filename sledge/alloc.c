@@ -72,7 +72,7 @@ Cell* cell_alloc() {
 void* bytes_alloc(int num_bytes) {
 //#ifdef SLEDGE_MALLOC
   void* new_mem = malloc(num_bytes);
-  printf("bytes_alloc: %p +%d\r\n",new_mem,num_bytes);
+  //printf("bytes_alloc: %p +%d\r\n",new_mem,num_bytes);
   memset(new_mem, 0, num_bytes);
   return new_mem;
 //#endif
@@ -167,7 +167,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
 
   // (def foo (fn (do (let a 1) (let b 2) (+ a b) (gc))))
 
-  printf("[gc] stack at: %p, stack end: %p\n",stack_pointer,stack_end);
+  //printf("[gc] stack at: %p, stack end: %p\r\n",stack_pointer,stack_end);
 
   int sw_state = 0;
   for (jit_word_t* a=(jit_word_t*)stack_end; a>=(jit_word_t*)stack_pointer; a--) {
@@ -183,17 +183,17 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
       }
     }
 
-    if (sw_state==2) {
-      printf(KMAG "%p: 0x%08lx\n" KWHT,a,item);
+    /*if (sw_state==2) {
+      printf(KMAG "%p: 0x%08lx\r\n" KWHT,a,item);
     }
     else if (sw_state==1) {
-      printf(KCYN "%p: 0x%08lx\n" KWHT,a,item);
+      printf(KCYN "%p: 0x%08lx\r\n" KWHT,a,item);
     }
     else {
-      printf(KWHT "%p: 0x%08lx\n" KWHT,a,item);
-    }
+      printf(KWHT "%p: 0x%08lx\r\n" KWHT,a,item);
+      }*/
   }
-  printf("[gc] stack walk complete -------------------------------\n");
+  //printf("[gc] stack walk complete -------------------------------\r\n");
 
   sm_enum(global_env, collect_garbage_iter, NULL);
   mark_tree(get_fs_list());
@@ -251,7 +251,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   }
   
   //cells_used = highwater+1;
-  printf("[gc] highwater %d\n",highwater);
+  //printf("[gc] highwater %d\r\n",highwater);
   
 #ifdef DEBUG_GC
   printf("\n\n");

@@ -8,6 +8,7 @@
 #include "os/debug_util.h"
 
 #include "devices/rpi2/raspi.h"
+#include "devices/rpi2/mmu.h"
 #include "devices/rpi2/r3d.h"
 #include "devices/rpi2/rpi-boot/vfs.h"
 #include "devices/rpi2/rpi-boot/util.h"
@@ -46,15 +47,25 @@ uint8_t* eth_rx_buffer;
 
 void init_mini_ip(Cell* buffer_cell);
 
+/*
+multicore:
+> You only need to write a physical ARM address to:
+> 0x4000008C + 0x10 * core // core := 1..3
+*/
+
 void main()
 {
-  enable_mmu();
-  arm_invalidate_data_caches();
+  //arm_invalidate_data_caches();
 
   uart_init(); // gpio setup also affects emmc TODO: document
   
   uart_puts("-- INTERIM/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
+
+  init_page_table();
+  printf("-- enable MMU… --\r\n");
+  mmu_init();
+  printf("-- MMU enabled. --\r\n");
   
   init_rpi_qpu();
   uart_puts("-- QPU enabled.\r\n");
@@ -73,7 +84,14 @@ void main()
   sprintf(buf, "-- stack pointer at %p.\r\n", _get_stack_pointer());
   uart_puts(buf);
 
-  memset(FB, 0xff, 1920*1080*2);
+  memset(FB,0xff,1920*1080*2);
+
+  printf("speedtest…\r\n");
+  //while (!uart_getc()) {};
+  int j=0;
+  for (int i=100000000; i>0; i--) { j+=i; }
+  printf("done… %d\r\n",j);
+  //while (!uart_getc()) {};
   
   // uspi glue
   printf("uu uspi glue init…\r\n");
@@ -96,14 +114,23 @@ void main()
   //eth_rx_buffer=malloc(64*1024);*/
   
   libfs_init();
+
+  const int border = 32;
   
-  memset(FB, 0x40, 1920*1080*2);
+  for (int y=0; y<1080; y++) {
+    for (int x=0; x<1920; x++) {
+      if (x<32 || y<32 || y>(1080-32) || x>(1920-32)) {
+        ((uint16_t*)FB)[x+y*1920] = 0x000f;
+      }
+    }
+  }
   
   uart_repl();
 }
 
 #include "devices/fbfs.c"
 #include "devices/rpi2/fatfs.c"
+#include "devices/rpi2/usbkeys.c"
 
 #include <os/libc_glue.c>
 
@@ -226,16 +253,7 @@ int machine_video_flip() {
 }
 */
 
-static char usb_key_in = 0;
-static int usb_keyboard_enabled = 0;
-
-void uspi_keypress_handler (const char *str)
-{
-  printf("[uspi-keyboard] pressed: '%s' (%d)\r\n",str,str[0]);
-  usb_key_in = str[0];
-  usb_keyboard_enabled = 1;
-}
-
+/*
 int machine_get_key(int modifiers) {
   if (modifiers) return 0;
   int k = 0;
@@ -263,54 +281,13 @@ int machine_get_key(int modifiers) {
     }
   }
   return k;
-}
+  }*/
 
 typedef jit_word_t (*funcptr)();
 
-Cell* platform_eval_string(Cell* strc); // FIXME
+Cell* platform_eval(Cell* expr); // FIXME
 
 #include "compiler_new.c"
-
-/*void insert_rootfs_symbols() {
-  // until we have a file system, inject binaries that are compiled in the kernel
-  // into the environment
-  
-  extern uint8_t _binary_bjos_rootfs_unifont_start;
-  extern uint32_t _binary_bjos_rootfs_unifont_size;
-  Cell* unif = alloc_bytes(16);
-  unif->addr = &_binary_bjos_rootfs_unifont_start;
-  unif->size = _binary_bjos_rootfs_unifont_size;
-
-  printf("~~ unifont is at %p\r\n",unif->addr);
-  
-  extern uint8_t* blitter_speedtest(uint8_t* font);
-  unif->addr = blitter_speedtest(unif->addr);
-
-  insert_symbol(alloc_sym("unifont"), unif, &global_env);
-
-  extern uint8_t _binary_bjos_rootfs_editor_l_start;
-  extern uint32_t _binary_bjos_rootfs_editor_l_size;
-  Cell* editor = alloc_string("boot");
-  editor->addr = &_binary_bjos_rootfs_editor_l_start;
-  editor->size = read_word((uint8_t*)&_binary_bjos_rootfs_editor_l_size,0); //_binary_bjos_rootfs_editor_l_size;
-
-  printf("~~ editor-source is at %p, size %d\r\n",editor->addr,editor->size);
-  
-  insert_symbol(alloc_sym("editor-source"), editor, &global_env);
-
-  //Cell* boot = alloc_string("(eval (load \"/sd/boot.l\"))");
-  //insert_symbol(alloc_sym("boot-source"), boot, &global_env);
-  
-  insert_symbol(alloc_sym("tx1"), alloc_int(1700), &global_env);
-  insert_symbol(alloc_sym("tx2"), alloc_int(1732), &global_env);
-  insert_symbol(alloc_sym("ty1"), alloc_int(32), &global_env);
-  insert_symbol(alloc_sym("ty2"), alloc_int(64), &global_env);
-
-  Cell* udp_cell = alloc_num_bytes(65535);
-  insert_symbol(alloc_sym("network-input"), udp_cell, &global_env);
-
-  init_mini_ip(udp_cell);
-  }*/
 
 #define CODESZ 4096
 #define REPLBUFSZ 1024*6
@@ -325,6 +302,7 @@ void uart_repl() {
   init_compiler();
   //insert_rootfs_symbols();
   mount_fbfs(FB);
+  mount_usbkeys();
   mount_fatfs();
   
   uart_puts("\r\n~~ fs initialized.\r\n");
@@ -333,8 +311,7 @@ void uart_repl() {
   memset(in_line,0,REPLBUFSZ);
   memset(in_buf,0,REPLBUFSZ);
 
-  long count = 0;  
-  int fullscreen = 0;
+  long count = 0;
   
   int in_offset = 0;
   int parens = 0;
@@ -344,7 +321,8 @@ void uart_repl() {
   Cell* expr;
   char c = 0;
 
-  //strcpy(in_line,"(eval (load \"/sd/boot.l\"))\n");
+  strcpy(in_line,"(eval (read (recv (open \"/sd/font.l\"))))\n");
+  c=13;
   
   //r3d_init(FB);
   //uart_puts("-- R3D initialized.\r\n");
@@ -394,35 +372,13 @@ void uart_repl() {
     }
     
     if (expr) {
-      int success = 0;
-      Cell* res = NULL;
-
-      code = malloc(CODESZ);
-      memset(code, 0, CODESZ);
-      jit_init(512);
-      register void* sp asm ("sp"); // FIXME maybe unportable
-      printf("frame sp %p\r\n",sp);
+      Cell* res = platform_eval(alloc_cons(expr, NULL));
       
-      Frame empty_frame = {NULL, 0, 0, sp};
-      int tag = compile_expr(expr, &empty_frame, TAG_ANY);
-      jit_ret();
-
-      if (tag>0) {
-        funcptr fn = (funcptr)code;
-        printf("fn at %p\r\n",fn);
-        __asm("stmfd sp!, {r5-r12, lr}"); // FIXME put in jit
-        res = (Cell*)fn();
-        __asm("ldmfd sp!, {r5-r12, lr}");
-        success = 1;
-      }
-
-      if (success) {
-        if (!res) {
-          uart_puts("null\n");
-        } else {
-          lisp_write(res, out_buf, REPLBUFSZ);
-          uart_puts(out_buf);
-        }
+      if (!res) {
+        uart_puts("null\n");
+      } else {
+        lisp_write(res, out_buf, REPLBUFSZ);
+        uart_puts(out_buf);
       }
       
       uart_puts("\r\n");
@@ -430,68 +386,49 @@ void uart_repl() {
   }
 }
 
-
-Cell* platform_eval_string(Cell* strc) {
-
-  if (!strc || strc->tag!=TAG_STR) {
-    printf("[platform_eval_string] error: no string given.\r\n");
+Cell* platform_eval(Cell* expr) {
+  if (!expr || expr->tag!=TAG_CONS) {
+    printf("[platform_eval] error: no expr given.\r\n");
     return NULL;
   }
-  
-  char* str = strc->addr;
-  int len = strc->size;
-  
+
+  char buf[512];
+
+  int i = 0;
   Cell* res = alloc_nil();
-  int l = 0;
-  str[len] = 0;
-  int linec = 0;
+  Cell* c;
+  while ((c = car(expr))) {
+    i++;
+    code = malloc(CODESZ);
+    memset(code, 0, CODESZ);
+    jit_init(0x300);
+    register void* sp asm ("sp"); // FIXME maybe unportable
+    Frame empty_frame = {NULL, 0, 0, sp};
+    int tag = compile_expr(c, &empty_frame, TAG_ANY);
+  
+    if (tag) {
+      jit_ret();
+      funcptr fn = (funcptr)code;
+      printf("~~ fn at %p\r\n",fn);
+      
+      __asm("stmfd sp!, {r3-r12, lr}");
+      (Cell*)fn();
+      __asm("ldmfd sp!, {r3-r12, lr}");
+      register Cell *retval asm ("r6");
+      __asm("mov r6,r0");
+      res = retval;
 
-  int parens = 0;
-  int comment = 0;
-  for (int i=0; i<len; i++) {
-    char c = str[i];
-    if (comment) {
-      if (c=='\n' || c=='\r') comment = 0;
+      printf("~~ expr %d res: %p\r\n",i,res);
+      lisp_write(res, buf, 512);
+      printf("~> %s\r\n",buf);
+    } else {
+      printf("[platform_eval] stopped at expression %d.\r\n",i);
+      break;
     }
-    else {
-      if (c=='(') {
-        parens++;
-      }
-      else if (c==')') {
-        parens--;
-
-        if (parens == 0 && i > 0) {
-          str[i+1]=0;
-          i++;
-          Cell* expr = read_string(&str[l]);
-          l=i+1;
-          
-          if (expr) {
-            printf("compiling expression %d…\r\n", linec++);
-            // eval this piece
-            code = malloc(CODESZ);
-            memset(code, 0, CODESZ);
-            jit_init(512);
-            register void* sp asm ("sp"); // FIXME maybe unportable
-            Frame empty_frame = {NULL, 0, 0, sp};
-            int tag = compile_expr(expr, &empty_frame, TAG_ANY);
-            jit_ret();
-            if (tag) {
-              funcptr fn = (funcptr)code;
-              printf("fn at %p\r\n",fn);
-              
-              __asm("stmfd sp!, {r5-r12, lr}");
-              res = (Cell*)fn();
-              __asm("ldmfd sp!, {r5-r12, lr}");
-              //success = 1;
-            }
-          }
-        }
-      }
-      else if (c==';') {
-        comment = 1;
-      }
-    }
+    // when to free the code? -> when no bound lambdas involved
+    
+    expr = cdr(expr);
   }
+  
   return res;
 }

@@ -27,7 +27,7 @@ Cell* fs_open(Cell* path) {
     Filesystem* fs = (Filesystem*)fs_cell->next;
     //printf("compare %s : %s : %p\n",fs->mount_point->addr, path->addr, strstr(fs->mount_point->addr, path->addr));
     if (path->addr && strstr(path->addr, fs->mount_point->addr) == path->addr) {
-      printf("[open] found matching fs: %s for path: %s\n", fs->mount_point->addr, path->addr);
+      printf("[open] found matching fs: %s for path: %s\r\n", fs->mount_point->addr, path->addr);
       Stream* s = malloc(sizeof(Stream));
       s->fs = fs;
       s->path = path;
@@ -65,7 +65,7 @@ Cell* fs_mmap(Cell* path) {
   while ((fs_cell = car(fsl))) {
     Filesystem* fs = (Filesystem*)fs_cell->next;
     if (path->addr && strstr(path->addr, fs->mount_point->addr) == path->addr) {
-      printf("[mmap] found matching fs: %s for path: %s\n", fs->mount_point->addr, path->addr);
+      printf("[mmap] found matching fs: %s for path: %s\r\n", fs->mount_point->addr, path->addr);
 
       if (fs->mmap_fn && fs->mmap_fn->next) {
         Cell* mmap_fn = fs->mmap_fn;
@@ -104,7 +104,7 @@ Cell* fs_mount(Cell* path, Cell* handlers) {
   fs_cell->next = fs;
   fs_cell->tag = TAG_FS;
   
-  printf("[fs] mounted: %s\n",path->addr);
+  printf("[fs] mounted: %s\r\n",path->addr);
   fs_list = alloc_cons(fs_cell, fs_list);
 
   return fs_cell;

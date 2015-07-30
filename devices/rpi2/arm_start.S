@@ -6,7 +6,7 @@
 
 _start:
   // init stack
-  ldr     sp, =stack_top
+  mov     sp, #0x1000000 // stack at 16MB
   sub     sp, sp, #0x4
 
   // clear bss segment
@@ -56,9 +56,9 @@ constants:
 .section ".bss"
   
 // 16k stack aligned to 4 byte
-.balign 4
+/*.balign 4
 .global stack
 stack:
 .fill 64000, 4, 0
 .global stack_top
-stack_top:
+stack_top:*/

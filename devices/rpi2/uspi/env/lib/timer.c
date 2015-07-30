@@ -42,8 +42,8 @@ void Timer(TTimer *pThis, TInterruptSystem *pInterruptSystem)
 	pThis->m_nTicks = 0;
 	pThis->m_nTime = 0;
   
-	//pThis->m_nMsDelay = 350000;
-  pThis->m_nMsDelay = 12000;
+	pThis->m_nMsDelay = 350000;
+  //pThis->m_nMsDelay = 12000;
 
 
 	pThis->m_nusDelay = pThis->m_nMsDelay / 1000;

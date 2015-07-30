@@ -110,7 +110,7 @@ char* lisp_write(Cell* cell, char* buffer, int bufsize) {
 }
 
 Cell* lisp_write_to_cell(Cell* cell, Cell* buffer_cell) {
-  if (buffer_cell->tag == TAG_STR && buffer_cell->tag == TAG_BYTES) {
+  if (buffer_cell->tag == TAG_STR || buffer_cell->tag == TAG_BYTES) {
     lisp_write(cell, buffer_cell->addr, buffer_cell->size);
   }
   return buffer_cell;

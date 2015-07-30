@@ -105,6 +105,7 @@ void LogWrite (const char *pSource, unsigned Severity, const char *pMessage, ...
 
 void uspi_assertion_failed (const char *pExpr, const char *pFile, unsigned nLine)
 {
+  printf("uspi_assertion_failed\r\n");
 	assertion_failed (pExpr, pFile, nLine);
 }
 

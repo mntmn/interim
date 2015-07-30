@@ -72,7 +72,7 @@
 //#define SD_CARD_INTERRUPTS
 
 // Enable EXPERIMENTAL (and possibly DANGEROUS) SD write support
-#define SD_WRITE_SUPPORT
+//#define SD_WRITE_SUPPORT
 
 // The particular SDHCI implementation
 #define SDHCI_IMPLEMENTATION_GENERIC        0
@@ -1451,8 +1451,8 @@ int sd_card_init(struct block_device **dev)
 #ifdef SD_WRITE_SUPPORT
     ret->bd.write = sd_write;
 #endif
-    ret->bd.supports_multiple_block_read = 1;
-    ret->bd.supports_multiple_block_write = 1;
+    ret->bd.supports_multiple_block_read = 1; // FIXME
+    ret->bd.supports_multiple_block_write = 1; // FIXME
 	ret->base_clock = base_clock;
 
 #ifdef EMMC_DEBUG

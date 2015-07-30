@@ -5,10 +5,9 @@ void vfs_register(struct fs *fs) {
   printf("~~ read_directory: %p fopen: %p\r\n",fs->read_directory,fs->fopen);
 
   //char* name = "/";
-
   //struct dirent* dir = fs->read_directory(fs,&name);
-
   //printf("~~ dirent: %p name: %s\r\n",dir,dir->name);
+
   fat_fs = fs;
 }
 
@@ -44,7 +43,7 @@ Cell* fatfs_open(Cell* cpath) {
           fs_file* f = fat_fs->fopen(fat_fs, dir, "r");
           if (f) {
             printf("FAT trying to read file of len %d...\r\n",f->len);
-            Cell* res = alloc_num_string(f->len);
+            Cell* res = alloc_num_bytes(f->len);
             int len = fat_fs->fread(fat_fs, res->addr, f->len, f);
             printf("FAT bytes read: %d\r\n",len);
             // TODO: close?

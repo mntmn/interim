@@ -25,14 +25,14 @@ Cell* fbfs_write(Cell* arg) {
 
 Cell* fbfs_mmap(Cell* arg) {
   long sz = WIDTH*HEIGHT*BPP;
-  printf("[fbfs_mmap] addr: %p\n",_fb);
+  printf("[fbfs_mmap] addr: %p\r\n",_fb);
 
   if (_fb>0) {
     Cell* buffer_cell = alloc_int(0);
     buffer_cell->addr = _fb;
     buffer_cell->size = sz;
     buffer_cell->tag = TAG_BYTES;
-    printf("[fbfs_mmap] buffer_cell->addr: %p\n",buffer_cell->addr);
+    printf("[fbfs_mmap] buffer_cell->addr: %p\r\n",buffer_cell->addr);
   
     return buffer_cell;
   } else {

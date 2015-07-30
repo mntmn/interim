@@ -104,7 +104,7 @@ void ExceptionHandlerThrow2 (TExceptionHandler *pThis, unsigned nException, TAbo
 
 	if ((pFrame->spsr & 0x1F) == 0x12)	// IRQ mode?
 	{
-    printf("irq mode!\r\n");
+    printf("irq mode. frame: %p\r\n",pFrame);
 		lr = pFrame->lr_irq;
 		sp = pFrame->sp_irq;
 	}

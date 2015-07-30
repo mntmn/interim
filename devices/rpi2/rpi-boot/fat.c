@@ -370,12 +370,13 @@ int fat_init(struct block_device *parent, struct fs **fs)
 }
 
 uint32_t get_sector(struct fat_fs *fs, uint32_t rel_cluster)
-{
+{/*
 #ifdef FAT_DEBUG
 	printf("FAT: get_sector rel_cluster %i, sector %i\r\n",
 			rel_cluster,
 			fs->first_non_root_sector + (rel_cluster - 2) * fs->sectors_per_cluster);
-#endif
+      #endif*/
+  printf("*");
 	rel_cluster -= 2;
 	return fs->first_non_root_sector + rel_cluster * fs->sectors_per_cluster;
 }
