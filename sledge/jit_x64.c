@@ -144,8 +144,8 @@ int32_t inline_mod(int64_t a, int64_t b) {
   return a%b;
 }
 void jit_modr(int dreg, int sreg) {
-  jit_movr(0,dreg);
-  jit_movr(1,sreg);
+  jit_movr(ARGR0,dreg);
+  jit_movr(ARGR1,sreg);
   jit_call(inline_mod,"mod");
   if (dreg!=0) jit_movr(dreg,0);
 }

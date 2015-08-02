@@ -1,3 +1,4 @@
+#define DEBUG
 
 Cell* execute_jitted(void* binary) {
   return (Cell*)((funcptr)binary)(0);
@@ -18,14 +19,15 @@ int compile_for_platform(Cell* expr, Cell** res) {
     fclose(jit_out);
 
     FILE* asm_f = fopen("/tmp/jit_out.s","r");
-    uint32_t* jit_asm = malloc(4096);
-    memset(jit_asm, 0, 4096);
-    fread(jit_asm,1,4096,asm_f);
+    uint32_t* jit_asm = malloc(10000);
+    memset(jit_asm, 0, 10000);
+    fread(jit_asm,1,10000,asm_f);
     fclose(asm_f);
         
 #ifdef DEBUG
     printf("\nJIT ---------------------\n%s-------------------------\n\n",jit_asm);
 #endif
+    free(jit_asm);
         
     // prefix with arm-none-eabi- on ARM  -mlittle-endian
       
@@ -34,9 +36,9 @@ int compile_for_platform(Cell* expr, Cell** res) {
 
     FILE* binary_f = fopen("/tmp/jit_out.bin","r");
 
-    uint32_t* jit_binary = mmap(0, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+    uint32_t* jit_binary = mmap(0, 8192, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
         
-    int bytes_read = fread(jit_binary,1,4096,binary_f);
+    int bytes_read = fread(jit_binary,1,8192,binary_f);
     fclose(binary_f);
 
 #ifdef DEBUG
@@ -81,7 +83,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
       }
     }
       
-    int mp_res = mprotect(jit_binary, 4096, PROT_EXEC|PROT_READ);
+    int mp_res = mprotect(jit_binary, 8192, PROT_EXEC|PROT_READ);
 
     if (!mp_res) {
       *res = execute_jitted(jit_binary);

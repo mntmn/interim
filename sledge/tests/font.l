@@ -1,4 +1,5 @@
 (
+(def scr (open "/framebuffer"))
 (def fb (mmap "/framebuffer"))
 (def f (open "/sd/unifont.565"))
 
@@ -58,14 +59,20 @@
   i
 )))
 
+(def eq (fn a b (lt (+ (lt a b) (gt a b)) 1)))
+
 (def main (fn (do
   (let x 32)
   (let y 64)
   (let blink 0)
   (let buffer "")
+
   (while 1 (do
     (let str (recv k))
     (let c (get str 0))
+
+    (if (gt c 0) (print c) 0)
+
     (if (gt c 0x1f) (do
       (blit-str str x y)
       (let buffer (concat buffer str))
@@ -100,6 +107,7 @@
     (if (gt blink 9)
       (blit-char 0x275a x y) (blit-char 32 x y))
     (let blink (% (+ blink 1) 20))
+    (send scr 0)
     
     (gc)
   ))

@@ -42,7 +42,7 @@ Cell* posixfs_open(Cell* cpath) {
         return res;
       } else {
         // TODO should return error
-        printf("FAT could not open file :(\r\n");
+        printf("[posixfs] could not open file :(\r\n");
         _file_cell = alloc_string_copy("<error: couldn't open file.>"); // FIXME hack
         return _file_cell;
       }

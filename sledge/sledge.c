@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <sys/mman.h> // mprotect
 
+Cell* platform_eval(Cell* expr); // FIXME
+
 #include "compiler_new.c"
 
 #ifdef CPU_X64
@@ -104,4 +106,35 @@ int main(int argc, char *argv[])
     }
   }
   return 0;
+}
+
+Cell* platform_eval(Cell* expr) {
+  if (!expr || expr->tag!=TAG_CONS) {
+    printf("[platform_eval] error: no expr given.\r\n");
+    return NULL;
+  }
+
+  char buf[512];
+
+  int i = 0;
+  Cell* res = alloc_nil();
+  Cell* c;
+  while ((c = car(expr))) {
+    i++;
+    int tag = compile_for_platform(c, &res); 
+  
+    if (tag) {
+      printf("~~ expr %d res: %p\r\n",i,res);
+      lisp_write(res, buf, 512);
+      printf("~> %s\r\n",buf);
+    } else {
+      printf("[platform_eval] stopped at expression %d.\r\n",i);
+      break;
+    }
+    // when to free the code? -> when no bound lambdas involved
+    
+    expr = cdr(expr);
+  }
+  
+  return res;
 }
