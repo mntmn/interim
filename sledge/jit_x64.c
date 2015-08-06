@@ -120,6 +120,28 @@ void jit_addi(int dreg, int imm) {
   fprintf(jit_out, "addq $%d, %s\n", imm, regnames[dreg]);
 }
 
+void jit_andr(int dreg, int sreg) {
+  fprintf(jit_out, "andq %s, %s\n", regnames[sreg], regnames[dreg]);
+}
+
+void jit_orr(int dreg, int sreg) {
+  fprintf(jit_out, "orq %s, %s\n", regnames[sreg], regnames[dreg]);
+}
+
+void jit_xorr(int dreg, int sreg) {
+  fprintf(jit_out, "xorq %s, %s\n", regnames[sreg], regnames[dreg]);
+}
+
+void jit_shrr(int dreg, int sreg) {
+  fprintf(jit_out, "movq %s, %%rcx\n", regnames[sreg]);
+  fprintf(jit_out, "shr %%cl, %s\n", regnames[dreg]);
+}
+
+void jit_shlr(int dreg, int sreg) {
+  fprintf(jit_out, "movq %s, %%rcx\n", regnames[sreg]);
+  fprintf(jit_out, "shl %%cl, %s\n", regnames[dreg]);
+}
+
 void jit_subr(int dreg, int sreg) {
   fprintf(jit_out, "subq %s, %s\n", regnames[sreg], regnames[dreg]);
 }

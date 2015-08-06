@@ -192,7 +192,7 @@ void push_frame_regs(Arg* fn_frame) {
       pushreg++;
     }
   }
-  printf("pushing %d frame regs\n",pushreg);
+  //printf("pushing %d frame regs\n",pushreg);
   if (pushreg) {
     jit_push(LBDREG,LBDREG+pushreg-1);
   }
@@ -208,7 +208,7 @@ void pop_frame_regs(Arg* fn_frame) {
       pushreg++;
     }
   }
-  printf("popping %d frame regs\n",pushreg);
+  //printf("popping %d frame regs\n",pushreg);
   if (pushreg) {
     jit_pop(LBDREG,LBDREG+pushreg-1);
   }
@@ -405,7 +405,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         //printf("lookup result: %p\n",argptrs[argi]);
 
         if (!argdefs[argi].env && arg_frame_idx<0) {
-          printf("!! undefined symbol %s given for argument %s!\n",arg->addr,arg_name);
+          printf("undefined symbol %s given for argument %s.\n",arg->addr,arg_name);
           return 0;
         }
       }
@@ -442,6 +442,46 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
   if (op->tag == TAG_BUILTIN) {
     switch (op->value) {
+    case BUILTIN_BITAND: {
+      load_int(ARGR0,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame);
+      jit_andr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
+      jit_call(alloc_int, "alloc_int");
+      break;
+    }
+    case BUILTIN_BITOR: {
+      load_int(ARGR0,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame);
+      jit_orr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
+      jit_call(alloc_int, "alloc_int");
+      break;
+    }
+    case BUILTIN_BITXOR: {
+      load_int(ARGR0,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame);
+      jit_xorr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
+      jit_call(alloc_int, "alloc_int");
+      break;
+    }
+    case BUILTIN_SHL: {
+      load_int(ARGR0,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame);
+      jit_shlr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
+      jit_call(alloc_int, "alloc_int");
+      break;
+    }
+    case BUILTIN_SHR: {
+      load_int(ARGR0,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame);
+      jit_shrr(ARGR0,R2);
+      if (return_type == TAG_INT) return TAG_INT;
+      jit_call(alloc_int, "alloc_int");
+      break;
+    }
     case BUILTIN_ADD: {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
@@ -594,7 +634,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       int tag = compile_expr(fn_body, &nframe, TAG_ANY); // new frame, fresh sp
       if (!tag) return 0;
 
-      printf(">> fn has %d args and %d locals. predicted locals: %d\r\n",fn_argc,nframe.locals,num_lets);
+      //printf(">> fn has %d args and %d locals. predicted locals: %d\r\n",fn_argc,nframe.locals,num_lets);
       
       jit_inc_stack(num_lets*PTRSZ);
       jit_inc_stack(PTRSZ);
@@ -628,7 +668,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // else?
       if (argdefs[2].cell) {
         char label_end[64];
-        sprintf(label_end,"endif_%d",label_skip_count);
+        sprintf(label_end,"endif_%d",++label_skip_count);
         jit_jmp(label_end);
         
         jit_label(label_skip);
@@ -676,7 +716,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       args = orig_args;
       Cell* arg;
       while ((arg = car(args))) {
-        compile_expr(arg, frame, return_type);
+        int tag = compile_expr(arg, frame, return_type);
+        if (!tag) return 0;
         args = cdr(args);
       }
       break;
@@ -686,7 +727,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       Cell* arg;
       int n = 0;
       while ((arg = car(args))) {
-        compile_expr(arg, frame, TAG_ANY);
+        int tag = compile_expr(arg, frame, TAG_ANY);
+        if (!tag) return 0;
         jit_push(R0,R0);
         frame->sp++;
         args = cdr(args);
@@ -997,6 +1039,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   return compiled_type;
 }
 
+env_t* get_global_env() {
+  return global_env;
+}
 
 void init_compiler() {
   
@@ -1023,6 +1068,12 @@ void init_compiler() {
   insert_symbol(alloc_sym("*"), alloc_builtin(BUILTIN_MUL, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
   insert_symbol(alloc_sym("/"), alloc_builtin(BUILTIN_DIV, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
   insert_symbol(alloc_sym("%"), alloc_builtin(BUILTIN_MOD, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
+  
+  insert_symbol(alloc_sym("bitand"), alloc_builtin(BUILTIN_BITAND, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
+  insert_symbol(alloc_sym("bitor"), alloc_builtin(BUILTIN_BITOR, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
+  insert_symbol(alloc_sym("bitxor"), alloc_builtin(BUILTIN_BITOR, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
+  insert_symbol(alloc_sym("shl"), alloc_builtin(BUILTIN_SHL, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
+  insert_symbol(alloc_sym("shr"), alloc_builtin(BUILTIN_SHR, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
   
   printf("[compiler] arithmetic…\r\n");
   

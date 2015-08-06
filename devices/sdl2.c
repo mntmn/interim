@@ -7,10 +7,12 @@
 
 #define WIDTH 1920
 #define HEIGHT 1080
-#define BPP 4
-#define DEPTH 32
+#define BPP 2
+#define DEPTH 16
+#define SCALE 8
 
-SDL_Surface* screen;
+SDL_Surface* win_surf;
+SDL_Surface* pixels_surf;
 SDL_Window* win;
 
 void sdl_cleanup() {
@@ -21,7 +23,7 @@ static int sdl_initialized = 0;
 
 void* sdl_init(int fullscreen)
 {
-  if (sdl_initialized) return screen->pixels;
+  if (sdl_initialized) return pixels_surf->pixels;
 
   sdl_initialized = 1;
   
@@ -29,10 +31,18 @@ void* sdl_init(int fullscreen)
 
   win = SDL_CreateWindow("sledge", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, (fullscreen?SDL_WINDOW_FULLSCREEN:0));
   
-  screen = SDL_GetWindowSurface(win);
+  win_surf = SDL_GetWindowSurface(win);
+
+  pixels_surf = SDL_CreateRGBSurface(0,WIDTH,HEIGHT,DEPTH,0xf800,0x7e0,0x1f,0);
+
+  printf("pixels_surf: %p\r\n\r\n",pixels_surf);
+  printf("win_surf: %p\r\n\r\n",win_surf);
+
+  memset(pixels_surf->pixels,0xff,WIDTH*HEIGHT*BPP);
+
   atexit(sdl_cleanup);
 
-  return screen->pixels;
+  return pixels_surf->pixels;
 }
 
 static int sdl_key = 0;
@@ -48,31 +58,9 @@ int sdl_get_modifiers() {
   return m;
 }
 
-int sdl_mainloop()
-{
-  SDL_Event event;
-  
-  if (SDL_PollEvent(&event)) 
-  {      
-    switch (event.type) 
-    {
-    case SDL_QUIT:
-      exit(0);
-      break;
-    case SDL_KEYDOWN:
-      sdl_modifiers = event.key.keysym.mod;
-      sdl_key = event.key.keysym.scancode;
-      break;
-    }
-  }
-  
-  SDL_UpdateWindowSurface(win);
-  
-  return 0;
-}
 
 void* sdl_get_fb() {
-  return screen->pixels;
+  return pixels_surf->pixels;
 }
 
 long sdl_get_fbsize() {
@@ -97,6 +85,12 @@ Cell* fbfs_write(Cell* arg) {
   sdl_init(0);
   SDL_Event event;
   SDL_PollEvent(&event);
+
+  SDL_Rect sr = {0,0,WIDTH/SCALE,HEIGHT/SCALE};
+  SDL_Rect dr = {0,0,WIDTH,HEIGHT};
+
+  SDL_BlitScaled(pixels_surf,&sr,win_surf,&dr);
+  
   SDL_UpdateWindowSurface(win);
   return arg;
 }
@@ -106,8 +100,8 @@ Cell* fbfs_mmap(Cell* arg) {
   Cell* fbtest = alloc_num_bytes(0);
   fbtest->addr = sdl_get_fb();
   fbtest->size = sdl_get_fbsize();
-  printf("fbtest->addr: %p\n",fbtest->addr);
-  printf("fbtest->size: %lx\n",fbtest->size);
+  //printf("fbtest->addr: %p\n",fbtest->addr);
+  //printf("fbtest->size: %lx\n",fbtest->size);
 
   return fbtest;
 }
@@ -116,6 +110,77 @@ void sdl_mount_fbfs() {
   fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0, fbfs_mmap);
 }
 
-void dev_sdl2_init() {
+
+Cell* keyfs_open() {
+  return alloc_int(1);
+}
+
+Cell* keyfs_read() {
+  SDL_Event event;
+  if (SDL_PollEvent(&event)) 
+  {
+    //printf("sdl event! %d\n",event.type);
+    
+    switch (event.type) 
+    {
+    case SDL_QUIT:
+      exit(0);
+      break;
+    case SDL_KEYDOWN:
+      sdl_modifiers = event.key.keysym.mod;
+      printf("key: %d, mod: %x\r\n",event.key.keysym.sym,event.key.keysym.mod);
+      if (event.key.keysym.sym<200) {
+        sdl_key = event.key.keysym.sym;
+      } else {
+        sdl_key = 0;
+      }
+      if (sdl_modifiers&1 || sdl_modifiers&2) {
+        if (sdl_key>='a' && sdl_key<='z') {
+          sdl_key+=('A'-'a');
+        }
+        else {
+          switch (sdl_key) {
+          case 223: sdl_key = '?'; break;
+          case '1': sdl_key = '!'; break;
+          case '2': sdl_key = '"'; break;
+          case '3': sdl_key = '~'; break;
+          case '4': sdl_key = '$'; break;
+          case '5': sdl_key = '%'; break;
+          case '6': sdl_key = '&'; break;
+          case '7': sdl_key = '/'; break;
+          case '8': sdl_key = '('; break;
+          case '9': sdl_key = ')'; break;
+          case '0': sdl_key = '='; break;
+          case '<': sdl_key = '>'; break;
+          case '+': sdl_key = '*'; break;
+          case '#': sdl_key = '\''; break;
+          case ',': sdl_key = ';'; break;
+          case '.': sdl_key = ':'; break;
+          case '-': sdl_key = '_'; break;
+          default: break;
+          }
+        }
+      }
+      break;
+    }
+  }
+
+  switch (sdl_key) {
+  case 13: sdl_key = 10; break;
+  case 8: sdl_key = 127; break;
+  }
+  
+  Cell* res = alloc_string_copy(" ");
+  ((uint8_t*)res->addr)[0] = sdl_key;
+  sdl_key = 0;
+  return res;
+}
+
+void sdl_mount_keyfs() {
+  fs_mount_builtin("/keyboard", keyfs_open, keyfs_read, 0, 0, 0);
+}
+
+void dev_sdl_init() {
   sdl_mount_fbfs();
+  sdl_mount_keyfs();
 }

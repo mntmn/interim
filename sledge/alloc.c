@@ -49,7 +49,17 @@ Cell* get_cell_heap() {
   return cell_heap;
 }
 
+// FIXME header?
+env_t* get_global_env();
+
 Cell* cell_alloc() {
+
+  /*if (free_list_avail<free_list_consumed) {
+    // try gc
+    // FIXME need access to current frame
+    collect_garbage(get_global_env());
+  }*/
+  
   if (free_list_avail>free_list_consumed) {
     // serve from free list
     int idx = free_list_consumed;
@@ -250,7 +260,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
     cell_heap[i].tag &= ~TAG_MARK;
   }
   
-  printf("[gc] highwater %d fl_avail %d \r\n",highwater,free_list_avail);
+  //printf("[gc] highwater %d fl_avail %d \r\n",highwater,free_list_avail);
   cells_used = highwater+1;
   
 #ifdef DEBUG_GC

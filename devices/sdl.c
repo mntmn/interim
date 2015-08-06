@@ -9,18 +9,10 @@
 #define HEIGHT 1080
 #define BPP 2
 #define DEPTH 16
+#define SCALE 2
 
 SDL_Surface* screen;
-
-void sdl_setpixel(Uint32 x, Uint32 y, Uint32 color)
-{
-  //printf("sdl_setpixel: %ld %ld %ld\n",x,y,color);
-  if (x>=WIDTH || y>=HEIGHT) return;
-  Uint32 *pixmem32;
-	  
-  pixmem32 = (Uint32*)screen->pixels + (y*WIDTH) + x;
-  *pixmem32 = color;
-}
+uint8_t* pixels = NULL;
 
 void sdl_cleanup() {
   SDL_Quit();
@@ -35,9 +27,12 @@ void* sdl_init(int fullscreen)
   SDL_Init(SDL_INIT_VIDEO);
   screen = SDL_SetVideoMode(WIDTH, HEIGHT, DEPTH, SDL_SWSURFACE);
 
+  //if (pixels) free(pixels);
+  //pixels = malloc(WIDTH*HEIGHT*BPP);
+  
   atexit(sdl_cleanup);
 
-  if (screen) return screen->pixels;
+  return screen->pixels;
   return NULL;
 }
 
@@ -83,6 +78,7 @@ Cell* fbfs_write(Cell* arg) {
   //printf("[fbfs_write] %lx\n",arg->value);
   SDL_Event event;
   SDL_PollEvent(&event);
+  //SDL_BlitScaled(pixels_surf,{0,0,WIDTH/SCALE,HEIGHT/SCALE},screen,{0,0,WIDTH,HEIGHT});
   SDL_UpdateRect(screen, 0, 0, WIDTH, HEIGHT);
   fb_count=0;
   return arg;

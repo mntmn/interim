@@ -5,7 +5,9 @@ Cell* execute_jitted(void* binary) {
 }
 
 int compile_for_platform(Cell* expr, Cell** res) {
-      
+
+  int codesz = 8192;
+  
   jit_out = fopen("/tmp/jit_out.s","w");
   
   jit_init();
@@ -36,14 +38,20 @@ int compile_for_platform(Cell* expr, Cell** res) {
 
     FILE* binary_f = fopen("/tmp/jit_out.bin","r");
 
-    uint32_t* jit_binary = mmap(0, 8192, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+    uint32_t* jit_binary = mmap(0, codesz, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
         
-    int bytes_read = fread(jit_binary,1,8192,binary_f);
+    int bytes_read = fread(jit_binary,1,codesz,binary_f);
     fclose(binary_f);
 
 #ifdef DEBUG
     printf("<assembled bytes: %d at: %p>\n",bytes_read,jit_binary);
 #endif
+
+    if (bytes_read>codesz) {
+      printf("<error: max assembly size of %d exhausted. aborting>\n",codesz);
+      munmap(jit_binary,codesz);
+      return 0;
+    }
 
     // read symbols for linking lambdas
     system("nm /tmp/jit_out.o > /tmp/jit_out.syms");
@@ -83,7 +91,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
       }
     }
       
-    int mp_res = mprotect(jit_binary, 8192, PROT_EXEC|PROT_READ);
+    int mp_res = mprotect(jit_binary, codesz, PROT_EXEC|PROT_READ);
 
     if (!mp_res) {
       *res = execute_jitted(jit_binary);

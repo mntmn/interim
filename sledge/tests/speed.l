@@ -1,3 +1,4 @@
+(
 (def scr (open "/framebuffer"))
 (def fb (mmap "/framebuffer"))
 (def f (open "/sd/unifont.565"))
@@ -47,3 +48,4 @@
 )))
 
 (main)
+)

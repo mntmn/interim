@@ -245,6 +245,6 @@ Cell* read_string_cell(Cell* in) {
   if (!in->size) return alloc_nil();
   char* str = (char*)in->addr;
   str[in->size]=0;
-  printf("read[%s]\r\n",str);
+  //printf("read[%s]\r\n",str);
   return read_string(str);
 }

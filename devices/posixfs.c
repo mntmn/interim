@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 Cell* _file_cell;
 
@@ -26,8 +27,22 @@ Cell* posixfs_open(Cell* cpath) {
     if (strlen(path)>4) {
       filename = path+4;
     }
+
+    if (!filename || !filename[0]) filename = ".";
     
     if (filename) {
+      DIR* dirp;
+      if ((dirp = opendir(filename))) {
+        _file_cell = alloc_nil();
+        struct dirent *dp;
+        do {
+          if ((dp = readdir(dirp)) != NULL) {
+            _file_cell = alloc_cons(alloc_string_copy(dp->d_name), _file_cell);
+          }
+        } while (dp != NULL);
+        return _file_cell;
+      }
+
       FILE* f = fopen(filename, "rb");
       if (f) {
         fseek(f, 0L, SEEK_END);

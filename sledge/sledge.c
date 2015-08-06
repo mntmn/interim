@@ -124,11 +124,12 @@ Cell* platform_eval(Cell* expr) {
     int tag = compile_for_platform(c, &res); 
   
     if (tag) {
-      printf("~~ expr %d res: %p\r\n",i,res);
-      lisp_write(res, buf, 512);
-      printf("~> %s\r\n",buf);
+      //printf("~~ expr %d res: %p\r\n",i,res);
+      //lisp_write(res, buf, 512);
+      //printf("~> %s\r\n",buf);
     } else {
-      printf("[platform_eval] stopped at expression %d.\r\n",i);
+      lisp_write(expr, buf, 512);
+      printf("[platform_eval] stopped at expression %d: %s…\r\n",i,buf);
       break;
     }
     // when to free the code? -> when no bound lambdas involved
