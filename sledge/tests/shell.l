@@ -19,12 +19,13 @@
     (let r (shl (shr (get orig (+ i 2)) 3) 11))
     (let g (shl (shr (get orig (+ i 1)) 2)  5))
     (let b      (shr (get orig (+ i 0)) 3))
-    (let rgb b)
-    ;(put out j       (shr (bitand rgb 0xff00) 8))
-    (put out j 0xff)
+    (let rgb (bitor (bitor g b) r))
+    (put out (+ j 1) (shr (bitand rgb 0xff00) 8))
+    (put out (+ j 0) (bitand rgb 0xff))
     (let i (+ i 4))
     (let j (+ j 2))
   ))
+  (print out)
   out
 )))
 
@@ -38,6 +39,15 @@
 (def rune-spacing 8)
 (def rune-h 16)
 (def rune-mod 256)
+
+(def set-unifont (fn (do
+  (def font unifont)
+  (def font-pitch unifont-pitch)
+  (def rune-w 16)
+  (def rune-spacing 8)
+  (def rune-h 16)
+  (def rune-mod 256)
+)))
 
 (def screen-pitch  3840)
 
@@ -53,8 +63,9 @@
     (let ix 0)
     (while (lt ix rune-ww) (do
       (let c (get font (+ so ix)))
+      (let d (get font (+ 1 (+ so ix))))
       (put fb (+ do ix) c)
-      (put fb (+ (+ do ix) 1) c)
+      (put fb (+ (+ do ix) 1) d)
       (let ix (+ ix 2))
     ))
     (let so (+ so font-pitch))
@@ -184,16 +195,42 @@
 
 (def mario-map [00])
 
-(def mario (fn (do
+(def mario-palm (fn x y (do
+  (let rs rune-spacing)
+  
+  (blit-str [6c6d6e] (* x rs) (* y rs))
+  (blit-str [798a79] (* x rs) (* (+ 1 y) rs))
+  (blit-str [798a79] (* x rs) (* (+ 2 y) rs))
+)))
+
+(def set-mario-font (fn (do
   (def font mariotiles)
   (def font-pitch 986)
   (def rune-w 17)
   (def rune-h 17)
   (def rune-spacing 16)
   (def rune-mod 58)
+)))
+
+(def mario (fn (do
+  (set-mario-font)
+  (let rs rune-spacing)
 
   (blit-str [0102030405060708090a0b0c0d0e] 0 0)
   (blit-str [0f101112131415161718191a1b1c] 0 17)
+
+  (let i 0)
+  (while (lt i 20) (do
+    (blit-str "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy" 0 (* i rs))
+    (let i (+ i 1))
+  ))
+
+  (mario-palm 5 5)
+  (mario-palm 7 6)
+  (mario-palm 10 5)
+  (mario-palm 9 8)
+
+  (set-unifont)
 )))
 
 (main)
