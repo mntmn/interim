@@ -215,6 +215,46 @@ void jit_mulr(int dreg, int sreg) {
   code[code_idx++] = op;
 }
 
+void jit_andr(int dreg, int sreg) {
+  uint32_t op = 0xe0000000;
+  op |= (sreg<<0);
+  op |= (dreg<<12);
+  op |= (dreg<<16);
+  code[code_idx++] = op;
+}
+
+void jit_orr(int dreg, int sreg) {
+  uint32_t op = 0xe1800000;
+  op |= (sreg<<0);
+  op |= (dreg<<12);
+  op |= (dreg<<16);
+  code[code_idx++] = op;
+}
+
+void jit_xorr(int dreg, int sreg) {
+  uint32_t op = 0xe0200000;
+  op |= (sreg<<0);
+  op |= (dreg<<12);
+  op |= (dreg<<16);
+  code[code_idx++] = op;
+}
+
+void jit_shlr(int dreg, int sreg) {
+  uint32_t op = 0xe1a00010;
+  op |= (sreg<<0);
+  op |= (dreg<<12);
+  op |= (dreg<<8);
+  code[code_idx++] = op;
+}
+
+void jit_shrr(int dreg, int sreg) {
+  uint32_t op = 0xe1a00030;
+  op |= (sreg<<0);
+  op |= (dreg<<12);
+  op |= (dreg<<8);
+  code[code_idx++] = op;
+}
+
 void jit_call(void* func, char* note) {
   code[code_idx++] = 0xe92d4000; // stmfd	sp!, {lr}
   jit_movr(14,15);

@@ -321,8 +321,8 @@ void uart_repl() {
   Cell* expr;
   char c = 0;
 
-  strcpy(in_line,"(eval (read (recv (open \"/sd/font.l\"))))\n");
-  c=13;
+  //strcpy(in_line,"(eval (read (recv (open \"/sd/font.l\"))))\n");
+  //c=13;
   
   //r3d_init(FB);
   //uart_puts("-- R3D initialized.\r\n");
