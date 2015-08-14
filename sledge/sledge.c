@@ -18,6 +18,10 @@ Cell* platform_eval(Cell* expr); // FIXME
 #include "compiler_arm_hosted.c"
 #endif
 
+#ifdef CPU_X86
+#include "compiler_x86.c"
+#endif
+
 ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 
 int main(int argc, char *argv[])
@@ -51,12 +55,18 @@ int main(int argc, char *argv[])
   void mount_posixfs();
   mount_posixfs();
 #endif
+
+#ifdef DEV_BIOS
+  void mount_bios();
+  mount_bios();
+#endif
   
   while (1) {
     expr = NULL;
     
     printf(KWHT "sledge> ");
     len = 0;
+    
     int r = getline(&in_line, &len, stdin);
 
     if (r<1 || !in_line) exit(0);

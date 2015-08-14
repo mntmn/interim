@@ -63,6 +63,11 @@ static Cell* consed_type_error;
 #define PTRSZ 8
 #endif
 
+#ifdef CPU_X86
+#include "jit_x86.c"
+#define PTRSZ 4
+#endif
+
 typedef enum arg_t {
   ARGT_CONST,
   ARGT_CELL,

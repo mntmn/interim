@@ -8,7 +8,7 @@
 
 #define env_t StrMap
 
-#ifdef CPU_ARM
+#if defined(CPU_ARM) || defined(CPU_X86)
 #define STACK_FRAME_MARKER 0x11111111
 #endif
 
