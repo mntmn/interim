@@ -103,7 +103,9 @@ void load_int(int dreg, Arg arg, Frame* f) {
     if (arg.cell == NULL) {
       // not sure what this is
       //if (dreg!=R0) jit_movr(dreg, R0);
-      jit_movr(dreg, ARGR0+arg.slot); // FIXME: really true?
+      if (dreg!=ARGR0+arg.slot) {
+        jit_movr(dreg, ARGR0+arg.slot); // FIXME: really true?
+      }
       jit_ldr(dreg);
     } else {
       // argument is a cell pointer
@@ -123,7 +125,9 @@ void load_int(int dreg, Arg arg, Frame* f) {
     jit_ldr(dreg);
   }
   else if (arg.type == ARGT_INT) {
-    // do nothing
+    if (dreg!=ARGR0+arg.slot) {
+      jit_movr(dreg, ARGR0+arg.slot); // FIXME: really true?
+    }
   }
   else if (arg.type == ARGT_STACK) {
     jit_ldr_stack(dreg, PTRSZ*(arg.slot+f->sp));
