@@ -841,8 +841,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     
       //jit_push(R1,R1);
       //frame->sp++;
-      load_int(R2,argdefs[1], frame); // offset -> R2
+
+      // FIXME: loading R2,R3 breaks on arm and int args
+      
       load_int(R3,argdefs[2], frame); // byte to store -> R3
+      load_int(R2,argdefs[1], frame); // offset -> R2
       load_cell(R0,argdefs[0], frame);
       
       jit_movr(R1,R0);
@@ -872,8 +875,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_GET32: {
-      load_int(R2,argdefs[1], frame); // offset -> R2
       load_cell(R3,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame); // offset -> R2
       jit_ldr(R3); // string address
       jit_addr(R3,R2);
       jit_ldrw(R3); // load to r3
@@ -889,10 +892,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       //sprintf(label_skip,"skip_%d",++label_skip_count);
     
       //jit_movr(R8,R1);
+      load_int(R3,argdefs[2], frame); // word to store -> R3
       load_int(R2,argdefs[1], frame); // offset -> R2
       //jit_cmpi(R2,0);
       //jit_jneg(label_skip); // negative offset?
-      load_int(R3,argdefs[2], frame); // word to store -> R3
       load_cell(R1,argdefs[0], frame);
       
       //jit_movr(R0,R1);
