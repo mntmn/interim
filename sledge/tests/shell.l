@@ -43,10 +43,8 @@
   (while (lt iy rune-h) (do
     (let ix 0)
     (while (lt ix rune-ww) (do
-      (print (list "about to get" so ix))
       (let c (get font (+ so ix)))
       (let d (get font (+ 1 (+ so ix))))
-      (print (list c d do ix))
       (put fb (+ do ix) c)
       (put fb (+ (+ do ix) 1) d)
       (let ix (+ ix 2))
@@ -165,7 +163,6 @@
     (let blink (% (+ blink 1) 20))
     (send scr 0)
 
-    (print "about to gc")
     (gc)
   ))
 )))
