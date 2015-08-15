@@ -103,8 +103,8 @@ void load_int(int dreg, Arg arg, Frame* f) {
     if (arg.cell == NULL) {
       // not sure what this is
       //if (dreg!=R0) jit_movr(dreg, R0);
-      if (dreg!=ARGR0+arg.slot) {
-        jit_movr(dreg, ARGR0+arg.slot); // FIXME: really true?
+      if (dreg!=R1+arg.slot) {
+        jit_movr(dreg, R1+arg.slot); // FIXME: really true?
       }
       jit_ldr(dreg);
     } else {
@@ -125,8 +125,8 @@ void load_int(int dreg, Arg arg, Frame* f) {
     jit_ldr(dreg);
   }
   else if (arg.type == ARGT_INT) {
-    if (dreg!=ARGR0+arg.slot) {
-      jit_movr(dreg, ARGR0+arg.slot); // FIXME: really true?
+    if (dreg!=R1+arg.slot) {
+      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
     }
   }
   else if (arg.type == ARGT_STACK) {
@@ -142,7 +142,7 @@ void load_cell(int dreg, Arg arg, Frame* f) {
   if (arg.type == ARGT_CELL || arg.type == ARGT_CONST) {
     if (arg.cell == NULL) {
       // not sure what this is
-      jit_movr(dreg, ARGR0+arg.slot); // FIXME: really true?
+      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
     } else {
       // argument is a cell pointer
       jit_lea(dreg, arg.cell);
@@ -367,7 +367,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           // save registers
           // FIXME RETHINK
 
-          jit_push(ARGR0,ARGR0+argi-1);
+          jit_push(R1,R1+argi-1);
           frame->sp+=(1+argi-1);
         }
         given_tag = compile_expr(arg, frame, signature_arg->value);
@@ -378,14 +378,14 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
         if (given_tag == TAG_INT) {
           argdefs[argi].type = ARGT_INT;
-          jit_movr(ARGR0+argi,ARGR0);
+          jit_movr(R1+argi,ARGR0);
         } else {
           argdefs[argi].type = ARGT_CELL;
-          jit_movr(ARGR0+argi,R0);
+          jit_movr(R1+argi,R0);
         }
         
         if (argi>0) {
-          jit_pop(ARGR0,ARGR0+argi-1);
+          jit_pop(R1,R1+argi-1);
           frame->sp-=(1+argi-1);
         }
       }
