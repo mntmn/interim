@@ -1,8 +1,13 @@
 (
 (def rgb888->565 (fn orig (do
-  (let sz (size orig))
+  (let sz 0)
   (let i 0)
   (let j 0)
+  (let r 0)
+  (let g 0)
+  (let b 0)
+  (let rgb 0)
+  (let sz (size orig))
   (let out (alloc (/ sz 2)))
   (while (lt i sz) (do
     (let r (shl (shr (get orig (+ i 2)) 3) 11))
@@ -18,8 +23,12 @@
   out
 )))
 
+(blit-str "loading tiles..." 0 0)
+
 (def f (open "/sd/smb3.888"))
 (def mariotiles (rgb888->565 (recv f)))
+
+(blit-str "loading sprites..." 0 0)
 
 (def sprites (rgb888->565 (load "/sd/mario.888")))
 
@@ -88,5 +97,18 @@
   (set-unifont)
 )))
 
-(mario)
+(def mario2 (fn (do
+  (let c 0)
+  (while (eq c 0) (do
+    (mario)
+    (print (gc))
+    
+    (let str (recv k))
+    (let c (get str 0))
+  ))
+  0
+)))
+
+(mario2)
+(main)
 )

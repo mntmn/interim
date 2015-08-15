@@ -228,7 +228,7 @@ Cell* read_string(char* in) {
   }
   if (rs.state!=PST_ATOM) {
     //printf("<read error: unexpected end of input.>\n");
-    return alloc_error(ERR_SYNTAX);
+    //return alloc_error(ERR_SYNTAX);
   }
 
   Cell* root = *rs.stack;

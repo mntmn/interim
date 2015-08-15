@@ -6,6 +6,7 @@
 
 (def load (fn path (recv (open path))))
 (def ls (fn (load "/sd/")))
+(def run (fn path (eval (read (recv (open path))))))
 
 (def scr (open "/framebuffer"))
 (def fb (mmap "/framebuffer"))
@@ -33,11 +34,18 @@
 (def screen-pitch  3840)
 
 (def blit-char (fn rune x y (do
+  (let sx 0)
+  (let sy 0)
+  (let so 0)
+  (let do 0)
+  (let iy 0)
+  (let rune-ww 0)
+  
   (let sx (* rune-w (% rune rune-mod)))
   (let sy (* rune-h (/ rune rune-mod)))
   (let so (+ (* sx 2) (* sy font-pitch)))
   (let do (+ (*  x 2) (*  y screen-pitch)))
-  (let iy 0)
+
   (let rune-ww (+ rune-w rune-w))
   
   (while (lt iy rune-h) (do
@@ -53,6 +61,7 @@
     (let do (+ do screen-pitch))
     (let iy (+ iy 1))
   ))
+  0
 )))
 
 ; 112 x 30 chars at scale 2
@@ -65,9 +74,9 @@
 
 (def blit-str (fn str x y (do
   (let i 0)
-  (let xx x)
-  (let yy y)
-  (let sz (size str))
+  (let xx (+ x 0))
+  (let yy (+ y 0))
+  (let sz (+ (size str) 0))
   (while (lt i sz) (do
     (blit-char (get str i) xx yy)
     (let xx (+ xx rune-spacing))
@@ -163,7 +172,7 @@
     (let blink (% (+ blink 1) 20))
     (send scr 0)
 
-    (gc)
+    (print (gc))
   ))
 )))
 

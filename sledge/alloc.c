@@ -189,7 +189,11 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
       if (sw_state==2) {
         sw_state=1;
       } else if (sw_state==1) {
-        mark_tree((Cell*)item);
+        // FIXME total hack, need type information for stack
+        // maybe type/signature byte frame header?
+        if ((Cell*)item>cell_heap) {
+          mark_tree((Cell*)item);
+        }
       }
     }
 
@@ -260,7 +264,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
     cell_heap[i].tag &= ~TAG_MARK;
   }
   
-  printf("[gc] highwater %d fl_avail %d \r\n",highwater,free_list_avail);
+  //printf("[gc] highwater %d fl_avail %d \r\n",highwater,free_list_avail);
   cells_used = highwater+1;
   
 #ifdef DEBUG_GC

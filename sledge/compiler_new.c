@@ -70,7 +70,8 @@ typedef enum arg_t {
   ARGT_LAMBDA,
   ARGT_REG,
   ARGT_INT,
-  ARGT_STACK
+  ARGT_STACK,
+  ARGT_STACK_INT
 } arg_t;
 
 typedef struct Arg {
@@ -133,6 +134,9 @@ void load_int(int dreg, Arg arg, Frame* f) {
     jit_ldr_stack(dreg, PTRSZ*(arg.slot+f->sp));
     jit_ldr(dreg);
   }
+  else if (arg.type == ARGT_STACK_INT) {
+    jit_ldr_stack(dreg, PTRSZ*(arg.slot+f->sp));
+  }
   else {
     jit_movi(dreg, 0xdeadbeef);
   }
@@ -157,6 +161,17 @@ void load_cell(int dreg, Arg arg, Frame* f) {
   }
   else if (arg.type == ARGT_STACK) {
     jit_ldr_stack(dreg, PTRSZ*(arg.slot+f->sp));
+  }
+  else if (arg.type == ARGT_STACK_INT) {
+    // FIXME possible ARGR0 clobbering
+    int adjust = 0;
+    if (dreg!=ARGR0) {jit_push(ARGR0,ARGR0); adjust++;}
+    if (dreg!=R0) {jit_push(R0,R0); adjust++;}
+    jit_ldr_stack(ARGR0, PTRSZ*(arg.slot+f->sp+adjust));
+    jit_call(alloc_int, "alloc_int");
+    jit_movr(dreg,R0);
+    if (dreg!=R0) jit_pop(R0,R0);
+    if (dreg!=ARGR0) jit_pop(ARGR0,ARGR0);
   }
   else {
     jit_movi(dreg, 0xdeadcafe);
@@ -316,10 +331,17 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     return 0;
   }
   Cell* op = op_env->cell;
+
+  int is_let = 0;
   
   //printf("op tag: %d\n",op->tag);
   if (op->tag == TAG_BUILTIN) {
     signature_args = op->next;
+
+    if (op->value == BUILTIN_LET) {
+      is_let = 1;
+    }
+    
   } else if (op->tag == TAG_LAMBDA) {
     signature_args = car((Cell*)(op->addr));
   }
@@ -349,6 +371,26 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
     if (arg && (!signature_args || signature_arg)) {
       int given_tag = arg->tag;
+
+      if (is_let && argi==1) {
+        int type_hint = -1;
+        // check the symbol to see if we already have type information
+        int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
+        if (fidx>=0) {
+          printf("existing type information for %s: %d\r\n", argdefs[0].cell->addr,fn_frame[fidx].type);
+          type_hint = fn_frame[fidx].type;
+        }
+      
+        if (given_tag == TAG_INT || type_hint == ARGT_STACK_INT) {
+          printf("INT mode of let\r\n");
+          // let prefers raw integers!
+          signature_arg->value = TAG_INT;
+        } else {
+          printf("ANY mode of let\r\n");
+          // but cells are ok, too
+          signature_arg->value = TAG_ANY;
+        }
+      }
 
       if (!signature_args) {
         // any number of arguments allowed
@@ -561,11 +603,26 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_LET: {
-      load_cell(R0, argdefs[1], frame);
+      int is_int = 0;
 
-      int offset = argi + frame->locals;      
+      int offset = argi + frame->locals;
       int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
 
+      // el cheapo type inference
+      if (1 &&
+          (argdefs[1].type == ARGT_INT ||
+           argdefs[1].type == ARGT_STACK_INT ||
+           (argdefs[1].type == ARGT_CONST && argdefs[1].cell->tag == TAG_INT) ||
+           (fidx>=0 && fn_frame[fidx].type == ARGT_STACK_INT) // already defined as int TODO: error on attempted type change
+         )) {
+        load_int(R0, argdefs[1], frame);
+        is_int = 1;
+        compiled_type = TAG_INT;
+      } else {
+        load_cell(R0, argdefs[1], frame);
+        compiled_type = TAG_ANY;
+      }
+      
       if (fidx >= 0) {
         // existing stack entry
         offset = fidx;
@@ -573,9 +630,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       } else {
         fn_frame[offset].name = argdefs[0].cell->addr;
         fn_frame[offset].cell = NULL;
-        fn_frame[offset].type = ARGT_STACK;
+        if (is_int) {
+          fn_frame[offset].type = ARGT_STACK_INT;
+        } else {
+          fn_frame[offset].type = ARGT_STACK;
+        }
         fn_frame[offset].slot = frame->locals;
-        //printf("++ frame entry %s, new stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
+        printf("++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
         frame->locals++;
       }
       
@@ -830,6 +891,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       //jit_label(label_skip);
       
       jit_movr(ARGR0, R3);
+      if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int,"alloc_int");
       break;
     }
