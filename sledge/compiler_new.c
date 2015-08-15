@@ -26,7 +26,7 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_t** env) {
   
   if (found) {
     e->cell = cell;
-    printf("[insert_symbol] update %s entry at %p (cell: %p value: %d)\r\n",symbol->addr,e,e->cell,e->cell->value);
+    //printf("[insert_symbol] update %s entry at %p (cell: %p value: %d)\r\n",symbol->addr,e,e->cell,e->cell->value);
     return e->cell;
   }
     
@@ -103,7 +103,7 @@ void load_int(int dreg, Arg arg, Frame* f) {
     if (arg.cell == NULL) {
       // not sure what this is
       //if (dreg!=R0) jit_movr(dreg, R0);
-      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
+      jit_movr(dreg, ARGR0+arg.slot); // FIXME: really true?
       jit_ldr(dreg);
     } else {
       // argument is a cell pointer
@@ -138,7 +138,7 @@ void load_cell(int dreg, Arg arg, Frame* f) {
   if (arg.type == ARGT_CELL || arg.type == ARGT_CONST) {
     if (arg.cell == NULL) {
       // not sure what this is
-      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
+      jit_movr(dreg, ARGR0+arg.slot); // FIXME: really true?
     } else {
       // argument is a cell pointer
       jit_lea(dreg, arg.cell);
@@ -374,10 +374,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
         if (given_tag == TAG_INT) {
           argdefs[argi].type = ARGT_INT;
-          jit_movr(R1+argi,ARGR0);
+          jit_movr(ARGR0+argi,ARGR0);
         } else {
           argdefs[argi].type = ARGT_CELL;
-          jit_movr(R1+argi,R0);
+          jit_movr(ARGR0+argi,R0);
         }
         
         if (argi>0) {
@@ -653,7 +653,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_IF: {
       // load the condition
-      load_int(R0,argdefs[0], frame);
+      load_int(R0, argdefs[0], frame);
 
       char label_skip[64];
       sprintf(label_skip,"else_%d",++label_skip_count);

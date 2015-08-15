@@ -117,7 +117,6 @@
   (while running (do
     (let str (recv k))
     (let c (get str 0))
-    (print c)
 
     (if (gt c 0) (print c) 0)
 
@@ -162,7 +161,7 @@
     (if (gt blink 9)
       (blit-char 0x2588 term-x term-y) (blit-char 32 term-x term-y))
     (let blink (% (+ blink 1) 20))
-    ; (send scr 0)
+    (send scr 0)
 
     (print "about to gc")
     (gc)
