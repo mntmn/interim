@@ -653,13 +653,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_IF: {
       // load the condition
-      load_int(R1,argdefs[0], frame);
+      load_int(R0,argdefs[0], frame);
 
       char label_skip[64];
       sprintf(label_skip,"else_%d",++label_skip_count);
       
       // compare to zero
-      jit_cmpi(R1,0);
+      jit_cmpi(R0,0);
       jit_je(label_skip);
 
       int tag = compile_expr(argdefs[1].cell, frame, return_type);

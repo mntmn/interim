@@ -218,15 +218,17 @@ Cell* read_string(char* in) {
     read_char(in[i], &rs);
     if (rs.state>=10) {
       //print("<read error %d at %d.>\n",rs.state,i);
-      break;
+      return alloc_error(ERR_SYNTAX);
     }
     //printf("rs %c: %d\n", in[i], rs.state);
   }
   if (rs.level!=0) {
-    //print("<missing %d closing parens.>\n",rs.level);
+    //print("<missing %d closing parens.>\r\n",rs.level);
+    return alloc_error(ERR_SYNTAX);
   }
   if (rs.state!=PST_ATOM) {
     //printf("<read error: unexpected end of input.>\n");
+    return alloc_error(ERR_SYNTAX);
   }
 
   Cell* root = *rs.stack;

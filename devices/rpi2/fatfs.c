@@ -1,7 +1,7 @@
 static struct fs* fat_fs;
 
 void vfs_register(struct fs *fs) {
-  printf("~~ vfs_register: %s/%s block_size: %d\r\n",fs->parent->device_name,fs->fs_name,fs->block_size);
+  printf("~~ vfs_register: %s/%s (%p) block_size: %d\r\n",fs->parent->device_name,fs->fs_name,fs,fs->block_size);
   printf("~~ read_directory: %p fopen: %p\r\n",fs->read_directory,fs->fopen);
 
   //char* name = "/";
@@ -13,7 +13,12 @@ void vfs_register(struct fs *fs) {
 
 static Cell* _fatfs_stream;
 
+void fatfs_debug() {
+  printf("[fatfs_debug] fs: %p read_directory: %p\r\n",fat_fs,fat_fs->read_directory);
+}
+
 Cell* fatfs_open(Cell* cpath) {
+  printf("[fatfs_open] called\r\n");
   if (!cpath || cpath->tag!=TAG_STR) {
     printf("[fatfs_open] error: non-string path given\r\n");
     _fatfs_stream = alloc_string_copy("404");
@@ -21,9 +26,15 @@ Cell* fatfs_open(Cell* cpath) {
   }
 
   char* path = cpath->addr;
+  //struct fs* fat_fs = &fat_fs_;
   
   if (!strncmp(path,"/sd/",4) && fat_fs) {
     char* name = NULL;
+    printf("[fatfs] about to read_directory… %p (%p)\r\n",fat_fs,fat_fs->read_directory);
+    if (!fat_fs->read_directory) {
+      printf("[fatfs] fatal error, fat_fs->read_directory is null.\r\n");
+      return NULL;
+    }
     struct dirent* dir = fat_fs->read_directory(fat_fs,&name);
 
     char* filename = NULL;

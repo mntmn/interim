@@ -41,8 +41,8 @@ Cell* fs_open(Cell* path) {
       stream_id++;
 
       // open the filesystem
-      //printf("[open] open_fn: %p\n", s->fs->open_fn);
       if (s->fs->open_fn && s->fs->open_fn->next) {
+        printf("[open] open_fn: %p\r\n", s->fs->open_fn->next);
         Cell* open_fn = s->fs->open_fn;
         ((funcptr2)open_fn->next)(path, NULL);
       }

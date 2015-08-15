@@ -241,17 +241,17 @@ void jit_xorr(int dreg, int sreg) {
 
 void jit_shlr(int dreg, int sreg) {
   uint32_t op = 0xe1a00010;
-  op |= (sreg<<0);
+  op |= (sreg<<8);
   op |= (dreg<<12);
-  op |= (dreg<<8);
+  op |= (dreg<<0);
   code[code_idx++] = op;
 }
 
 void jit_shrr(int dreg, int sreg) {
   uint32_t op = 0xe1a00030;
-  op |= (sreg<<0);
+  op |= (sreg<<8);
   op |= (dreg<<12);
-  op |= (dreg<<8);
+  op |= (dreg<<0);
   code[code_idx++] = op;
 }
 

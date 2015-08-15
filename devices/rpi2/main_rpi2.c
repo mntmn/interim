@@ -85,13 +85,8 @@ void main()
   uart_puts(buf);
 
   memset(FB,0xff,1920*1080*2);
-
-  printf("speedtest…\r\n");
-  //while (!uart_getc()) {};
-  int j=0;
-  for (int i=100000000; i>0; i--) { j+=i; }
-  printf("done… %d\r\n",j);
-  //while (!uart_getc()) {};
+  
+  printf("malloc4096 test 0: %p\r\n",malloc(4096));
   
   // uspi glue
   printf("uu uspi glue init…\r\n");
@@ -114,23 +109,25 @@ void main()
   //eth_rx_buffer=malloc(64*1024);*/
   
   libfs_init();
-
+  printf("malloc4096 test 4: %p\r\n",malloc(4096));
+  
   const int border = 32;
   
-  for (int y=0; y<1080; y++) {
+  /*for (int y=0; y<1080; y++) {
     for (int x=0; x<1920; x++) {
       if (x<32 || y<32 || y>(1080-32) || x>(1920-32)) {
         ((uint16_t*)FB)[x+y*1920] = 0x000f;
       }
     }
-  }
+  }*/
   
   uart_repl();
 }
 
 #include "devices/fbfs.c"
 #include "devices/rpi2/fatfs.c"
-#include "devices/rpi2/usbkeys.c"
+//#include "devices/rpi2/usbkeys.c"
+#include "devices/rpi2/uartkeys.c"
 
 #include <os/libc_glue.c>
 
@@ -289,28 +286,48 @@ Cell* platform_eval(Cell* expr); // FIXME
 
 #include "compiler_new.c"
 
-#define CODESZ 4096
+#define CODESZ 8192
 #define REPLBUFSZ 1024*6
 
+void fatfs_debug(); // FIXME
+
 void uart_repl() {
+  fatfs_debug();
   uart_puts("~~ trying to malloc repl buffers\r\n");
+  sbrk(0);
+  fatfs_debug();
   char* out_buf = malloc(REPLBUFSZ);
   char* in_line = malloc(REPLBUFSZ);
   char* in_buf = malloc(REPLBUFSZ);
+  sbrk(0);
   uart_puts("\r\n\r\n++ welcome to sledge arm/32 (c)2015 mntmn.\r\n");
+  fatfs_debug();
   
+  printf("malloc4096 test 1: %p\r\n",malloc(4096));
   init_compiler();
+  printf("malloc4096 test 2: %p\r\n",malloc(4096));
+  fatfs_debug();
   //insert_rootfs_symbols();
   mount_fbfs(FB);
-  mount_usbkeys();
+  printf("malloc4096 test 3: %p\r\n",malloc(4096));
+  fatfs_debug();
+  //mount_usbkeys();
+  mount_uartkeys();
   mount_fatfs();
+  fatfs_debug();
   
   uart_puts("\r\n~~ fs initialized.\r\n");
-  
-  memset(out_buf,0,REPLBUFSZ);
-  memset(in_line,0,REPLBUFSZ);
-  memset(in_buf,0,REPLBUFSZ);
 
+  printf("out_buf clear %p\r\n",out_buf);
+  memset(out_buf,0,REPLBUFSZ);
+  fatfs_debug();
+  printf("in_line clear %p\r\n",in_line);
+  memset(in_line,0,REPLBUFSZ);
+  fatfs_debug();
+  printf("in_buf clear %p\r\n",in_buf);
+  memset(in_buf,0,REPLBUFSZ);
+  fatfs_debug();
+  
   long count = 0;
   
   int in_offset = 0;
@@ -321,8 +338,8 @@ void uart_repl() {
   Cell* expr;
   char c = 0;
 
-  //strcpy(in_line,"(eval (read (recv (open \"/sd/font.l\"))))\n");
-  //c=13;
+  strcpy(in_line,"(eval (read (recv (open \"/sd/shell.l\"))))\n");
+  c=13;
   
   //r3d_init(FB);
   //uart_puts("-- R3D initialized.\r\n");
@@ -401,7 +418,7 @@ Cell* platform_eval(Cell* expr) {
     i++;
     code = malloc(CODESZ);
     memset(code, 0, CODESZ);
-    jit_init(0x300);
+    jit_init(0x400);
     register void* sp asm ("sp"); // FIXME maybe unportable
     Frame empty_frame = {NULL, 0, 0, sp};
     int tag = compile_expr(c, &empty_frame, TAG_ANY);
@@ -422,7 +439,8 @@ Cell* platform_eval(Cell* expr) {
       lisp_write(res, buf, 512);
       printf("~> %s\r\n",buf);
     } else {
-      printf("[platform_eval] stopped at expression %d.\r\n",i);
+      lisp_write(expr, buf, 512);
+      printf("[platform_eval] stopped at expression %d: '%s'\r\n",i,buf);
       break;
     }
     // when to free the code? -> when no bound lambdas involved
