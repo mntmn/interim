@@ -52,6 +52,8 @@ static Cell* cell_heap_start;
 static int label_skip_count = 0;
 static char temp_print_buffer[1024];
 static Cell* consed_type_error;
+static Cell* reusable_type_error;
+static Cell* reusable_nil;
 
 #ifdef CPU_ARM
 #include "jit_arm_raw.c"
@@ -829,6 +831,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // ------------------------------
       
       jit_ldr(R0);
+      jit_lea(R2,reusable_nil);
       jit_cmpi(R0,0); // check for null cell
       jit_moveq(R0,R2);
       break;
@@ -839,7 +842,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
       // type check -------------------
       jit_movr(R1,R0);
-      jit_addi(R1,2*PTRSZ);
+      jit_addi(R1,PTRSZ); // because already added PTRSZ
       jit_ldr(R1);
       jit_lea(R2,consed_type_error);
       jit_cmpi(R1,TAG_CONS);
@@ -847,6 +850,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // ------------------------------
 
       jit_ldr(R0);
+      jit_lea(R2,reusable_nil);
       jit_cmpi(R0,0); // check for null cell
       jit_moveq(R0,R2);
       break;
@@ -1140,7 +1144,12 @@ void init_compiler() {
   printf("[compiler] init_allocator…\r\n");
   init_allocator();
 
-  consed_type_error = alloc_cons(alloc_error(ERR_INVALID_PARAM_TYPE),alloc_nil());
+  reusable_nil = alloc_nil();
+  reusable_type_error = alloc_error(ERR_INVALID_PARAM_TYPE);
+  consed_type_error = alloc_cons(reusable_type_error,reusable_nil);
+
+  insert_symbol(alloc_sym("nil"), reusable_nil, &global_env);
+  insert_symbol(alloc_sym("type_error"), consed_type_error, &global_env);
   
   printf("[compiler] inserting symbols…\r\n");
   

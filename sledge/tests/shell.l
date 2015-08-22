@@ -4,6 +4,10 @@
 (def not (fn a (if a 0 1)))
 (def eq (fn a b (lt (+ (lt a b) (gt a b)) 1)))
 
+(def sintab [80828486888b8d8f919496989a9c9ea1a3a5a7a9abadafb2b4b6b8babcbec0c1c3c5c7c9cbcdced0d2d3d5d7d8dadcdddfe0e2e3e4e6e7e8eaebecedeeeff1f2f3f4f4f5f6f7f8f9f9fafbfbfcfcfdfdfefefeffffffffffffff00fffffffffffffffefefefdfdfcfcfbfbfaf9f9f8f7f6f5f4f4f3f2f1efeeedecebeae8e7e6e4e3e2e0dfdddcdad8d7d5d3d2d0cecdcbc9c7c5c3c1c0bebcbab8b6b4b2afadaba9a7a5a3a19e9c9a989694918f8d8b88868482807d7b79777472706e6b69676563615e5c5a58565452504d4b49474543413f3e3c3a38363432312f2d2c2a2827252322201f1d1c1b1918171514131211100e0d0c0b0b0a0908070606050404030302020101010000000000000000000000000000000101010202030304040506060708090a0b0b0c0d0e1011121314151718191b1c1d1f2022232527282a2c2d2f31323436383a3c3e3f41434547494b4d50525456585a5c5e61636567696b6e70727477797b7d])
+
+(def sin (fn deg (get sintab (% deg 360))))
+
 (def load (fn path (recv (open path))))
 (def ls (fn (load "/sd/")))
 (def run (fn path (eval (read (recv (open path))))))
@@ -68,9 +72,9 @@
 
 ; 112 x 30 chars at scale 2
 
-(def scale 1)
-(def maxx 1847)
-(def maxy 1015)
+(def scale 2)
+(def maxx (/ 1847 scale))
+(def maxy (/ 1015 scale))
 (def minx 32)
 (def miny 32)
 
@@ -121,9 +125,119 @@
 (def history (list))
 (def future (list))
 
+(def buffer "")
+
+(def history-back (fn (do
+  (def buffer (car history))
+
+  (def future (cons (car history) future))
+  (def history (cdr history))
+  (print (list "history:" history "future:" future))
+
+  (def term-x (+ minx (* rune-spacing (strlen buffer))))
+  (blit-str buffer minx term-y)
+)))
+
+(def history-forth (fn (do
+  (def buffer (car future))
+  
+  (def history (cons (car future) history))
+  (def future (cdr future))
+  (print (list "history:" history "future:" future))
+  
+  (def term-x (+ minx (* rune-spacing (strlen buffer))))
+  (blit-str buffer minx term-y)
+)))
+
+(def tasks (list))
+
+(def test (fn (do
+  (print "hello from test")
+  (p history 0 0)
+)))
+
+(def add-task (fn t (do
+  (def tasks (cons t tasks))
+)))
+
+(def task-func (fn (print "hello from placeholder")))
+
+(def run-tasks (fn (do
+  (let tl tasks)
+  (while (car tl) (do
+    (def task-func (car tl))
+    (print (list "run-task " task-func))
+    (task-func)
+    (let tl (cdr tl))
+  ))
+)))
+
+(def set-pixel (fn x y c (do
+  (let ofs (+ (* y screen-pitch) (shl x 1)))
+  (put fb ofs c)
+  (put fb (+ 1 ofs) c)
+  c
+)))
+
+(def abs (fn a (if (lt a 0) (- 0 a) a)))
+
+(def line (fn a b (do
+  (let xa (car a))
+  (let ya (car (cdr a)))
+  (let xb (car b))
+  (let yb (car (cdr b)))
+  
+  (let dx (abs (- xb xa)))
+  (let dy (abs (- yb ya)))
+  (let sx (if (lt xa xb) 1 -1))
+  (let sy (if (lt ya yb) 1 -1))
+
+  (let err (if (gt dx dy) dx (- 0 dy)))
+  (let err (/ err 2))
+  (let e2 0)
+
+  (while (not (and (eq xa xb) (eq ya yb))) (do
+    (set-pixel xa ya 0)
+    (let e2 err)
+    (if (gt e2 (- 0 dx)) (do (let err (- err dy)) (let xa (+ xa sx))) 0)
+    (if (lt e2       dy) (do (let err (+ err dx)) (let ya (+ ya sy))) 0)
+  ))
+  0
+)))
+
+(def pt list)
+
+(def triangle (fn a b c (do
+  (line a b)
+  (line b c)
+  (line a c)
+)))
+
+(def box (fn tl br (do
+  (let tr (list (car br) (car (cdr tl))))
+  (let bl (list (car tl) (car (cdr br))))
+  
+  (line tl tr)
+  (line bl br)
+  (line tr br)
+  (line tl bl)
+)))
+
+(def graph (fn center max (do
+  (let x 0)
+  (while (lt x max) (do
+    (print x)
+    (line (pt x (+ center (sin x))) (pt (+ x 1) (+ center (sin x))))
+    (let x (+ x 1))
+  ))
+  x
+)))
+
+
+(def ltest (fn (line (list 0 0) (list 20 20))))
+
 (def main (fn (do
   (let blink 0)
-  (let buffer "")
   (let running 1)
 
   (while running (do
@@ -135,14 +249,14 @@
     ; FIXME this aint working
     (if (* (gt c 0x1f) (not (eq 0x7f c))) (do
       (def term-y (blit-str str term-x term-y))
-      (let buffer (concat buffer str))
+      (def buffer (concat buffer str))
       (def term-x (+ term-x rune-spacing)) ) 0)
       
     (if (eq c 9) ; tab
       (do
         (blit-char 32 term-x term-y)
         (def term-y (+ term-y 16))
-        (def term-x 32) (let buffer "")) 0)
+        (def term-x 32) (def buffer "")) 0)
       
     (if (eq c 10) ; return
       (do
@@ -152,24 +266,16 @@
         
         (let r (eval (list (read buffer))))
         
-        (let buffer "")
+        (def buffer "")
         (def term-x 32) (def term-y (+ term-y rune-w))
         (def term-y (+ rune-h (p r term-x term-y)))
       ) 0)
 
     (if (eq c 17) ; cursor up
-      (do
-        (print "cursor-up")
-        (let buffer (car history))
-        (def future (cons (car history) history))
+      (history-back) 0)
         
-        (print buffer)
-        (def history (cdr history))
-        (print (list "history:" history "future:" future))
-        
-        (def term-x (+ minx (* rune-spacing (strlen buffer))))
-        (blit-str buffer minx term-y)
-        ) 0)
+    (if (eq c 18) ; cursor down
+      (history-forth) 0)
 
     (if (eq c 0x7f) ; bksp
       (if (gt (strlen buffer) 0)
@@ -178,7 +284,9 @@
         (def term-x (- term-x rune-spacing))
         (print buffer)
         (let nl (- (strlen buffer) 1))
-        (let buffer (substr buffer 0 nl)) ) 0) 0)
+        (def buffer (substr buffer 0 nl)) ) 0) 0)
+
+    (run-tasks)
 
     (if (gt term-x maxx) (do (def term-x minx) (def term-y (+ term-y rune-h))) 0)
 
