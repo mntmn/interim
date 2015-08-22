@@ -4,9 +4,11 @@
 (def not (fn a (if a 0 1)))
 (def eq (fn a b (lt (+ (lt a b) (gt a b)) 1)))
 
-(def sintab [80828486888b8d8f919496989a9c9ea1a3a5a7a9abadafb2b4b6b8babcbec0c1c3c5c7c9cbcdced0d2d3d5d7d8dadcdddfe0e2e3e4e6e7e8eaebecedeeeff1f2f3f4f4f5f6f7f8f9f9fafbfbfcfcfdfdfefefeffffffffffffff00fffffffffffffffefefefdfdfcfcfbfbfaf9f9f8f7f6f5f4f4f3f2f1efeeedecebeae8e7e6e4e3e2e0dfdddcdad8d7d5d3d2d0cecdcbc9c7c5c3c1c0bebcbab8b6b4b2afadaba9a7a5a3a19e9c9a989694918f8d8b88868482807d7b79777472706e6b69676563615e5c5a58565452504d4b49474543413f3e3c3a38363432312f2d2c2a2827252322201f1d1c1b1918171514131211100e0d0c0b0b0a0908070606050404030302020101010000000000000000000000000000000101010202030304040506060708090a0b0b0c0d0e1011121314151718191b1c1d1f2022232527282a2c2d2f31323436383a3c3e3f41434547494b4d50525456585a5c5e61636567696b6e70727477797b7d])
+(def sintab [80828486888b8d8f919496989a9c9ea1a3a5a7a9abadafb2b4b6b8babcbec0c1c3c5c7c9cbcdced0d2d3d5d7d8dadcdddfe0e2e3e4e6e7e8eaebecedeeeff1f2f3f4f4f5f6f7f8f9f9fafbfbfcfcfdfdfefefefffffffffffffffffffffffffffffffefefefdfdfcfcfbfbfaf9f9f8f7f6f5f4f4f3f2f1efeeedecebeae8e7e6e4e3e2e0dfdddcdad8d7d5d3d2d0cecdcbc9c7c5c3c1c0bebcbab8b6b4b2afadaba9a7a5a3a19e9c9a989694918f8d8b88868482807d7b79777472706e6b69676563615e5c5a58565452504d4b49474543413f3e3c3a38363432312f2d2c2a2827252322201f1d1c1b1918171514131211100e0d0c0b0b0a0908070606050404030302020101010000000000000000000000000000000101010202030304040506060708090a0b0b0c0d0e1011121314151718191b1c1d1f2022232527282a2c2d2f31323436383a3c3e3f41434547494b4d50525456585a5c5e61636567696b6e70727477797b7d])
 
 (def sin (fn deg (get sintab (% deg 360))))
+(def cos (fn deg (get sintab (% (+ deg 90) 360))))
+
 
 (def load (fn path (recv (open path))))
 (def ls (fn (load "/sd/")))
@@ -207,6 +209,8 @@
 
 (def pt list)
 
+(def stroke-color 0x0000)
+
 (def triangle (fn a b c (do
   (line a b)
   (line b c)
@@ -223,16 +227,24 @@
   (line tl bl)
 )))
 
-(def graph (fn center max (do
+(def circle (fn cx cy r (do
   (let x 0)
-  (while (lt x max) (do
-    (print x)
-    (line (pt x (+ center (sin x))) (pt (+ x 1) (+ center (sin x))))
+  (while (lt x 359) (do
+    (set-pixel (+ cx (* (sin x) r)) (+ cy (* (cos x) r)) stroke-color)
     (let x (+ x 1))
   ))
   x
 )))
 
+(def graph (fn center max (do
+  (let x 0)
+  (while (lt x max) (do
+    (print x)
+    (set-pixel x (+ center (sin (sin x))) stroke-color)
+    (let x (+ x 1))
+  ))
+  x
+)))
 
 (def ltest (fn (line (list 0 0) (list 20 20))))
 
