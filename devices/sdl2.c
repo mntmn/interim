@@ -9,7 +9,7 @@
 #define HEIGHT 1080
 #define BPP 2
 #define DEPTH 16
-#define SCALE 4
+#define SCALE 2
 
 SDL_Surface* win_surf;
 SDL_Surface* pixels_surf;
@@ -129,10 +129,16 @@ Cell* keyfs_read() {
     case SDL_KEYDOWN:
       sdl_modifiers = event.key.keysym.mod;
       printf("key: %d, mod: %x\r\n",event.key.keysym.sym,event.key.keysym.mod);
-      if (event.key.keysym.sym<200) {
-        sdl_key = event.key.keysym.sym;
+      sdl_key = event.key.keysym.sym;
+      if (sdl_key<200) {
       } else {
-        sdl_key = 0;
+        switch (sdl_key) {
+          case 1073741906: sdl_key = 17; break; // DC1 cursor up
+          case 1073741905: sdl_key = 18; break; // DC2 cursor down
+          case 1073741904: sdl_key = 19; break; // DC3 cursor left
+          case 1073741903: sdl_key = 20; break; // DC4 cursor right
+          default: sdl_key = 0;
+        }
       }
       if (sdl_modifiers&1 || sdl_modifiers&2) {
         if (sdl_key>='a' && sdl_key<='z') {

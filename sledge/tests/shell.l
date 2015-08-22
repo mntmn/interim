@@ -32,6 +32,8 @@
 )))
 
 (def screen-pitch  3840)
+(def fghi 0xff)
+(def fglo 0x00)
 
 (def blit-char (fn rune x y (do
   (let sx 0)
@@ -102,7 +104,7 @@
 
 (def k (open "/keyboard"))
 
-(def strlen (fn s (do
+(def strlen (fn s (if s (do
   (let i 0)
   (let sz (size s))
   (let c (get s 0))
@@ -110,13 +112,14 @@
     (let i (+ i 1))
     (let c (get s i))
   ))
-  i
-)))
+  i) 0)
+))
 
 (def term-x minx)
 (def term-y (+ miny 32))
 
 (def history (list))
+(def future (list))
 
 (def main (fn (do
   (let blink 0)
@@ -144,14 +147,30 @@
     (if (eq c 10) ; return
       (do
         (blit-char 32 term-x term-y)
-        (let r (eval (list (read buffer))))
-        (print r)
         (def history (cons buffer history))
+        (print history)
+        
+        (let r (eval (list (read buffer))))
+        
         (let buffer "")
         (def term-x 32) (def term-y (+ term-y rune-w))
         (def term-y (+ rune-h (p r term-x term-y)))
       ) 0)
-    
+
+    (if (eq c 17) ; cursor up
+      (do
+        (print "cursor-up")
+        (let buffer (car history))
+        (def future (cons (car history) history))
+        
+        (print buffer)
+        (def history (cdr history))
+        (print (list "history:" history "future:" future))
+        
+        (def term-x (+ minx (* rune-spacing (strlen buffer))))
+        (blit-str buffer minx term-y)
+        ) 0)
+
     (if (eq c 0x7f) ; bksp
       (if (gt (strlen buffer) 0)
       (do
@@ -171,8 +190,6 @@
       (blit-char 0x2588 term-x term-y) (blit-char 32 term-x term-y))
     (let blink (% (+ blink 1) 20))
     (send scr 0)
-
-    (print (gc))
   ))
 )))
 

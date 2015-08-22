@@ -1,4 +1,4 @@
-#define DEBUG
+//#define DEBUG
 
 Cell* execute_jitted(void* binary) {
   return (Cell*)((funcptr)binary)(0);

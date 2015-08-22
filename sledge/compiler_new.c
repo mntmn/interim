@@ -293,8 +293,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       env_entry* env = lookup_global_symbol(expr->addr);
       if (env) {
         Cell* value = env->cell;
-        jit_movi(R0,(jit_word_t)value);
-        return value->tag;
+        jit_movi(R0,(jit_word_t)env);
+        jit_ldr(R0);
+        return value->tag; // FIXME TODO forbid later type change
       } else {
         printf("undefined symbol %s\n",expr->addr);
         jit_movi(R0,0);
@@ -828,15 +829,17 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // ------------------------------
       
       jit_ldr(R0);
+      jit_cmpi(R0,0); // check for null cell
+      jit_moveq(R0,R2);
       break;
     }
     case BUILTIN_CDR: {
       load_cell(R0,argdefs[0], frame);
-      jit_addi(R0,PTRSZ); // TODO depends on machine word size
+      jit_addi(R0,PTRSZ);
 
       // type check -------------------
       jit_movr(R1,R0);
-      jit_addi(R1,PTRSZ);
+      jit_addi(R1,2*PTRSZ);
       jit_ldr(R1);
       jit_lea(R2,consed_type_error);
       jit_cmpi(R1,TAG_CONS);
@@ -844,6 +847,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // ------------------------------
 
       jit_ldr(R0);
+      jit_cmpi(R0,0); // check for null cell
+      jit_moveq(R0,R2);
       break;
     }
     case BUILTIN_CONS: {
@@ -866,31 +871,40 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_GET: {
-      char label_skip[64];
-      sprintf(label_skip,"skip_%d",++label_skip_count);
-   
       load_cell(R1,argdefs[0], frame);
       load_int(R2,argdefs[1], frame); // offset -> R2
-      //jit_cmpi(R2,0);
-      //jit_jneg(label_skip); // negative offset?
 
-      //jit_movr(R0,R3);
-      //jit_addi(R0,PTRSZ); // fetch size -> R0
-      //jit_ldr(R0);
+      char label_skip[64];
+      sprintf(label_skip,"skip_%d",++label_skip_count);
+      char label_ok[64];
+      sprintf(label_ok,"ok_%d",label_skip_count);
 
-      //jit_subr(R0,R2);
-      //jit_jneg(label_skip); // overflow? (R2>R0)
-      //jit_je(label_skip); // overflow? (R2==R0)
+      // init r3
+      jit_movi(R3, 0);
 
-      //jit_movr(R1,R2);
-      jit_movi(R3,0);
+      // type check
+      jit_addi(R1,2*PTRSZ);
+      jit_ldr(R1);
+      jit_cmpi(R1,TAG_BYTES); // todo: better perf with mask?
+      jit_je(label_ok);
+      jit_cmpi(R1,TAG_STR);
+      jit_je(label_ok);
+
+      // wrong type
+      jit_jmp(label_skip);
+
+      // good type
+      jit_label(label_ok);
+      load_cell(R1,argdefs[0], frame);
+      
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
       jit_ldrb(R1); // data in r3
 
-      //jit_label(label_skip);
+      jit_label(label_skip);
       
       jit_movr(ARGR0, R3);
+      
       if (return_type == TAG_INT) return TAG_INT;
       jit_call(alloc_int,"alloc_int");
       break;

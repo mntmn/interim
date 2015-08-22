@@ -60,6 +60,10 @@ void jit_movne(int dreg, int sreg) {
   fprintf(jit_out, "cmovne %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
+void jit_moveq(int dreg, int sreg) {
+  fprintf(jit_out, "cmoveq %s, %s\n", regnames[sreg], regnames[dreg]);
+}
+
 void jit_lea(int reg, void* addr) {
   fprintf(jit_out, "movq $%p, %s\n", addr, regnames[reg]);
 }
