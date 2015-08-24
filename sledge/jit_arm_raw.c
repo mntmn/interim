@@ -111,6 +111,14 @@ void jit_movne(int dreg, int sreg) {
   code[code_idx++] = op;
 }
 
+void jit_moveq(int dreg, int sreg) {
+  uint32_t op = 0x01a00000;
+  op |= (sreg<<0); // base reg = pc
+  op |= (dreg<<12); // dreg
+  
+  code[code_idx++] = op;
+}
+
 void jit_lea(int reg, void* addr) {
   jit_movi(reg, (uint32_t)addr);
 }

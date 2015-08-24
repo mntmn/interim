@@ -19,7 +19,6 @@
     (let i (+ i 4))
     (let j (+ j 2))
   ))
-  ; (print out)
   out
 )))
 
@@ -80,32 +79,62 @@
   (blit-char 0x465 (* 16 20) (* 16 9))
   (blit-char 0x466 (* 16 21) (* 16 9))
   
-  (let x 0)
+  (let x 200)
+  (let y 150)
   (let tick 0)
-  (while (lt x 100) (do
-    (set-mario-font)
-    (if tick 
-      (blit-str "vvvv" (* 16 20) (* 16 10))
-      (blit-str "wwww" (* 16 20) (* 16 10))
-    )
+  (let runs 1)
+  (let mario-rune 5)
+  
+  (while runs (do
+    ;(set-mario-font)
+    ;(if tick 
+    ;  (blit-str "vvvv" (* 16 20) (* 16 10))
+    ;  (blit-str "wwww" (* 16 20) (* 16 10))
+    ;)
     (set-sprite-font) 
-    (let tick (- 1 tick))
-    (blit-char (+ 5 tick) (+ 200 x) 150)
-    (let x (+ x 1))
+    
+    ;(let x (+ x 1))
+
+    (let str (recv k))
+    (let c (get str 0))
+
+    (if (eq c 17) (do ; walk up
+      (let y (- y 2))
+      (let tick (- 1 tick))
+    ) 0)
+    
+    (if (eq c 18) (do ; walk down
+      (let y (+ y 2))
+      (let tick (- 1 tick))
+    ) 0)
+    
+    (if (eq c 19) (do ; walk left
+      (let x (- x 2))
+      (let mario-rune 3)
+      (let tick (- 1 tick))
+    ) 0)
+
+    (if (eq c 20) (do ; walk right
+      (let x (+ x 2))
+      (let mario-rune 5)
+      (let tick (- 1 tick))
+    ) 0)
+
+    (if (eq c 32) (do
+      (let runs 0)
+    ) 0)
+    
+    (blit-char (+ mario-rune tick) x y)
+    
     (send scr 0)
+    ;(gc)
   ))
   (set-unifont)
 )))
 
 (def mario2 (fn (do
-  (let c 0)
-  (while (eq c 0) (do
-    (mario)
-    (print (gc))
-    
-    (let str (recv k))
-    (let c (get str 0))
-  ))
+  (mario)
+  (print (gc))
   0
 )))
 

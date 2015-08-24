@@ -180,8 +180,8 @@ void load_cell(int dreg, Arg arg, Frame* f) {
   }
 }
 
-#define MAXARGS 6
-#define MAXFRAME 16 // maximum 16-6 local vars
+#define MAXARGS 8
+#define MAXFRAME 24 // maximum MAXFRAME-MAXARGS local vars
 
 int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
   if (!fn_frame) return -1;
@@ -451,7 +451,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           
           //printf("argument %s from environment.\n", arg->addr);
         }
-        //printf("lookup result: %p\n",argptrs[argi]);
+        //printf("arg_frame_idx: %d\n",arg_frame_idx);
 
         if (!argdefs[argi].env && arg_frame_idx<0) {
           printf("undefined symbol %s given for argument %s.\n",arg->addr,arg_name);
@@ -608,7 +608,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_LET: {
       int is_int = 0;
 
-      int offset = argi + frame->locals;
+      int offset = MAXARGS + frame->locals;
       int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
 
       // el cheapo type inference
@@ -671,10 +671,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         fn_new_frame[j].slot = j;
         fn_new_frame[j].name = argdefs[j].cell->addr;
         fn_argc++;
+
+        printf("arg j %d: %s\r\n",j,fn_new_frame[j].name);
       }
       char sig_debug[128];
       lisp_write(fn_args, sig_debug, sizeof(sig_debug));
-      //printf("signature: %s\n",sig_debug);
+      printf("signature: %s\n",sig_debug);
 
       // body
       Cell* fn_body = argdefs[argi-2].cell;

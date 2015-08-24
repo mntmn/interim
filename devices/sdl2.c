@@ -47,17 +47,6 @@ void* sdl_init(int fullscreen)
 
 static int sdl_key = 0;
 static int sdl_modifiers = 0;
-int sdl_get_key() {
-  int k = sdl_key;
-  sdl_key = 0;
-  return k;
-}
-
-int sdl_get_modifiers() {
-  int m = sdl_modifiers;
-  return m;
-}
-
 
 void* sdl_get_fb() {
   return pixels_surf->pixels;
@@ -66,7 +55,6 @@ void* sdl_get_fb() {
 long sdl_get_fbsize() {
   return WIDTH*HEIGHT*BPP;
 }
-
 
 Cell* fbfs_open() {
   sdl_init(0);
