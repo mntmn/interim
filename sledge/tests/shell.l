@@ -193,6 +193,30 @@
 
 (def abs (fn a (if (lt a 0) (- 0 a) a)))
 
+(def boxfill (fn x y w h color (do
+  (let ofs 0)
+  (let xi (+ x 0))
+  (let yi (+ y 0))
+  (let xx (+ x w))
+  (let yy (+ y h))
+  (let chi (shr color 8))
+  (let clo (bitand color 0xff))
+  (let ofs (+ (* y screen-pitch) (shl x 1)))
+  (let ww (shl w 1))
+
+  (while (lt yi yy) (do
+    (let xi (+ x 0))
+    (while (lt xi xx) (do
+      (put fb ofs chi)
+      (put fb (+ 1 ofs) clo)
+      (let xi (+ xi 1))
+      (let ofs (+ ofs 2))
+    ))
+    (let ofs (- (+ ofs screen-pitch) ww))
+    (let yi (+ yi 1))
+  ))
+)))
+
 (def line (fn a b (do
   (let xa (car a))
   (let ya (car (cdr a)))

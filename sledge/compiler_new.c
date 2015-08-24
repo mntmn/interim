@@ -917,42 +917,26 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_PUT: {
       char label_skip[64];
-      //char label_noskip[64];
       sprintf(label_skip,"skip_%d",++label_skip_count);
-      //sprintf(label_noskip,"noskip_%d",label_skip_count);
-    
-      //jit_push(R1,R1);
-      //frame->sp++;
-
-      // FIXME: loading R2,R3 breaks on arm and int args
       
       load_int(R3,argdefs[2], frame); // byte to store -> R3
       load_int(R2,argdefs[1], frame); // offset -> R2
       load_cell(R0,argdefs[0], frame);
-      
+
+      // bounds check -----
       jit_movr(R1,R0);
-      //jit_cmpi(R2,0);
-      //jit_jneg(label_skip); // negative offset?
-
-      //jit_movr(R0,R1);
-      //jit_addi(R0,PTRSZ); // fetch size -> R0
-      //jit_ldr(R0);
-
-      //jit_subr(R0,R2);
-      //jit_jneg(label_skip); // overflow? (R2>R0)
-      //jit_je(label_skip); // overflow? (R2==R0)
+      jit_addi(R1,PTRSZ);
+      jit_ldr(R1);
+      jit_cmpr(R2,R1);
+      jit_jge(label_skip);
+      jit_movr(R1,R0);
+      // -------------------
 
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
       jit_strb(R1); // address is in r1, data in r3
 
-      //jit_jmp(label_noskip);
-      
-      //jit_label(label_skip);
-      //jit_pop(R0,R0); // restore arg0
-      //frame->sp--;
-      //jit_lea(R0,alloc_error(ERR_OUT_OF_BOUNDS));
-      //jit_label(label_noskip);
+      jit_label(label_skip);
       
       break;
     }
@@ -969,35 +953,29 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_PUT32: {
-      //char label_skip[64];
-      //char label_noskip[64];
-      //sprintf(label_skip,"skip_%d",++label_skip_count);
+      char label_skip[64];
+      sprintf(label_skip,"skip_%d",++label_skip_count);
     
-      //jit_movr(R8,R1);
       load_int(R3,argdefs[2], frame); // word to store -> R3
       load_int(R2,argdefs[1], frame); // offset -> R2
-      //jit_cmpi(R2,0);
-      //jit_jneg(label_skip); // negative offset?
       load_cell(R1,argdefs[0], frame);
+
+      // bounds check -----
+      jit_movr(R1,R0);
+      jit_addi(R1,PTRSZ);
+      jit_ldr(R1);
+      jit_cmpr(R2,R1);
+      jit_jge(label_skip);
+      jit_movr(R1,R0);
+      // -------------------
+
+      // TODO: 32-bit align
       
-      //jit_movr(R0,R1);
-      //jit_addi(R0,PTRSZ); // fetch size -> R0
-      //jit_ldr(R0);
-
-      // FIXME
-      //jit_subr(R0,R2);
-      //jit_jneg(label_skip); // overflow? (R2>R0)
-      //jit_je(label_skip); // overflow? (R2==R0)
-
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
       jit_strw(R1); // store from r3
       
-      //jit_jmp(label_noskip);
-      
-      //jit_label(label_skip);
-      //jit_pop(R0,R8); // restore arg0
-      //load_cell(R0,argdefs[0]);
+      jit_label(label_skip);
       jit_movr(R0,R1);
       jit_call(alloc_int,"debug");
       

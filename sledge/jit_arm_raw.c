@@ -351,8 +351,12 @@ void jit_emit_branch(uint32_t op, char* label) {
 }
 
 void jit_je(char* label) {
-  //printf("je to label: %s\r\n",label);
   uint32_t op = 0x0a000000; // beq
+  jit_emit_branch(op, label);
+}
+
+void jit_jge(char* label) {
+  uint32_t op = 0xaa000000; // bge
   jit_emit_branch(op, label);
 }
 
@@ -375,8 +379,6 @@ void jit_jmp(char* label) {
 void jit_label(char* label) {
   jit_labels[label_idx].name = strdup(label);
   jit_labels[label_idx].idx = code_idx;
-
-  //printf("register label: %s\r\n",label);
 
   Label* unres_lbl = NULL;
   while ((unres_lbl = find_unresolved_label(label))) {
