@@ -19,6 +19,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
   fclose(f);
 
   // disassemble
+#ifdef DEBUG
   system("arm-linux-gnueabihf-objdump -D -b binary -marmv5 /tmp/test >/tmp/disasm");
   int fd = open("/tmp/disasm",O_RDONLY);
   char buf[1024];
@@ -28,7 +29,8 @@ int compile_for_platform(Cell* expr, Cell** res) {
     write(1, buf, buflen);
   }
   close(fd);
-  
+#endif
+
   int mp_res = mprotect(code, CODESZ, PROT_EXEC|PROT_READ);
   
   funcptr fn = (funcptr)code;
