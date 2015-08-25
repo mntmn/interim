@@ -9,7 +9,7 @@
 
 
 Cell* consolefs_open() {
-  system ("stty raw -echo");
+  system("stty raw -echo");
   return alloc_int(1);
 }
 
@@ -26,7 +26,11 @@ Cell* consolefs_write(Cell* a1,Cell* arg) {
   return arg;
 }
 
-void mount_consolekeys() {
-  fs_mount_builtin("/keyboard", consolefs_open, consolefs_read, consolefs_write, 0, 0);
+void consolefs_cleanup() {
+  system("stty sane");
 }
 
+void mount_consolekeys() {
+  fs_mount_builtin("/keyboard", consolefs_open, consolefs_read, consolefs_write, 0, 0);
+  atexit(consolefs_cleanup);
+}
