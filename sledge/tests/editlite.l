@@ -107,8 +107,6 @@
 (def cursor-x 0)
 
 (def buf-render (fn cursor b (do
-  (boxfill 0 0 600 600 0xffff)
-  
   (let lines (split b [0a]))
   (let i 0)
   (let y 0)

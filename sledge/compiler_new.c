@@ -382,16 +382,16 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         // check the symbol to see if we already have type information
         int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
         if (fidx>=0) {
-          printf("existing type information for %s: %d\r\n", argdefs[0].cell->addr,fn_frame[fidx].type);
+          //printf("existing type information for %s: %d\r\n", argdefs[0].cell->addr,fn_frame[fidx].type);
           type_hint = fn_frame[fidx].type;
         }
       
         if (given_tag == TAG_INT || type_hint == ARGT_STACK_INT) {
-          printf("INT mode of let\r\n");
+          //printf("INT mode of let\r\n");
           // let prefers raw integers!
           signature_arg->value = TAG_INT;
         } else {
-          printf("ANY mode of let\r\n");
+          //printf("ANY mode of let\r\n");
           // but cells are ok, too
           signature_arg->value = TAG_ANY;
         }
@@ -641,7 +641,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           fn_frame[offset].type = ARGT_STACK;
         }
         fn_frame[offset].slot = frame->locals;
-        printf("++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
+        //printf("++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
         frame->locals++;
       }
       
@@ -674,16 +674,16 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         fn_new_frame[j].name = argdefs[j].cell->addr;
         fn_argc++;
 
-        printf("arg j %d: %s\r\n",j,fn_new_frame[j].name);
+        //printf("arg j %d: %s\r\n",j,fn_new_frame[j].name);
       }
-      char sig_debug[128];
-      lisp_write(fn_args, sig_debug, sizeof(sig_debug));
-      printf("signature: %s\n",sig_debug);
+      //char sig_debug[128];
+      //lisp_write(fn_args, sig_debug, sizeof(sig_debug));
+      //printf("signature: %s\n",sig_debug);
 
       // body
       Cell* fn_body = argdefs[argi-2].cell;
 
-      lisp_write(fn_body, sig_debug, sizeof(sig_debug));
+      //lisp_write(fn_body, sig_debug, sizeof(sig_debug));
       
       Cell* lambda = alloc_lambda(alloc_cons(fn_args,fn_body));
       lambda->next = 0;
@@ -716,9 +716,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
 #ifdef CPU_ARM
       Label* fn_lbl = find_label(label_fn);
-      printf("fn_lbl idx: %d code: %p\r\n",fn_lbl->idx,code);
+      //printf("fn_lbl idx: %d code: %p\r\n",fn_lbl->idx,code);
       lambda->next = code + fn_lbl->idx;
-      printf("fn_lbl next: %p\r\n",lambda->next);
+      //printf("fn_lbl next: %p\r\n",lambda->next);
 #endif
       
       break;
@@ -1050,6 +1050,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_call(list_symbols,"list_symbols");
       break;
     }
+    case BUILTIN_DEBUG: {
+      jit_lea(ARGR0,global_env);
+      jit_call(platform_debug,"platform_debug");
+      break;
+    }
     case BUILTIN_PRINT: {
       load_cell(ARGR0,argdefs[0], frame);
       jit_call(lisp_print,"lisp_print");
@@ -1223,18 +1228,8 @@ void init_compiler() {
   
   insert_symbol(alloc_sym("gc"), alloc_builtin(BUILTIN_GC, NULL), &global_env);
   insert_symbol(alloc_sym("symbols"), alloc_builtin(BUILTIN_SYMBOLS, NULL), &global_env);
-  /*insert_symbol(alloc_sym("load"), alloc_builtin(BUILTIN_LOAD), &global_env);
-  insert_symbol(alloc_sym("save"), alloc_builtin(BUILTIN_SAVE), &global_env);
-  
-  printf("[compiler] gc/load/save…\r\n");
-  */
 
-  /*
-  insert_symbol(alloc_sym("sin"), alloc_builtin(BUILTIN_SIN), &global_env);
-  insert_symbol(alloc_sym("cos"), alloc_builtin(BUILTIN_COS), &global_env);
-  insert_symbol(alloc_sym("sqrt"), alloc_builtin(BUILTIN_SQRT), &global_env);
-
-  printf("[compiler] math.\r\n");*/
+  insert_symbol(alloc_sym("debug"), alloc_builtin(BUILTIN_DEBUG, NULL), &global_env);
   
   int num_syms = sm_get_count(global_env);
   printf("sledge knows %u symbols. enter (symbols) to see them.\r\n", num_syms);

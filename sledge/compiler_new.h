@@ -75,16 +75,12 @@ typedef enum builtin_t {
   BUILTIN_BLIT_STRING,
   BUILTIN_INKEY,
 
-  BUILTIN_ALIEN,
   BUILTIN_GC,
   BUILTIN_SYMBOLS,
+  BUILTIN_DEBUG,
+  
   BUILTIN_LOAD,
   BUILTIN_SAVE,
-  BUILTIN_UDP_POLL,
-  BUILTIN_UDP_SEND,
-  BUILTIN_TCP_CONNECT,
-  BUILTIN_TCP_BIND,
-  BUILTIN_TCP_SEND,
 
   BUILTIN_SIN,
   BUILTIN_COS,
@@ -93,5 +89,7 @@ typedef enum builtin_t {
 
 Cell* insert_global_symbol(Cell* symbol, Cell* cell);
 env_entry* lookup_global_symbol(char* name);
+
+extern Cell* platform_debug();
 
 #endif

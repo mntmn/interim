@@ -61,23 +61,34 @@ void main()
   
   uart_puts("-- INTERIM/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
-
+  
+  printf("-- init page table… --\r\n");
   init_page_table();
+  
+  printf("-- clear caches… -- \r\n");
+  arm_invalidate_data_caches();
+  arm_clear_data_caches();
+  arm_dsb();
+  
   printf("-- enable MMU… --\r\n");
   mmu_init();
   printf("-- MMU enabled. --\r\n");
-  
-  init_rpi_qpu();
-  uart_puts("-- QPU enabled.\r\n");
 
+  printf("-- clear caches… -- \r\n");
+  arm_invalidate_data_caches();
+  arm_clear_data_caches();
+  arm_dsb();
+
+  //printf("-- enable QPU… -- \r\n");
+  //init_rpi_qpu();
+  //uart_puts("-- QPU enabled.\r\n");
+  
   FB = init_rpi_gfx();
   FB_MEM = FB;
-  
-  //init_blitter(FB);
-  
+
   sprintf(buf, "-- framebuffer at %p.\r\n",FB);
   uart_puts(buf);
-  
+
   sprintf(buf, "-- heap starts at %p.\r\n", heap_end);
   uart_puts(buf);
   
@@ -111,16 +122,6 @@ void main()
   libfs_init();
   printf("malloc4096 test 4: %p\r\n",malloc(4096));
   
-  const int border = 32;
-  
-  /*for (int y=0; y<1080; y++) {
-    for (int x=0; x<1920; x++) {
-      if (x<32 || y<32 || y>(1080-32) || x>(1920-32)) {
-        ((uint16_t*)FB)[x+y*1920] = 0x000f;
-      }
-    }
-  }*/
-  
   uart_repl();
 }
 
@@ -130,35 +131,6 @@ void main()
 #include "devices/rpi2/uartkeys.c"
 
 #include <os/libc_glue.c>
-
-/*
-int machine_video_set_pixel(uint32_t x, uint32_t y, uint32_t color) {
-  if (x>=1920 || y>=1080) return 0;
-  FB_MEM[y*1920+x] = color;
-  
-  return 0;
-}
-
-int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color) {
-  uint32_t y1=y;
-  uint32_t y2=y+h;
-  uint32_t x2=x+w;
-  uint32_t off = y1*1920;
-
-  // FIXME: clip!
-  
-  for (; y1<y2; y1++) {
-    for (uint32_t x1=x; x1<x2; x1++) {
-      FB_MEM[off+x1] = color;
-    }
-    off+=1920;
-  }
-
-  return 0;
-}
-*/
-
-//Cell* lookup_global_symbol(char* name);
 
 int ethernet_rx(uint8_t* packet) {
   int frame_len = 0;
@@ -250,36 +222,6 @@ int machine_video_flip() {
 }
 */
 
-/*
-int machine_get_key(int modifiers) {
-  if (modifiers) return 0;
-  int k = 0;
-  if (usb_keyboard_enabled) {
-    k = usb_key_in;
-    usb_key_in = 0;
-  } else {
-    k = uart_getc();
-    if (k==27) {
-      k = uart_getc();
-      if (k==91) {
-        k = uart_getc();
-        if (k==27) {
-          // fast repetition
-          k = uart_getc();
-          k = uart_getc();
-        }
-        if (k==68) return 130;
-        if (k==67) return 131;
-        if (k==65) return 132;
-        if (k==66) return 133;
-        printf("~~ inkey unknown sequence: 91,%d\r\n",k);
-        return 0;
-      }
-    }
-  }
-  return k;
-  }*/
-
 typedef jit_word_t (*funcptr)();
 
 Cell* platform_eval(Cell* expr); // FIXME
@@ -290,6 +232,31 @@ Cell* platform_eval(Cell* expr); // FIXME
 #define REPLBUFSZ 1024*6
 
 void fatfs_debug(); // FIXME
+
+Cell* platform_debug() {
+
+  for (int color=0; color<0xff; color+=5) {
+    for (int y=0; y<500; y++) {
+      int ofs = y*1920*2;
+      for (int x=0; x<1000; x+=2) {
+        ((char*)FB)[ofs+x]=color;
+        ((char*)FB)[ofs+x+1]=color;
+      }
+    }
+    printf("painted a.\r\n");
+  }
+
+  for (int j=0;j<100;j++) {
+    for (int color=0; color<0xff; color+=5) {
+      for (int y=0; y<500; y++) {
+        memset(((char*)FB)+y*1920*2,color,1000);
+      }
+      printf("painted b.\r\n");
+    }
+  }
+  
+  return alloc_nil();
+}
 
 void uart_repl() {
   fatfs_debug();
@@ -422,11 +389,16 @@ Cell* platform_eval(Cell* expr) {
     register void* sp asm ("sp"); // FIXME maybe unportable
     Frame empty_frame = {NULL, 0, 0, sp};
     int tag = compile_expr(c, &empty_frame, TAG_ANY);
+
+    arm_dmb();
+    arm_isb();
+    arm_dsb();
+    printf("compiled %d\r\n",i);
   
     if (tag) {
       jit_ret();
       funcptr fn = (funcptr)code;
-      printf("~~ fn at %p\r\n",fn);
+      //printf("~~ fn at %p\r\n",fn);
       
       __asm("stmfd sp!, {r3-r12, lr}");
       (Cell*)fn();
@@ -435,7 +407,7 @@ Cell* platform_eval(Cell* expr) {
       __asm("mov r6,r0");
       res = retval;
 
-      printf("~~ expr %d res: %p\r\n",i,res);
+      //printf("~~ expr %d res: %p\r\n",i,res);
       lisp_write(res, buf, 512);
       printf("~> %s\r\n",buf);
     } else {

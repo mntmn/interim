@@ -227,48 +227,48 @@ unsigned int mailbox_read(unsigned int channel)
 #define t_set_virtual_offset 0x00048009
 #define t_allocate_buffer 0x00040001
 
+static volatile uint32_t gfx_message[] __attribute__ ((aligned (16))) = {
+  27*4, // size
+  0,
+
+  t_set_physical_display,
+  8,
+  8,
+  1920,
+  1080,
+
+  t_set_virtual_buffer,
+  8,
+  8,
+  1920,
+  1080,
+
+  t_set_depth,
+  4,
+  4,
+  16,
+
+  t_set_virtual_offset,
+  8,
+  8,
+  0,
+  0,
+
+  t_allocate_buffer,
+  8,
+  8,
+  0,
+  0,
+
+  0
+};
+
 uint32_t* init_rpi_gfx()
 {
   unsigned int ra,rb;
   unsigned int ry,rx;
 
   arm_dsb();
-
-  volatile uint32_t gfx_message[] __attribute__ ((aligned (16))) = {
-    27*4, // size
-    0,
-
-    t_set_physical_display,
-    8,
-    8,
-    1920,
-    1080,
-
-    t_set_virtual_buffer,
-    8,
-    8,
-    1920,
-    1080,
-
-    t_set_depth,
-    4,
-    4,
-    16,
-
-    t_set_virtual_offset,
-    8,
-    8,
-    0,
-    0,
-
-    t_allocate_buffer,
-    8,
-    8,
-    0,
-    0,
-
-    0
-  };
 
   // https://github.com/PeterLemon/RaspberryPi/blob/master/HelloWorld/CPU/LIB/R_PI2.INC
   *((volatile uint32_t*)(peripheral_base + 0xb880 + 0x20 + 0x8)) = (uint32_t)gfx_message + 0x8; // MAIL_TAGS = 8
@@ -277,6 +277,7 @@ uint32_t* init_rpi_gfx()
   
   do {
     arm_dmb();
+    arm_isb();
     framebuffer = (uint32_t*)gfx_message[24];
     printf("-- waiting for framebuffer…\r\n");
   } while (!framebuffer);
@@ -284,32 +285,34 @@ uint32_t* init_rpi_gfx()
   return framebuffer;
 }
 
+static volatile uint32_t qpu_message[] __attribute__ ((aligned (16))) = {
+  12*4, // size
+  0,
+
+  SET_CLOCK_RATE,
+  8,
+  8,
+  CLK_V3D_ID,
+  250*1000*1000, // 250 mhz
+
+  ENABLE_QPU,
+  4,
+  4,
+  1,
+    
+  0
+};
 
 void init_rpi_qpu() {
-  volatile uint32_t gfx_message[] __attribute__ ((aligned (16))) = {
-    12*4, // size
-    0,
+  
 
-    SET_CLOCK_RATE,
-    8,
-    8,
-    CLK_V3D_ID,
-    250*1000*1000, // 250 mhz
-
-    ENABLE_QPU,
-    4,
-    4,
-    1,
-    
-    0
-  };
-
-  *((volatile uint32_t*)(peripheral_base + 0xb880 + 0x20 + 0x8)) = (uint32_t)gfx_message + 0x8; // MAIL_TAGS = 8
+  *((volatile uint32_t*)(peripheral_base + 0xb880 + 0x20 + 0x8)) = (uint32_t)qpu_message + 0x8; // MAIL_TAGS = 8
 
   do {
     arm_dmb();
+    arm_isb();
     printf("-- waiting for qpu ack…\r\n");
-  } while (!gfx_message[1]);
+  } while (!qpu_message[1]);
 }
 
 #include "mmu.c"

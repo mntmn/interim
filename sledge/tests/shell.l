@@ -17,6 +17,7 @@
 
 (def sin (fn deg (get sintab (% deg 360))))
 (def cos (fn deg (get sintab (% (+ deg 90) 360))))
+(def abs (fn a (if (lt a 0) (- 0 a) a)))
 
 (def load (fn path (recv (open path))))
 (def ls (fn (load "/sd/")))
@@ -24,6 +25,55 @@
 
 (def scr (open "/framebuffer"))
 (def fb (mmap "/framebuffer"))
+(def screen-pitch  3840) ; // TODO read from framebuffer
+
+(def stroke-color 0x0000)
+
+(def set-pixel (fn x y c (do
+  (let ofs (+ (* y screen-pitch) (shl x 1)))
+  (put fb ofs (shr c 8))
+  (put fb (+ 1 ofs) c)
+  c
+)))
+
+(def pt list)
+
+(def line (fn a b (do
+  (let xa (car a))
+  (let ya (car (cdr a)))
+  (let xb (car b))
+  (let yb (car (cdr b)))
+  
+  (let dx (abs (- xb xa)))
+  (let dy (abs (- yb ya)))
+  (let sx (if (lt xa xb) 1 -1))
+  (let sy (if (lt ya yb) 1 -1))
+
+  (let err (if (gt dx dy) dx (- 0 dy)))
+  (let err (/ err 2))
+  (let e2 0)
+
+  (while (not (and (eq xa xb) (eq ya yb))) (do
+    (set-pixel xa ya stroke-color)
+    (let e2 err)
+    (if (gt e2 (- 0 dx)) (do (let err (- err dy)) (let xa (+ xa sx))) 0)
+    (if (lt e2       dy) (do (let err (+ err dx)) (let ya (+ ya sy))) 0)
+  ))
+  0
+)))
+
+(def ox 824)
+(def oy 550)
+(def stroke-color 0xdddd)
+(line (pt (+ ox 16) (- oy 38)) (pt (+ ox 16) (- oy 102)))
+(line (pt (+ ox 16) (- oy 102)) (pt (+ ox 80) (- oy 38)))
+(line (pt (+ ox 80) (- oy 38)) (pt (+ ox 80) (- oy 102)))
+(line (pt (+ ox 80) (- oy 102)) (pt (+ ox 144) (- oy 38)))
+(line (pt (+ ox 144) (- oy 38)) (pt (+ ox 144) (- oy 102)))
+(line (pt (+ ox 144) (- oy 102)) (pt (+ ox 208) (- oy 38)))
+(line (pt (+ ox 208) (- oy 38)) (pt (+ ox 208) (- oy 102)))
+(line (pt (+ ox 208) (- oy 102)) (pt (+ ox 272) (- oy 102)))
+
 (def f (open "/sd/unifont.565"))
 (def unifont (recv f))
 (def unifont-pitch 8192)
@@ -45,7 +95,6 @@
   (def rune-mod 256)
 )))
 
-(def screen-pitch  3840)
 (def fghi 0xff)
 (def fglo 0x00)
 
@@ -92,6 +141,8 @@
 
 (def blit-str (fn str x y (do
   (let i 0)
+  (let xx 0)
+  (let yy 0)
   (let xx (+ x 0))
   (let yy (+ y 0))
   (let sz (+ (size str) 0))
@@ -112,10 +163,14 @@
 
 (def boxfill (fn x y w h color (do
   (let ofs 0)
+  (let xi 0)
+  (let yi 0)
   (let xi (+ x 0))
   (let yi (+ y 0))
   (let xx (+ x w))
   (let yy (+ y h))
+  (let chi 0)
+  (let clo 0)
   (let chi (shr color 8))
   (let clo (bitand color 0xff))
   (let ofs (+ (* y screen-pitch) (shl x 1)))
@@ -134,7 +189,6 @@
   ))
 )))
 
-(boxfill 0 0 1919 1079 0xffff)
 (blit-str "Welcome to Interim OS." 32 32)
 
 (def evbuf (alloc-str 512))
@@ -208,43 +262,6 @@
     (let tl (cdr tl))
   ))
 )))
-
-(def set-pixel (fn x y c (do
-  (let ofs (+ (* y screen-pitch) (shl x 1)))
-  (put fb ofs c)
-  (put fb (+ 1 ofs) c)
-  c
-)))
-
-(def abs (fn a (if (lt a 0) (- 0 a) a)))
-
-(def line (fn a b (do
-  (let xa (car a))
-  (let ya (car (cdr a)))
-  (let xb (car b))
-  (let yb (car (cdr b)))
-  
-  (let dx (abs (- xb xa)))
-  (let dy (abs (- yb ya)))
-  (let sx (if (lt xa xb) 1 -1))
-  (let sy (if (lt ya yb) 1 -1))
-
-  (let err (if (gt dx dy) dx (- 0 dy)))
-  (let err (/ err 2))
-  (let e2 0)
-
-  (while (not (and (eq xa xb) (eq ya yb))) (do
-    (set-pixel xa ya 0)
-    (let e2 err)
-    (if (gt e2 (- 0 dx)) (do (let err (- err dy)) (let xa (+ xa sx))) 0)
-    (if (lt e2       dy) (do (let err (+ err dx)) (let ya (+ ya sy))) 0)
-  ))
-  0
-)))
-
-(def pt list)
-
-(def stroke-color 0x0000)
 
 (def triangle (fn a b c (do
   (line a b)
@@ -344,6 +361,7 @@
     (let blink (% (+ blink 1) 20))
     
     (send scr 0)
+    (gc)
   ))
 )))
 

@@ -26,8 +26,6 @@ static inline void instruction_barrier(void) {
   asm volatile ("isb" ::: "memory");
 }
 
-//extern uint32_t panic_delay;
-
 static volatile __attribute__ ((aligned (0x4000))) uint32_t page_table[4096];
 static volatile __attribute__ ((aligned (0x400))) uint32_t leaf_table[256];
 
@@ -38,42 +36,82 @@ typedef struct page {
 extern page _mem_start[];
 extern page _mem_end[];
 
+ // ARM Cortex-A Handbook 9.6.1
+// bits 0,4 = PXN,XN
+#define SECTION_SHAREABLE (1<<16)
+#define SECTION_FULL_ACCESS (1<<11)|(1<<10) // APX 0, AP 11
+#define SECTION_XN (1<<4)
+
+//  12  2
+// TEX CB when SCTRL.TRE is set to 0
+// 001 11 Outer and Inner Write-Back, Write-Allocate    // this seems to crash
+// 000 11 Outer and Inner Write-Back, no Write-Allocate
+// 000 10 Outer and Inner Write-Through, no Write-Allocate
+// 000 00 Strongly-ordered                                 // very slow
+// 000 01 Shareable Device
+// 010 00 non shareable device
+#define SECTION_WRITEBACK_ALLOCATE    (1<<12)|(1<<3)|(1<<2)|2
+#define SECTION_WRITEBACK_NO_ALLOCATE         (1<<3)|(1<<2)|2
+#define SECTION_WRITETHROUGH_NO_ALLOCATE      (1<<3)       |2
+#define SECTION_STRONGLY_ORDERED                            2
+#define SECTION_SHAREABLE_DEVICE                     (1<<2)|2
+#define SECTION_NON_SHAREABLE_DEVICE  (1<<13)              |2
+
 void init_page_table(void) {
-	uint32_t base;
+	uint32_t base = 0;
+
+  // All Write-Back memory can be cached when ACTLR.SMP is set to 1, the MMU is enabled, and SCTLR.C is set to 1.
+
 	// initialize page_table
 	// 1024MB - 16MB of kernel memory (some belongs to the VC)
 	// default: 880 MB ARM ram, 128MB VC
-	for (base = 0; base < 880; base++) {
+  
+	for (base = 0; base < 15; base++) {
+    // kernel is uncached
+    page_table[base] = base << 20 | SECTION_WRITETHROUGH_NO_ALLOCATE|SECTION_FULL_ACCESS;
+  }
+  
+	for (; base < 880; base++) {
     // section descriptor (1 MB)
-    // outer and inner write back, write allocate, shareable (fast but
-    // unsafe)
-    page_table[base] = base << 20 | 0x1140E;
+
+    // heap is cached
+    //page_table[base] = base << 20 | SECTION_WRITEBACK_NO_ALLOCATE|SECTION_FULL_ACCESS;
+    page_table[base] = base << 20 | 1<<14 | 1<<13 | 1<<12 | 1<<3 | 1<<2 | 2 | SECTION_FULL_ACCESS;
+    //page_table[base] = base << 20 | 0x1140E;
+    //page_table[base] = base << 20 | 0x1540A;
+    
 	}
 
+  // framebuffer is at 0x3d7fe000
+                  
 	// VC ram up to 0x3F000000
-	for (base = 0; base < 1024 - 16; base++) {
+	for (; base < 1024 - 16; base++) {
     // section descriptor (1 MB)
     // outer and inner write through, no write allocate, shareable
     // page_table[base] = base << 20 | 0x1040A;
     // outer write back, write allocate
     // inner write through, no write allocate, shareable
-    page_table[base] = base << 20 | 0x1540A;
-	}
 
-	// unused up to 0x3F000000
-	for (; base < 1024 - 16; base++) {
-    page_table[base] = 0;
+    //page_table[base] = base << 20 | 0x1540A;
+
+    //page_table[base] = base << 20 | 0x1140E;
+    //page_table[base] = base << 20 | 0x1040A;
+    
+    page_table[base] = base << 20 | SECTION_WRITETHROUGH_NO_ALLOCATE|SECTION_SHAREABLE|SECTION_FULL_ACCESS;
+    //page_table[base] = base << 20 | 1<<14 | 1<<12 | 1<<2 | 2 | SECTION_SHAREABLE | SECTION_FULL_ACCESS;
 	}
 
 	// 16 MB peripherals at 0x3F000000
 	for (; base < 1024; base++) {
     // shared device, never execute
     page_table[base] = base << 20 | 0x10416;
+    //page_table[base] = base << 20 | SECTION_SHAREABLE_DEVICE|SECTION_SHAREABLE;
 	}
 
 	// 1 MB mailboxes
 	// shared device, never execute
 	page_table[base] = base << 20 | 0x10416;
+  //page_table[base] = base << 20 | SECTION_SHAREABLE_DEVICE|SECTION_SHAREABLE;
 	++base;
 	
 	// unused up to 0x7FFFFFFF
@@ -82,9 +120,9 @@ void init_page_table(void) {
 	}
 
 	// one second level page tabel (leaf table) at 0x80000000
-	page_table[base++] = (intptr_t)leaf_table | 0x1;
+	//page_table[base++] = (intptr_t)leaf_table | 0x1;
 
-	// 2047MB unused (rest of address space)
+  // 2047MB unused (rest of address space)
 	for (; base < 4096; base++) {
     page_table[base] = 0;
 	}
@@ -92,23 +130,29 @@ void init_page_table(void) {
 	// initialize leaf_table
 	for (base = 0; base < 256; base++) {
     leaf_table[base] = 0;
-	}
+  }
+
+  /*for (int i=0; i<2048; i++) {
+    printf("[pagetable] %04i %08x\r\n",i,page_table[i]);
+  }*/
 }
     
 void mmu_init(void) {
 	// set SMP bit in ACTLR
+  // enable d-side prefetch
 	uint32_t auxctrl;
 	asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
-	auxctrl |= 1 << 6;
+	auxctrl |= 1 << 6; // smp
+  auxctrl |= 1 << 2; // prefetch
 	asm volatile ("mcr p15, 0, %0, c1, c0,  1" :: "r" (auxctrl));
 
   // setup domains (CP15 c3)
 	// Write Domain Access Control Register
   // use access permissions from TLB entry
-	asm volatile ("mcr     p15, 0, %0, c3, c0, 0" :: "r" (0x55555555));
+	//asm volatile ("mcr     p15, 0, %0, c3, c0, 0" :: "r" (0x55555555));
 
 	// set domain 0 to client
-	asm volatile ("mcr p15, 0, %0, c3, c0, 0" :: "r" (1));
+	//asm volatile ("mcr p15, 0, %0, c3, c0, 0" :: "r" (1));
 
 	// always use TTBR0
 	asm volatile ("mcr p15, 0, %0, c2, c0, 2" :: "r" (0));
@@ -118,36 +162,44 @@ void mmu_init(void) {
 	asm volatile ("mcr p15, 0, %0, c2, c0, 0"
                 :: "r" (0b1001010 | (unsigned) &page_table));
 	instruction_barrier();
+  arm_dsb();
 
 	/* SCTLR
 	 * Bit 31: SBZ     reserved
 	 * Bit 30: TE      Thumb Exception enable (0 - take in ARM state)
 	 * Bit 29: AFE     Access flag enable (1 - simplified model)
 	 * Bit 28: TRE     TEX remap enable (0 - no TEX remapping)
+
 	 * Bit 27: NMFI    Non-Maskable FIQ (read-only)
 	 * Bit 26: 0       reserved
 	 * Bit 25: EE      Exception Endianness (0 - little-endian)
 	 * Bit 24: VE      Interrupt Vectors Enable (0 - use vector table)
+
 	 * Bit 23: 1       reserved
 	 * Bit 22: 1/U     (alignment model)
 	 * Bit 21: FI      Fast interrupts (probably read-only)
 	 * Bit 20: UWXN    (Virtualization extension)
+
 	 * Bit 19: WXN     (Virtualization extension)
 	 * Bit 18: 1       reserved
 	 * Bit 17: HA      Hardware access flag enable (0 - enable)
 	 * Bit 16: 1       reserved
+
 	 * Bit 15: 0       reserved
 	 * Bit 14: RR      Round Robin select (0 - normal replacement strategy)
 	 * Bit 13: V       Vectors bit (0 - remapped base address)
 	 * Bit 12: I       Instruction cache enable (1 - enable)
+
 	 * Bit 11: Z       Branch prediction enable (1 - enable)
 	 * Bit 10: SW      SWP/SWPB enable (maybe RAZ/WI)
 	 * Bit 09: 0       reserved
 	 * Bit 08: 0       reserved
+
 	 * Bit 07: 0       endian support / RAZ/SBZP
 	 * Bit 06: 1       reserved
 	 * Bit 05: CP15BEN DMB/DSB/ISB enable (1 - enable)
 	 * Bit 04: 1       reserved
+
 	 * Bit 03: 1       reserved
 	 * Bit 02: C       Cache enable (1 - data and unified caches enabled)
 	 * Bit 01: A       Alignment check enable (1 - fault when unaligned)
@@ -159,12 +211,28 @@ void mmu_init(void) {
 	asm volatile ("mrc p15, 0, %0, c1, c0, 0" : "=r" (mode));
 	// mask: 0b0111 0011 0000 0010 0111 1000 0010 0111
 	// bits: 0b0010 0000 0000 0000 0001 1000 0010 0111
-	mode &= 0x73027827;
-	mode |= 0x20001827;
+
+#define MODE_BRANCHPRED 0x800
+#define MODE_ICACHE 0x1000 // makes things significantly faster
+#define MODE_MMU 1
+#define MODE_ALIGN 2|1<<22
+#define MODE_FASTINT 1<<21
+#define MODE_AFE 1<<29
+#define MODE_TEX 1<<28
+#define MODE_CACHE 4
+#define MODE_HA 1<<17
+#define MODE_BARRIERS 1<<5
+#define MODE_RESERVED 1<<3|1<<4|1<<6|1<<16|1<<18|1<<23
+  
+	//mode &= 0x73027827;
+	//mode = 0x20000026;
+
+  mode = MODE_MMU|MODE_CACHE|MODE_ICACHE|MODE_BRANCHPRED|MODE_RESERVED|MODE_BARRIERS|MODE_ALIGN|MODE_AFE|MODE_FASTINT;
+  printf("[mmu-p15-c1-c0] %x\r\n",mode);
 	asm volatile ("mcr p15, 0, %0, c1, c0, 0" :: "r" (mode) : "memory");
 
-	// instruction cache makes delay way faster, slow panic down
-	//panic_delay = 0x2000000;
+  instruction_barrier();
+	data_memory_barrier();
 }
 
 void map(uint32_t slot, uint32_t phys_addr) {
@@ -172,14 +240,17 @@ void map(uint32_t slot, uint32_t phys_addr) {
 	 * Bit 31: small page base address
 	 * ...
 	 * Bit 12: small page base address
+
 	 * Bit 11: nG      not global (0 - global)
 	 * Bit 10: S       shareable (1 - shareable)
 	 * Bit 09: AP[2]   0 (read/write)
 	 * Bit 08: TEX[2]  1
+
 	 * Bit 07: TEX[1]  0
 	 * Bit 06: TEX[0]  1
 	 * Bit 05: AP[1]   0 (only kernel)
 	 * Bit 04: AP[0]   0 - access flag
+
 	 * Bit 03: C       0
 	 * Bit 02: B       1
 	 * Bit 01: 1       1 (small page)
@@ -220,8 +291,8 @@ void map(uint32_t slot, uint32_t phys_addr) {
 	// outer and inner write back, write allocate, shareable
 	// set accessed bit or the first access gives a fault
 	// RPi/RPi2 do not have hardware support for accessed
-	// 0b0101 0101 0111
-	leaf_table[slot] = phys_addr | 0x557;
+	// 0b0101 0101 0110
+	leaf_table[slot] = phys_addr | 0x556;
 	data_memory_barrier();
 }
 

@@ -461,6 +461,10 @@ static void sd_power_off()
 	mmio_write(EMMC_BASE + EMMC_CONTROL0, control0);
 }
 
+
+static volatile uint32_t mailbuffer[8] __attribute__ ((aligned (16)));
+static volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
+
 static uint32_t sd_get_base_clock_hz()
 {
   uint32_t base_clock;
@@ -470,8 +474,6 @@ static uint32_t sd_get_base_clock_hz()
 #elif SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_BCM_2708
   //uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
 
-
-  volatile uint32_t mailbuffer[8] __attribute__ ((aligned (16)));
     
   //volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
@@ -523,9 +525,7 @@ static uint32_t sd_get_base_clock_hz()
 
 #if SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_BCM_2708
 static int bcm_2708_power_off()
-{
-  volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
-  
+{ 
 	//uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
 	volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
@@ -576,7 +576,7 @@ static int bcm_2708_power_off()
 static int bcm_2708_power_on()
 {
 	//uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
-  volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
+  //volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
   
   volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
