@@ -10,8 +10,7 @@
 #define WIDTH 1920
 #define HEIGHT 1080
 #define BPP 2
-#define DEPTH 32
-
+#define DEPTH 16
 
 Cell* linux_fbfs_open() {
   return alloc_int(1);

@@ -15,7 +15,10 @@ Cell* consolefs_open() {
 
 Cell* consolefs_read() {
   int c = fgetc(stdin);
-  return alloc_int(c);
+  if (c==13) c=10; // CR/LF
+  Cell* str = alloc_string_copy(" ");
+  ((char*)str->addr)[0] = c;
+  return str;
 }
 
 Cell* consolefs_write(Cell* a1,Cell* arg) {
