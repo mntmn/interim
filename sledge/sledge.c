@@ -56,13 +56,19 @@ int main(int argc, char *argv[])
   void mount_consolekeys();
   mount_consolekeys();
 #endif
-  
+
+  FILE* in_file = stdin;  
+
+  if (argc==2) {
+    in_file = fopen(argv[1],"r");
+  }
+
   while (1) {
     expr = NULL;
     
     printf(KWHT "sledge> ");
     len = 0;
-    int r = getline(&in_line, &len, stdin);
+    int r = getline(&in_line, &len, in_file);
 
     if (r<1 || !in_line) exit(0);
 
