@@ -10,6 +10,8 @@
 #define env_t StrMap
 static env_t* global_env = NULL;
 
+//#define CHECK_BOUNDS
+
 env_entry* lookup_global_symbol(char* name) {
   env_entry* res;
   int found = sm_get(global_env, name, (void**)&res);
@@ -888,6 +890,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // init r3
       jit_movi(R3, 0);
 
+      // todo: compile-time checking would be much more awesome
       // type check
       jit_addi(R1,2*PTRSZ);
       jit_ldr(R1);
@@ -901,8 +904,19 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
       // good type
       jit_label(label_ok);
-      load_cell(R1,argdefs[0], frame);
+      load_cell(R0,argdefs[0], frame);
+
+#ifdef CHECK_BOUNDS
+      // bounds check -----
+      jit_movr(R1,R0);
+      jit_addi(R1,PTRSZ);
+      jit_ldr(R1);
+      jit_cmpr(R2,R1);
+      jit_jge(label_skip);
+      // -------------------
+#endif
       
+      jit_movr(R1,R0);
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
       jit_ldrb(R1); // data in r3
@@ -923,15 +937,17 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame); // offset -> R2
       load_cell(R0,argdefs[0], frame);
 
+#ifdef CHECK_BOUNDS
       // bounds check -----
       jit_movr(R1,R0);
       jit_addi(R1,PTRSZ);
       jit_ldr(R1);
       jit_cmpr(R2,R1);
       jit_jge(label_skip);
-      jit_movr(R1,R0);
       // -------------------
+#endif
 
+      jit_movr(R1,R0);
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
       jit_strb(R1); // address is in r1, data in r3
@@ -960,17 +976,19 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame); // offset -> R2
       load_cell(R1,argdefs[0], frame);
 
+#ifdef CHECK_BOUNDS
       // bounds check -----
       jit_movr(R1,R0);
       jit_addi(R1,PTRSZ);
       jit_ldr(R1);
       jit_cmpr(R2,R1);
       jit_jge(label_skip);
-      jit_movr(R1,R0);
       // -------------------
+#endif
 
       // TODO: 32-bit align
       
+      jit_movr(R1,R0);
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
       jit_strw(R1); // store from r3

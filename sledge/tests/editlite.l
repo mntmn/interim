@@ -1,285 +1,246 @@
-(def = (fn a b (if (- a b) 0 1)))
-(def not (fn a (if a 0 1)))
-(def and (fn a b (if a (if b 1 0) 0)))
-(def or (fn a b (if a 1 (if b 1 0) 0)))
-
-; list funcs ------------------------------------------------------
-
-(def item (fn lst idx (do
-  (def i 0)
-  (while (gt idx i) (do
-    (def lst (cdr lst))
-    (def i (+ i 1))))
-  (car lst)
-)))
-
-; string funcs ----------------------------------------------------
+(
+(def editor-running 1)
 
 (def buf (alloc-str 1024))
 
-(def uchr (fn s (uget s 0)))
+(def find-prev (fn buf rune pos (do
+  (let p pos)
+  (while (and (gt p 0) (not (eq rune (get buf p))))
+    (let p (- p 1)))
+  (+ p 0)
+)))
 
-(def substr (fn str beg sz (do
-  (def res (alloc-str (* 2 sz)))
-  (def ii 0)
+(def find-next (fn buf rune pos (do
+  (let p pos)
+  (while (and (lt p (size buf)) (not (eq rune (get buf p))))
+    (let p (+ p 1)))
+  (+ p 0)
+)))
+
+(def find-prev-ws (fn buf pos (do
+  (let p (+ pos 0))
+  (while (and (gt p 0) (not (or (eq 10 (get buf p)) (eq 32 (get buf p)))))
+    (let p (- p 1)))
+  (if (eq p 0) 0 (+ p 1))
+)))
+
+(def find-next-ws (fn buf pos (do
+  (let p (+ pos 0))
+  (while (and (lt p (size buf)) (not (or (eq 10 (get buf p)) (eq 32 (get buf p)))))
+    (let p (+ p 1)))
+  (+ p 0)
+)))
+
+(def copy (fn buf from to num (do
+  (let i 0)
+  (let c 0)
+
+  ;(print (list "copy: " buf from to num))
   
-  (while (lt ii sz) (do
-    (uput res ii (uget str (+ beg ii)))
-    (def ii (+ ii 1))
-  ))
-  res
-)))
-
-(def ufind-prev (fn buf rune pos (do
-  (while (and (gt pos 0) (not (= rune (uget buf pos))))
-    (def pos (- pos 1)))
-  (+ pos 0)
-)))
-
-(def ufind-next (fn buf rune pos (do
-  (while (and (lt pos (usize buf)) (not (= rune (uget buf pos))))
-    (def pos (+ pos 1)))
-  (+ pos 0)
-)))
-
-(def ufind-prev-ws (fn buf pos (do
-  (while (and (gt pos 0) (not (or (= 10 (uget buf pos)) (= 32 (uget buf pos)))))
-    (def pos (- pos 1)))
-  (if (= pos 0) 0 (+ pos 1))
-)))
-
-(def ufind-next-ws (fn buf pos (do
-  (while (and (lt pos (usize buf)) (not (or (= 10 (uget buf pos)) (= 32 (uget buf pos)))))
-    (def pos (+ pos 1)))
-  (+ pos 0)
-)))
-
-(def ucopy (fn buf from to num (do
   (if (lt from to)
     (do 
-      (def i (- num 1)) 
-      (while (gt (def i (- i 1)) -1) (do
-        (def c (uget buf (+ from i)))
-        (uput buf (+ to i) c)
-      )))
+      (let i (- num 1)) 
+      (while (gt i -1) (do
+        (let c (get buf (+ from i)))
+        (put buf (+ to i) c)
+        (let i (- i 1))
+      )) 0)
     (do
-      (def i 0)
-      (while (lt (def i (+ i 1)) num) (do
-        (def c (uget buf (+ from i)))
-        (uput buf (+ to i) c)
-      )))
+      (let i 0)
+      (while (lt i num) (do
+        (let c (get buf (+ from i)))
+        (put buf (+ to i) c)
+        (let i (+ i 1))
+      )) 0)
   )
+  num
 )))
 
-(def uremove (fn buf pos (do
-  (ucopy buf (- pos 1) (- pos 2) (- (usize buf) (- pos 1)))
-  (uput buf (- (usize buf) 1) 0)
-  0
+; fixme clobbered reg loading broken on x64?
+; fixme use substr instead of mutation
+
+(def remove (fn buf pos (do
+  (let p (+ pos 0))
+  (let from (+ pos 1))
+  (let num (- (size buf) pos))
+  (copy buf from p num)
+  (put buf (- (size buf) 1) 0)
+  buf
 )))
 
-(def uinsert (fn buf pos kchr (do
-  (ucopy buf pos (+ pos 1) (- (usize buf) (+ pos 1)))
-  (uput buf pos kchr)
-  0
+(def insert (fn buf pos k (do
+  (let p (+ pos 0))
+  (let to (+ pos 1))
+  (let c (+ k 0))
+  (let num (- (size buf) (+ pos 1)))
+  (copy buf p to num)
+  (put buf p c)
+  buf
 )))
 
 (def split (fn str sepstr (do
-  (def sep (uget sepstr 0))
-  (def result (quote ()))
-  (def sz (usize str))
-  (def i (- sz 1))
-  (def last-i (+ i 1))
+  (let sep (get sepstr 0))
+  (let result (quote ()))
+  (let sz (size str))
+  (let i 0)
+  (let i (- sz 1))
+  (let last-i 0)
+  (let last-i (+ i 1))
+  (let partsize 0)
+  
   (while (gt i -2) (do
-    (if (or (= (uget str i) sep) (= i -1)) (do
-      (def partsize (- (- last-i i) 1))
+    (if (or (eq (get str i) sep) (eq i -1)) (do
+      (let partsize (- (- last-i i) 1))
   
       (if (gt partsize 0)
-        (def result (cons (substr str (+ i 1) partsize) result)) 0)
-      (def last-i i)
+        (let result (cons (substr str (+ i 1) partsize) result)) 0)
+      (let last-i i)
     ) 0)
-    (def i (- i 1))
+    (let i (- i 1))
   ))
   result
 )))
 
-; font -----------------------------------------------------
+(def buf-render-x 32)
+(def buf-render-y 32)
+(def cursor-char 32)
+(def cursor-x 0)
 
-(def unifont (load "unifont"))
-(def white 0xffffff)
-(def cyan 65535)
-(def color white)
-(def unifont-width 4128)
-(def unifont-height 4160)
+(def buf-render (fn cursor b (do
+  (boxfill 0 0 600 600 0xffff)
+  
+  (let lines (split b [0a]))
+  (let i 0)
+  (let y 0)
+  (let ln (car lines))
+  (let y buf-render-y)
+  (let pos 0)
+  (let nextpos 0)
+  
+  (while ln (do
+    (blit-str ln buf-render-x y)
 
-(def blit-char (fn rune x y color
-  (blit-mono unifont 
-    (* (+ 2 (% rune 256)) 2) 
-    (* (+ 4 (/ rune 256)) 16) (/ 4128 8) 2 16 x y color)
-))
+    (let nextpos (+ 1 (+ pos (size ln))))
 
-(def blit-char-inv (fn rune x y color (do
-  (blit-mono-inv unifont 
-    (* (+ 2 (% rune 256)) 2) 
-    (* (+ 4 (/ rune 256)) 16) (/ 4128 8) 2 16 x y color)
-)))
+    ;(print (list "line " i "cursor" cursor "pos/nextpos/lnsize" pos nextpos ln (size ln)))
+    
+    (if (and (gt cursor (- pos 1)) (lt cursor (+ nextpos 1))) (do
+      ; cursor is in this line
+      (def term-y y)
+      (def cursor-x (- cursor pos))
+      (def term-x (+ buf-render-x (* rune-spacing cursor-x)))
+      (def cursor-char (get ln cursor-x))
+    ) 0)
 
-(def cursor-size 1)
-
-(def blit-str (fn cursor str xx y color (do
-  (mut l (+ (size str) 1))
-  (mut i -1)
-  (mut x xx)
-  (while (lt (mut i (+ i 1)) l) (do
-    (mut chr (uget str i))
-    (if (= i cursor)
-      (blit-char-inv chr x y color)
-      (if (or (= chr 10) (= chr 32)) 0 (blit-char chr x y color)))
-    (mut x (+ x 8))
-    (if (= chr 10)
-      (do
-        (mut y (+ y 16))
-        (mut x xx)))
-    (if chr 0 (mut i l))
-    0
+    (let pos (+ nextpos 0))
+    (let y (+ y 16))
+    (let i (+ i 1))
+    (let lines (cdr lines))
+    (let ln (car lines))
   ))
   0
-)))
-
-(def cursor 0)
-(def running 1)
-(def cmd-mode 0)
-
-(def eval-buf "welcome to bomber jacket OS (x86/64bit) ☕ ☕ ☕                                                                                                                             ")
-
-(def help-buf (alloc-str 80))
-
-(def focus-buffer buf)
-(def padding 20)
-
-(def buf-render (fn focused b bx by (do
-  (rectfill bx by (- 1024 bx) (- 768 by) color)
-  (rectfill bx by 1024 1 0)
-  (blit-str focused b (+ padding bx) (+ padding by) color)
-)))
-
-(def toggle-command (fn (do
-  (if (= color cyan)
-    (def color white)
-    (def color cyan))
-  (def cmd-mode (- 1 cmd-mode))
 )))
 
 (def word-at (fn buf pos (do
-  (mut from (ufind-prev-ws buf pos))
-  (mut to   (ufind-next-ws buf pos))
+  (let from (find-prev-ws buf pos))
+  (let to   (find-next-ws buf pos))
   (substr buf from (- to from))
 )))
 
-(def plumb (fn word (do
-  (write eval-buf (cons "plumb" word))
-  (if (= (uget word 0) (uchr "/"))
-    (def buf (load word)))
-)))
-
-(def handle-command-key (fn k (do
-  (mut kidx k)
-  (mut kchr (uget keymap kidx))
-  
-  (if (= kchr (uchr "e")) (do
-    (def eval-tmp (eval buf))
-    (write eval-buf eval-tmp)
-    0
-  ))
-
-  (if (= kchr (uchr "p")) (do
-    (plumb (word-at buf cursor))
-  ))
-  0
-)))
-
-(def keymap (load "keymap"))
+(def cursor 0)
+(def buf-dirty 0)
 
 (def backspace (fn (if (gt cursor 0) (do
-  (uremove buf cursor)
-  (mut cursor (- cursor 1))
+  (remove buf cursor)
+  (def cursor (- cursor 1))
+  (def buf-dirty 1)
 ) 0)))
 
-(def cursor-left (fn modif (do
-  (if (= modif 1)
-    (mut cursor-size (- cursor-size 1))
-    (mut cursor (- cursor 1)))
-  (if (lt cursor-size 1) (def cursor-size 1) 0)
+(def cursor-left (fn (do
+  (def cursor (- cursor 1))
+  (def buf-dirty 1)
 )))
 
-(def cursor-right (fn modif (do
-  (if (= modif 1)
-    (mut cursor-size (+ cursor-size 1))
-    (mut cursor (+ cursor 1)))
+(def cursor-right (fn (do
+  (def cursor (+ cursor 1))
+  (def buf-dirty 1)
 )))
 
 (def cursor-up (fn (do
-  (mut cursor (ufind-prev buf 10 (- cursor 1)))
+  (def cursor (find-prev buf 10 (- cursor 1)))
+  (def buf-dirty 1)
 )))
 
 (def cursor-down (fn (do
-  (mut cursor (ufind-next buf 10 (+ cursor 1)))
+  (let nextzero (find-next buf 0 (+ cursor 1)))
+  (let nextnl (find-next buf 10 (+ cursor 1)))
+  (def cursor (if (lt nextzero nextnl) cursor nextnl))
+  (def buf-dirty 1)
 )))
 
-(def handle-editor-key (fn k modif (do
-  (if (= k 79) (cursor-right)
-    (if (= k 80) (cursor-left)
-      (if (= k 42) (backspace)
-        (if (= k 82) (cursor-up)
-          (if (= k 81) (cursor-down)
+(def exit-editor (fn (do
+  (print "exit-editor")
+  (def editor-running 0)
+)))
 
-  (if (and (gt k 0) (lt k 64))
+(def handle-editor-key (fn k (do
+  (if (eq k 20) (cursor-right)
+    (if (eq k 19) (cursor-left)
+      (if (eq k 0x7f) (backspace)
+        (if (eq k 17) (cursor-up)
+          (if (eq k 18) (cursor-down)
+            (if (eq k 27) (exit-editor)
+
+  (if (and (gt k 0) (lt k 250))
     (do
-      (mut kidx (if (+ (= 1 modif) (= 2 modif)) (+ k 128) k))
-      (mut kchr (uget keymap kidx))
-      (uinsert buf cursor kchr)
-      (mut cursor (+ cursor 1))
-    ))
+      (print (list "handle-editor-key2" k))
+      (insert buf cursor (+ k 0))
+      (def cursor (+ cursor 1))
+      (def buf-dirty 1)
+    ) 0)
   
-  )))))
+  ))))))
+
+  (if buf-dirty (do
+    (buf-render cursor buf)
+    (def buf-dirty 0)
+  ) 0)
   0
 )))
 
-(def buf-load (fn path (def buf (load path))))
+(def handle-command-key (fn 0))
 
-(def eval-buf-x 0)
-(def eval-buf-y 600)
+(def edit (fn path (do
+  (print "hello from editor")
+  (def buf (load path))
 
-(def modif 0)
-(def k 0)
-
-(def update-statusline (fn (do
-  (def memstat (load "/sys/mem"))
-  (def cellusage (/ (* 100 (car (cdr (cdr memstat)))) (car (cdr (cdr (cdr memstat))))))
-  (def memusage (/ (* 100 (car memstat)) (car (cdr memstat))))
-  (write help-buf (cons (cons cursor (usize buf)) (cons (cons "heap%" memusage) (cons "cell%" cellusage))))
-  0
-)))
-
-(def main (fn
-(while running (do
-  (flip)
-  (buf-render cursor buf 0 0)
-  (buf-render 0 eval-buf eval-buf-x eval-buf-y)
-  (buf-render 0 help-buf 0 700)
-  (update-statusline)
-
-  (def k (inkey 0))
-  (def modif (inkey 1))
-
-  (if (= modif 1024)
-    (handle-command-key k modif)
-    (handle-editor-key k modif))
-
-  (if (lt cursor 0) (mut cursor 0))
-  (if (gt cursor (usize buf)) (mut cursor (usize buf)))
-
+  (let blink 0)
+  (boxfill 0 0 1200 600 0xffff)
   (gc)
-))
-))
+  (def term-x buf-render-x)
+  (def term-y buf-render-y)
+  (def buf-dirty 1)
+  
+  (while (eq 1 editor-running) (do
+    (let str (recv keyboard))
+    (let k (get str 0))
 
-(main)
+    (handle-editor-key k)
+
+    (if (lt cursor 0) (def cursor 0) 0)
+    (if (gt cursor (size buf)) (def cursor (size buf)) 0)
+
+    (if (gt blink 9)
+      (blit-char 0x2588 term-x term-y)
+      (do
+        (blit-char cursor-char term-x term-y)
+      ))
+      
+    (let blink (% (+ blink 1) 20))
+    
+    (send scr 0)
+    (gc)
+  ))
+  0
+)))
+)

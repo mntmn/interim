@@ -64,7 +64,7 @@
   (let so (+ (* sx 2) (* sy font-pitch)))
   (let do (+ (*  x 2) (*  y screen-pitch)))
 
-  (let rune-ww (+ rune-w rune-w))
+  (let rune-ww (+ rune-spacing rune-spacing))
   
   (while (lt iy rune-h) (do
     (let ix 0)
@@ -118,7 +118,7 @@
   (blit-str evbuf x y)
 )))
 
-(def k (open "/keyboard"))
+(def keyboard (open "/keyboard"))
 
 (def strlen (fn s (if s (do
   (let i 0)
@@ -280,14 +280,15 @@
   x
 )))
 
-(def ltest (fn (line (list 0 0) (list 20 20))))
+(def ed (fn 
+    (run "/sd/tests/editlite.l") ))
 
 (def main (fn (do
   (let blink 0)
   (let running 1)
 
   (while running (do
-    (let str (recv k))
+    (let str (recv keyboard))
     (let c (get str 0))
 
     (if (gt c 0) (print c) 0)
@@ -332,8 +333,6 @@
         (let nl (- (strlen buffer) 1))
         (def buffer (substr buffer 0 nl)) ) 0) 0)
 
-    (run-tasks)
-
     (if (gt term-x maxx) (do (def term-x minx) (def term-y (+ term-y rune-h))) 0)
 
     (if (gt term-y maxy) (def term-y miny) 0)
@@ -343,6 +342,7 @@
     (if (gt blink 9)
       (blit-char 0x2588 term-x term-y) (blit-char 32 term-x term-y))
     (let blink (% (+ blink 1) 20))
+    
     (send scr 0)
   ))
 )))
