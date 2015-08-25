@@ -156,22 +156,6 @@ void fs_mount_builtin(char* path, void* open_handler, void* read_handler, void* 
   fs_mount(alloc_string_copy(path), handlers);
 }
 
-Cell* consolefs_open() {
-  // TODO: set console to raw mode?
-  return alloc_int(1);
-}
-
-Cell* consolefs_read() {
-  int c = fgetc(stdin);
-  return alloc_int(c);
-}
-
-Cell* consolefs_write(Cell* a1,Cell* arg) {
-  fputc(arg->value, stdout);
-  return arg;
-}
-
 Cell* filesystems_init() {
   fs_list = alloc_nil();
-  fs_mount_builtin("/console", consolefs_open, consolefs_read, consolefs_write, 0, 0);
 }

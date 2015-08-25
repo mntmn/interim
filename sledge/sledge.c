@@ -52,6 +52,11 @@ int main(int argc, char *argv[])
   mount_posixfs();
 #endif
   
+#ifdef DEV_CONSOLEKEYS
+  void mount_consolekeys();
+  mount_consolekeys();
+#endif
+  
   while (1) {
     expr = NULL;
     
