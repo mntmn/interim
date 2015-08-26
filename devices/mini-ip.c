@@ -478,27 +478,27 @@ void send_tcp_packet(int srcport, int port, uint8_t flags, uint32_t seqnum, uint
 
 static int their_tcp_port = 8000;
 
-Cell* machine_connect_tcp(Cell* host_cell, Cell* port_cell, Cell* connected_fn_cell, Cell* data_fn_cell) {
-  if (!host_cell || (host_cell->tag!=TAG_BYTES && host_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
-  if (!port_cell || (port_cell->tag!=TAG_INT)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+int connect_tcp(char* host_ip, int port) {
+  //if (!host_cell || (host_cell->tag!=TAG_BYTES && host_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  //if (!port_cell || (port_cell->tag!=TAG_INT)) return alloc_error(ERR_INVALID_PARAM_TYPE);
   
-  my_tcp_connected_callback = connected_fn_cell;
-  my_tcp_data_callback = data_fn_cell;
+  //my_tcp_connected_callback = connected_fn_cell;
+  //my_tcp_data_callback = data_fn_cell;
 
-  their_tcp_port = port_cell->value;
+  their_tcp_port = port;
 
-  memcpy(their_ip,host_cell->addr,4);
+  memcpy(their_ip,host_ip,4);
 
   my_seqnum++;
-  send_tcp_packet(my_tcp_port,port_cell->value,TCP_RST,my_seqnum,0,NULL,0);
+  send_tcp_packet(my_tcp_port,port,TCP_RST,my_seqnum,0,NULL,0);
   my_tcp_port++;
   my_seqnum+=10;
-  send_tcp_packet(my_tcp_port,port_cell->value,TCP_SYN,my_seqnum,0,NULL,0);
+  send_tcp_packet(my_tcp_port,port,TCP_SYN,my_seqnum,0,NULL,0);
   
-  return alloc_int(1);
+  return 1;
 }
 
-Cell* machine_send_tcp(Cell* data_cell) {
+Cell* send_tcp(Cell* data_cell) {
   if (!data_cell || (data_cell->tag!=TAG_BYTES && data_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
 
   send_tcp_packet(my_tcp_port,their_tcp_port,TCP_PSH|TCP_ACK,my_seqnum,their_seqnum,data_cell->addr,data_cell->size);

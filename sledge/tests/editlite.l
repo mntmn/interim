@@ -92,13 +92,14 @@
   (let pos 0)
   (let nextpos 0)
   (let y buf-render-y)
+  (let render-all 0)
   
   (print (list "num-lines" (list-size lines)))
   
   ; number of lines changed? then rerender
   (if (not (eq last-num-lines (list-size lines))) (do
       (print "re-render!")
-      (let only-current 0)
+      (let render-all 1)
       (boxfill minx miny maxx maxy 0xffff)
     )
   0)
@@ -112,7 +113,7 @@
     
     (let nextpos (+ 1 (+ pos (size ln))))
 
-    ;(print (list "line " i "cursor" cursor "pos/nextpos/lnsize" pos nextpos ln (size ln)))
+    (print (list "line " i "cursor" cursor "pos/nextpos/lnsize" pos nextpos ln (size ln)))
     
     (if (and (gt cursor (- pos 1)) (lt cursor (+ nextpos 1))) (do
       ; cursor is in this line
@@ -122,13 +123,19 @@
       (def cursor-char (get ln cursor-x))
       (let is-current-line 1)
 
+      ;(print "blank out")
+
       ; blank out the line
-      (if only-current (do
-        (boxfill buf-render-x term-y (- maxx buf-render-x) rune-h 0xffff)
-      ) 0)
+      ;(if only-current (do
+      ;  (boxfill buf-render-x term-y (- maxx buf-render-x) rune-h 0xffff)
+      ;) 0)
     ) 0)
 
-    (if (or is-current-line (not only-current)) (do
+    ; this crashes arm
+    ; (or is-current-line (not only-current))
+    
+    (if (or render-all is-current-line) (do
+      (print (list "blit-str " ln buf-render-x y))
       (blit-str ln buf-render-x y)
     ) 0)
     
@@ -219,9 +226,11 @@
 
 (def handle-command-key (fn 0))
 
-(def edit (fn path (do
-  (print "hello from editor")
-  (def buf (load path))
+(def edit (fn edit-buf (do
+  (def buf edit-buf)
+  (def editor-running 1)
+  (def last-num-lines -1)
+  (def cursor 0)
 
   (let blink 0)
   (clear 0xffff)
@@ -239,7 +248,7 @@
     (if (lt cursor 0) (def cursor 0) 0)
     (if (gt cursor (size buf)) (def cursor (size buf)) 0)
 
-    (print (list "term-x/y" term-x term-y))
+    ; (print (list "term-x/y" term-x term-y))
     (if (gt blink 9)
       (blit-char 0x2588 term-x term-y)
       (do
@@ -251,6 +260,17 @@
     (send scr 0)
     (gc)
   ))
-  0
+  buf
 )))
+
+(def edit-file (fn path (do
+  (let content (load path))
+  (let headroom (alloc-str 4096))
+  (edit (concat content headroom))
+)))
+
+(def edit-new (fn (do
+  (edit (alloc-str 4096))
+)))
+
 )

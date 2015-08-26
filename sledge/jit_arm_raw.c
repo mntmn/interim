@@ -270,6 +270,13 @@ void jit_call(void* func, char* note) {
   code[code_idx++] = 0xe8bd4000; // ldmfd	sp!, {lr}
 }
 
+void jit_callr(int reg) {
+  code[code_idx++] = 0xe92d4000; // stmfd	sp!, {lr}
+  jit_movr(14,15);
+  jit_movr(15,reg);
+  code[code_idx++] = 0xe8bd4000; // ldmfd	sp!, {lr}
+}
+
 int32_t inline_div(int32_t a, int32_t b) {
   return a/b;
 }

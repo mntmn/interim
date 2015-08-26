@@ -1016,6 +1016,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_call(alloc_num_string,"alloc_string");
       break;
     }
+    case BUILTIN_BYTES_TO_STR: {
+      load_int(ARGR0,argdefs[0], frame);
+      jit_call(alloc_string_copy,"alloc_string_copy");
+      break;
+    }
     case BUILTIN_WRITE: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
@@ -1141,7 +1146,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         load_cell(LBDREG+j, argdefs[j], frame);
       }
     }
-    jit_call(op->next,"lambda");
+    jit_lea(R0,op_env);
+    jit_ldr(R0); // load cell
+    jit_addi(R0,PTRSZ); // &cell->next
+    jit_ldr(R0); // cell->next
+    jit_callr(R0);
 
     pop_frame_regs(frame->f);
     frame->sp-=pushed;
@@ -1234,6 +1243,8 @@ void init_compiler() {
   insert_symbol(alloc_sym("size"), alloc_builtin(BUILTIN_SIZE, alloc_list((Cell*[]){alloc_int(TAG_STR)}, 1)), &global_env);
   insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC, alloc_list((Cell*[]){alloc_int(TAG_INT)}, 1)), &global_env);
   insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR, alloc_list((Cell*[]){alloc_int(TAG_INT)}, 1)), &global_env);
+
+  insert_symbol(alloc_sym("bytes->str"), alloc_builtin(BUILTIN_BYTES_TO_STR, alloc_list((Cell*[]){alloc_int(TAG_ANY)}, 1)), &global_env);
 
   printf("[compiler] strings…\r\n");
   

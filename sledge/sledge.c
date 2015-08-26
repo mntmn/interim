@@ -132,8 +132,8 @@ Cell* platform_eval(Cell* expr) {
   Cell* c;
   while (expr>=cell_heap_start && (c = car(expr))) {
     if (c<cell_heap_start) {
-      printf("[platform_eval] stack corrupted, aborting.\r\n");
-      return NULL;
+      printf("[platform_eval] aborting.\r\n");
+      return res;
     }
     
     i++;

@@ -72,7 +72,7 @@
 //#define SD_CARD_INTERRUPTS
 
 // Enable EXPERIMENTAL (and possibly DANGEROUS) SD write support
-//#define SD_WRITE_SUPPORT
+#define SD_WRITE_SUPPORT
 
 // The particular SDHCI implementation
 #define SDHCI_IMPLEMENTATION_GENERIC        0

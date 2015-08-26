@@ -166,6 +166,10 @@ void jit_call(void* func, char* note) {
   fprintf(jit_out, "callq *%%rax # %s\n", note);
 }
 
+void jit_callr(int reg) {
+  fprintf(jit_out, "callq *%s\n", regnames[reg]);
+}
+
 int32_t inline_mod(int64_t a, int64_t b) {
   return a%b;
 }

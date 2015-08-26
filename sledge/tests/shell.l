@@ -55,7 +55,7 @@
 (def ls (fn (do
   (split (load "/sd/") [0a])
 )))
-(def run (fn path (eval (read (recv (open path))))))
+(def import (fn path (eval (read (recv (open path))))))
 
 (def scr (open "/framebuffer"))
 (def fb (mmap "/framebuffer"))
@@ -173,7 +173,7 @@
 
 (def scale 2)
 (def maxx (/ 1847 scale))
-(def maxy (/ 1015 scale))
+(def maxy 1015)
 (def minx 32)
 (def miny 32)
 
@@ -283,13 +283,64 @@
 
 (def tasks (list))
 
-(def test (fn (do
-  (print "hello from test")
-  (p history 0 0)
-)))
-
 (def add-task (fn t (do
   (def tasks (cons t tasks))
+)))
+
+(def mt 0)
+(def mt-test (fn (do
+  (add-task (fn (do
+    (def mt (% (+ mt 1) 0xffff))
+    (boxfill 0 0 32 32 mt))))
+)))
+
+(def net (open "/net"))
+(def net-y 32)
+
+(def temp-minx minx)
+(def temp-maxx maxx)
+      
+(def net-test (fn (do
+  (def net (open "/net/tcp/62.231.75.133/6667"))
+  (add-task (fn (do
+    (let packet (recv net))
+    (if (size packet) (do
+      (def temp-minx minx)
+      (def temp-maxx maxx)
+
+      (def minx 1000)
+      (def maxx 1800)
+      (print "about to print packet")
+      (print (bytes->str packet))
+      
+      (let ofsy (blit-str (bytes->str packet) minx net-y))
+      (print (list "ofsy" ofsy))
+      
+      (def minx temp-minx)
+      (def maxx temp-maxx)
+      (def net-y (+ 0 ofsy))
+      (if (gt net-y maxy) (def net-y miny) 0)
+      
+    ) 0)
+  )))
+)))
+
+(def irc-join (fn nick (do
+  (send net "PASS *")
+  (send net [0a])
+  (send net (concat "NICK " nick))
+  (send net [0a])
+  (send net (concat "USER " (concat nick " 8 * :Interim OS")))
+  (send net [0a])
+  (send net "JOIN #nodrama.de")
+  (send net [0a])
+)))
+
+(def irc-msg (fn msg (do
+  (let ircbuf (concat "PRIVMSG #nodrama.de :" msg))
+  (print (list "ircbuf:" ircbuf))
+  (send net ircbuf)
+  (send net [0a])
 )))
 
 (def task-func (fn (print "hello from placeholder")))
@@ -298,7 +349,7 @@
   (let tl tasks)
   (while (car tl) (do
     (def task-func (car tl))
-    (print (list "run-task " task-func))
+    ; (print (list "run-task " task-func))
     (task-func)
     (let tl (cdr tl))
   ))
@@ -329,7 +380,7 @@
   x
 )))
 
-(def ed (fn (run "/sd/tests/editlite.l") ))
+(def ed (fn (import "/sd/tests/editlite.l") ))
 
 (def main (fn (do
   (let blink 0)
@@ -390,7 +441,8 @@
     (if (gt blink 9)
       (blit-char 0x2588 term-x term-y) (blit-char 32 term-x term-y))
     (let blink (% (+ blink 1) 20))
-    
+
+    (run-tasks)
     (send scr 0)
     (gc)
   ))
