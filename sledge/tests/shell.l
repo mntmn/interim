@@ -299,6 +299,28 @@
 
 (def temp-minx minx)
 (def temp-maxx maxx)
+
+
+(def irc-msg (fn msg (do
+  (let ircbuf (concat "PRIVMSG #nodrama.de :" msg))
+  (print (list "ircbuf:" ircbuf))
+  (send net ircbuf)
+  (send net [0a])
+)))
+
+(def cmdbuf (alloc-str 512))
+(def remote-cmd (fn msg (do
+  (let parts (split msg "$"))
+  (if (gt (list-size parts) 1) (do
+    (let cmd (concat (concat "(" (item parts 1)) ")"))
+    (print (list "remote cmd" cmd))
+    (def cmdbuf (alloc-str 512))
+    (write (eval (read cmd)) cmdbuf)
+    (print (list "result" cmdbuf))
+    (irc-msg cmdbuf)
+  ) 0)
+  0
+)))
       
 (def net-test (fn (do
   (def net (open "/net/tcp/62.231.75.133/6667"))
@@ -311,15 +333,17 @@
       (def minx 1000)
       (def maxx 1800)
       (print "about to print packet")
-      (print (bytes->str packet))
+      (let msg (bytes->str packet))
       
-      (let ofsy (blit-str (bytes->str packet) minx net-y))
+      (let ofsy (+ (blit-str msg minx net-y) rune-h))
       (print (list "ofsy" ofsy))
       
       (def minx temp-minx)
       (def maxx temp-maxx)
       (def net-y (+ 0 ofsy))
       (if (gt net-y maxy) (def net-y miny) 0)
+
+      (remote-cmd msg)
       
     ) 0)
   )))
@@ -333,13 +357,6 @@
   (send net (concat "USER " (concat nick " 8 * :Interim OS")))
   (send net [0a])
   (send net "JOIN #nodrama.de")
-  (send net [0a])
-)))
-
-(def irc-msg (fn msg (do
-  (let ircbuf (concat "PRIVMSG #nodrama.de :" msg))
-  (print (list "ircbuf:" ircbuf))
-  (send net ircbuf)
   (send net [0a])
 )))
 

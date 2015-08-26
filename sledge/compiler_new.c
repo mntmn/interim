@@ -2,7 +2,6 @@
 #include "reader.h"
 #include "writer.h"
 #include "alloc.h"
-#include "machine.h"
 #include "compiler_new.h"
 #include "stream.h"
 #include "utf8.c"
