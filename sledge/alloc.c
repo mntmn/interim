@@ -265,7 +265,9 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   }
   
   //printf("[gc] highwater %d fl_avail %d \r\n",highwater,free_list_avail);
-  cells_used = highwater+1;
+
+  // FIXME on x64, this line causes corruption over time 
+  //cells_used = highwater+1;
   
 #ifdef DEBUG_GC
   printf("\n\n");

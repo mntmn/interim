@@ -5,9 +5,6 @@
 
 // mini-ip is part of interim OS, written in 2015 by mntmn.
 
-#define jit_word_t uint32_t
-typedef jit_word_t (*funcptr)();
-
 #define ETH_TYPE_ARP 0x0806
 #define ETH_TYPE_IP 0x0800
 #define PROTO_IP 0x800
@@ -15,6 +12,7 @@ typedef jit_word_t (*funcptr)();
 #define ARP_REPLY 2
 #define PROTO_IP_UDP 0x11
 #define PROTO_IP_TCP 0x6
+#define PROTO_IP_ICMP 0x1
 
 #define TCP_NS  256
 #define TCP_CWR 128
@@ -84,6 +82,15 @@ typedef struct tcp_packet {
   uint8_t data;
 } tcp_packet;
 
+typedef struct icmp_packet {
+  uint8_t type;
+  uint8_t code;
+  uint16_t checksum;
+  uint16_t identifier;
+  uint16_t seqnum;
+  uint8_t data;
+} icmp_packet;
+
 // no swapping on ARM
 uint16_t swap16(uint16_t in) {
   uint16_t out = in<<8 | ((in&0xff00)>>8);
@@ -122,8 +129,8 @@ extern void ethernet_tx(uint8_t* packet, int len);
 
 void send_tcp_packet(int srcport, int port, uint8_t flags, uint32_t seqnum, uint32_t acknum, uint8_t* data, uint16_t size);
 
-void init_mini_ip(Cell* buffer_cell) {
-  udp_cell = buffer_cell;
+void init_mini_ip() {
+  //udp_cell = buffer_cell;
   rx_packet = malloc(64*1024);
   tx_packet = malloc(64*1024);
   my_tcp_connected_callback = NULL;
@@ -163,7 +170,7 @@ int compare_ip(uint8_t* a, uint8_t* b) {
   return (p[0])|(p[1]<<8)|(p[2]<<16)|(p[3]<<24);
   }*/
 
-void eth_task() {
+Cell* eth_task() {
   int len = 0;
 
   len = ethernet_rx(rx_packet);
@@ -228,20 +235,29 @@ void eth_task() {
         memcpy(their_mac, e->src_mac, 6);
 
         int size = swap16(u->size)-8;
-        printf("got udp packet from %d.%d.%d.%d. size: %d\r\n",sip[0],sip[1],sip[2],sip[3], size);
+        printf("got UDP packet from %d.%d.%d.%d. size: %d\r\n",sip[0],sip[1],sip[2],sip[3], size);
 
         ((uint8_t*)&u->data)[size]=0;
         printf("> %s\r\n",&u->data);
 
-        memcpy(udp_cell->addr, &u->data, size);
-        udp_cell->size = size;
+        Cell* packet = alloc_num_bytes(size);
+        memcpy(packet->addr, &u->data, size);
+        return packet;
+      }
+      else if (i4->proto == PROTO_IP_ICMP) {
+        uint8_t* sip = i4->src_ip;
+        uint8_t* dip = i4->dest_ip;
+        printf("got ICMP packet from %d.%d.%d.%d -> %d.%d.%d.%d.\r\n",sip[0],sip[1],sip[2],sip[3],dip[0],dip[1],dip[2],dip[3]);
+
+        icmp_packet* icmp = (icmp_packet*)(&i4->data);
+        printf("ICMP type: %d id: seqnum: %d\r\n",icmp->type,icmp->identifier,icmp->seqnum);
       }
       else if (i4->proto == PROTO_IP_TCP) {
         tcp_packet* rxt = (tcp_packet*)(&i4->data);
 
         int payload_size = swap16(read_word16(&i4->size))-20-20;
 
-        printf("got TCP/IP, flags: %x, payload_size: %d\r\n",rxt->flags,payload_size);
+        printf("got TCP packet, flags: %x, payload_size: %d\r\n",rxt->flags,payload_size);
 
         if (rxt->flags == (TCP_SYN|TCP_ACK)) {
           // reply to SYN ACK
@@ -251,11 +267,11 @@ void eth_task() {
           printf("REPLY TO SYN ACK: %x\n",rxt->flags);
           send_tcp_packet(swap16(read_word16(&rxt->dest_port)),swap16(read_word16(&rxt->src_port)),TCP_ACK,my_seqnum,their_seqnum,NULL,0);
           
-          if (my_tcp_connected_callback) {
+          /*if (my_tcp_connected_callback) {
             funcptr fn = (funcptr)my_tcp_connected_callback->next;
             fn();
             return;
-          }
+            }*/
         }
         else if ((rxt->flags&TCP_FIN) == TCP_FIN) {
           send_tcp_packet(swap16(read_word16(&rxt->dest_port)),swap16(read_word16(&rxt->src_port)),TCP_RST,my_seqnum,their_seqnum,NULL,0);
@@ -270,21 +286,24 @@ void eth_task() {
           send_tcp_packet(swap16(read_word16(&rxt->dest_port)),swap16(read_word16(&rxt->src_port)),TCP_ACK,my_seqnum,their_seqnum,NULL,0);
 
           printf("got data, copying payload size %d\r\n",payload_size);
-          memcpy(udp_cell->addr, &rxt->data, payload_size);
-          udp_cell->size = payload_size;
-          *((uint8_t*)udp_cell->addr+payload_size) = 0;
+          
+          Cell* packet = alloc_num_bytes(payload_size+1);
+          memcpy(packet->addr, &rxt->data, payload_size);
+          *((uint8_t*)packet->addr+payload_size) = 0;
 
           if (old_seqnum != their_seqnum) {
-            if (my_tcp_data_callback) {
+            /*if (my_tcp_data_callback) {
               funcptr fn = (funcptr)my_tcp_data_callback->next;
               fn(udp_cell);
               return;
-            }
+              }*/
+            return packet;
           } // else duplicate packet received
         }
       }
     }
   }
+  return alloc_num_bytes(0);
 }
 
 /* taken from TCP/IP Illustrated Vol. 2(1995) by Gary R. Wright and W. Richard
@@ -486,10 +505,5 @@ Cell* machine_send_tcp(Cell* data_cell) {
   my_seqnum+=data_cell->size;
   
   return alloc_int(1);
-}
-
-Cell* machine_poll_udp() {
-  eth_task();
-  return udp_cell;
 }
 

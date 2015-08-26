@@ -43,13 +43,12 @@ extern void libfs_init();
 extern void uspi_keypress_handler(const char *str);
 
 static int have_eth = 0;
-uint8_t* eth_rx_buffer;
 
-void init_mini_ip(Cell* buffer_cell);
+//void init_mini_ip(Cell* buffer_cell);
 
 /*
 multicore:
-> You only need to write a physical ARM address to:
+> You need to write a physical ARM address to:
 > 0x4000008C + 0x10 * core // core := 1..3
 */
 
@@ -116,8 +115,6 @@ void main()
   
   have_eth = USPiEthernetAvailable();
   printf("uu USPI has ethernet: %d\r\n", have_eth);
-
-  //eth_rx_buffer=malloc(64*1024);*/
   
   libfs_init();
   printf("malloc4096 test 4: %p\r\n",malloc(4096));
@@ -129,98 +126,9 @@ void main()
 #include "devices/rpi2/fatfs.c"
 //#include "devices/rpi2/usbkeys.c"
 #include "devices/rpi2/uartkeys.c"
+#include "devices/rpi2/dev_ethernet.c"
 
 #include <os/libc_glue.c>
-
-int ethernet_rx(uint8_t* packet) {
-  int frame_len = 0;
-  if (have_eth) {
-    USPiReceiveFrame(packet, &frame_len);
-
-    if (frame_len) {
-      printf("[eth] frame received! len: %d\r\n",frame_len);   
-      memdump(packet,frame_len,0);
-    }
-  }
-  return frame_len;
-}
-
-void ethernet_tx(uint8_t* packet, int len) {
-  USPiSendFrame(packet, len);
-  printf("[eth] frame sent (%d)\r\n",len);
-}
-
-/*
-int machine_video_flip() {
-  nv_vertex_t* triangles = r3d_init_frame();
-
-  Cell* c_x1 = lookup_global_symbol("tx1");
-  Cell* c_x2 = lookup_global_symbol("tx2");
-  Cell* c_y1 = lookup_global_symbol("ty1");
-  Cell* c_y2 = lookup_global_symbol("ty2");
-  
-  int x1 = c_x1->value*16;
-  int y1 = c_y1->value*16;
-  int x2 = c_x2->value*16;
-  int y2 = c_y2->value*16;
-
-  triangles[0].x = x1;
-  triangles[0].y = y1;
-  triangles[0].z = 1.0f;
-  triangles[0].w = 1.0f;
-  triangles[0].r = 1.0f;
-  triangles[0].g = 0.0f;
-  triangles[0].b = 1.0f;
-  
-  triangles[1].x = x2;
-  triangles[1].y = y1;
-  triangles[1].z = 1.0f;
-  triangles[1].w = 1.0f;
-  triangles[1].r = 1.0f;
-  triangles[1].g = 1.0f;
-  triangles[1].b = 1.0f;
-  
-  triangles[2].x = x1;
-  triangles[2].y = y2;
-  triangles[2].z = 1.0f;
-  triangles[2].w = 1.0f;
-  triangles[2].r = 1.0f;
-  triangles[2].g = 1.0f;
-  triangles[2].b = 1.0f;
-  
-  triangles[3].x = x2;
-  triangles[3].y = y1;
-  triangles[3].z = 1.0f;
-  triangles[3].w = 1.0f;
-  triangles[3].r = 1.0f;
-  triangles[3].g = 1.0f;
-  triangles[3].b = 1.0f;
-  
-  triangles[4].x = x2;
-  triangles[4].y = y2;
-  triangles[4].z = 1.0f;
-  triangles[4].w = 1.0f;
-  triangles[4].r = 1.0f;
-  triangles[4].g = 0.0f;
-  triangles[4].b = 1.0f;
-  
-  triangles[5].x = x1;
-  triangles[5].y = y2;
-  triangles[5].z = 1.0f;
-  triangles[5].w = 1.0f;
-  triangles[5].r = 1.0f;
-  triangles[5].g = 1.0f;
-  triangles[5].b = 1.0f;
-  
-  r3d_triangles(2, triangles);
-  r3d_render_frame(0xffffffff);
-  
-  //memset(FB_MEM, 0xffffff, 1920*1080*4);
-  //r3d_debug_gpu();
-  
-  return 0;
-}
-*/
 
 typedef jit_word_t (*funcptr)();
 
@@ -259,28 +167,25 @@ Cell* platform_debug() {
 }
 
 void uart_repl() {
-  fatfs_debug();
   uart_puts("~~ trying to malloc repl buffers\r\n");
-  sbrk(0);
-  fatfs_debug();
   char* out_buf = malloc(REPLBUFSZ);
   char* in_line = malloc(REPLBUFSZ);
   char* in_buf = malloc(REPLBUFSZ);
   sbrk(0);
   uart_puts("\r\n\r\n++ welcome to sledge arm/32 (c)2015 mntmn.\r\n");
-  fatfs_debug();
   
   printf("malloc4096 test 1: %p\r\n",malloc(4096));
   init_compiler();
   printf("malloc4096 test 2: %p\r\n",malloc(4096));
-  fatfs_debug();
   //insert_rootfs_symbols();
   mount_fbfs(FB);
   printf("malloc4096 test 3: %p\r\n",malloc(4096));
-  fatfs_debug();
   //mount_usbkeys();
   mount_uartkeys();
   mount_fatfs();
+
+  mount_ethernet();
+  
   fatfs_debug();
   
   uart_puts("\r\n~~ fs initialized.\r\n");
@@ -307,9 +212,6 @@ void uart_repl() {
 
   strcpy(in_line,"(eval (read (recv (open \"/sd/shell.l\"))))\n");
   c=13;
-  
-  //r3d_init(FB);
-  //uart_puts("-- R3D initialized.\r\n");
   
   while (1) {
     expr = NULL;

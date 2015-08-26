@@ -22,12 +22,12 @@
   out
 )))
 
-(blit-str "loading tiles..." 0 0)
+(blit-str "loading tiles..." 500 800)
 
 (def f (open "/sd/smb3.888"))
 (def mariotiles (rgb888->565 (recv f)))
 
-(blit-str "loading sprites..." 0 0)
+(blit-str "loading sprites..." 500 800)
 
 (def sprites (rgb888->565 (load "/sd/mario.888")))
 
@@ -95,7 +95,7 @@
     
     ;(let x (+ x 1))
 
-    (let str (recv k))
+    (let str (recv keyboard))
     (let c (get str 0))
 
     (if (eq c 17) (do ; walk up

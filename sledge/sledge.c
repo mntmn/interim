@@ -130,7 +130,12 @@ Cell* platform_eval(Cell* expr) {
   int i = 0;
   Cell* res = alloc_nil();
   Cell* c;
-  while ((c = car(expr))) {
+  while (expr>=cell_heap_start && (c = car(expr))) {
+    if (c<cell_heap_start) {
+      printf("[platform_eval] stack corrupted, aborting.\r\n");
+      return NULL;
+    }
+    
     i++;
     int tag = compile_for_platform(c, &res); 
   

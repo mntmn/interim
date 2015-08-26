@@ -78,58 +78,60 @@
   buf
 )))
 
-(def split (fn str sepstr (do
-  (let sep (get sepstr 0))
-  (let result (quote ()))
-  (let sz (size str))
-  (let i 0)
-  (let i (- sz 1))
-  (let last-i 0)
-  (let last-i (+ i 1))
-  (let partsize 0)
-  
-  (while (gt i -2) (do
-    (if (or (eq (get str i) sep) (eq i -1)) (do
-      (let partsize (- (- last-i i) 1))
-  
-      (if (gt partsize 0)
-        (let result (cons (substr str (+ i 1) partsize) result)) 0)
-      (let last-i i)
-    ) 0)
-    (let i (- i 1))
-  ))
-  result
-)))
-
 (def buf-render-x 32)
 (def buf-render-y 32)
 (def cursor-char 32)
 (def cursor-x 0)
+(def last-num-lines 0)
 
 (def buf-render (fn cursor b (do
   (let lines (split b [0a]))
   (let i 0)
   (let y 0)
   (let ln (car lines))
-  (let y buf-render-y)
   (let pos 0)
   (let nextpos 0)
+  (let y buf-render-y)
+  
+  (print (list "num-lines" (list-size lines)))
+  
+  ; number of lines changed? then rerender
+  (if (not (eq last-num-lines (list-size lines))) (do
+      (print "re-render!")
+      (let only-current 0)
+      (boxfill minx miny maxx maxy 0xffff)
+    )
+  0)
+  
+  (print (list "cursor pos buf-render-x buf-render-y" cursor pos buf-render-x buf-render-y))
+
+  (def last-num-lines (list-size lines))
   
   (while ln (do
-    (blit-str ln buf-render-x y)
-
+    (let is-current-line 0)
+    
     (let nextpos (+ 1 (+ pos (size ln))))
 
     ;(print (list "line " i "cursor" cursor "pos/nextpos/lnsize" pos nextpos ln (size ln)))
     
     (if (and (gt cursor (- pos 1)) (lt cursor (+ nextpos 1))) (do
       ; cursor is in this line
-      (def term-y y)
+      (def term-y (+ y 0))
       (def cursor-x (- cursor pos))
       (def term-x (+ buf-render-x (* rune-spacing cursor-x)))
       (def cursor-char (get ln cursor-x))
+      (let is-current-line 1)
+
+      ; blank out the line
+      (if only-current (do
+        (boxfill buf-render-x term-y (- maxx buf-render-x) rune-h 0xffff)
+      ) 0)
     ) 0)
 
+    (if (or is-current-line (not only-current)) (do
+      (blit-str ln buf-render-x y)
+    ) 0)
+    
     (let pos (+ nextpos 0))
     (let y (+ y 16))
     (let i (+ i 1))
@@ -149,27 +151,36 @@
 (def buf-dirty 0)
 
 (def backspace (fn (if (gt cursor 0) (do
-  (remove buf cursor)
+  (remove buf (- cursor 1))
   (def cursor (- cursor 1))
   (def buf-dirty 1)
 ) 0)))
 
+(def repair-at-cursor (fn (do
+  (print "repair-at-cursor")
+  (blit-char (if (eq cursor-char 0) 32 cursor-char) term-x term-y)
+)))
+
 (def cursor-left (fn (do
+  (repair-at-cursor)
   (def cursor (- cursor 1))
   (def buf-dirty 1)
 )))
 
 (def cursor-right (fn (do
+  (repair-at-cursor)
   (def cursor (+ cursor 1))
   (def buf-dirty 1)
 )))
 
 (def cursor-up (fn (do
+  (repair-at-cursor)
   (def cursor (find-prev buf 10 (- cursor 1)))
   (def buf-dirty 1)
 )))
 
 (def cursor-down (fn (do
+  (repair-at-cursor)
   (let nextzero (find-next buf 0 (+ cursor 1)))
   (let nextnl (find-next buf 10 (+ cursor 1)))
   (def cursor (if (lt nextzero nextnl) cursor nextnl))
@@ -213,7 +224,7 @@
   (def buf (load path))
 
   (let blink 0)
-  (boxfill 0 0 1200 600 0xffff)
+  (clear 0xffff)
   (gc)
   (def term-x buf-render-x)
   (def term-y buf-render-y)
@@ -228,10 +239,11 @@
     (if (lt cursor 0) (def cursor 0) 0)
     (if (gt cursor (size buf)) (def cursor (size buf)) 0)
 
+    (print (list "term-x/y" term-x term-y))
     (if (gt blink 9)
       (blit-char 0x2588 term-x term-y)
       (do
-        (blit-char cursor-char term-x term-y)
+        (blit-char (if (eq cursor-char 0) 32 cursor-char) term-x term-y)
       ))
       
     (let blink (% (+ blink 1) 20))

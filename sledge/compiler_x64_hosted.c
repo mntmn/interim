@@ -21,9 +21,9 @@ int compile_for_platform(Cell* expr, Cell** res) {
     fclose(jit_out);
 
     FILE* asm_f = fopen("/tmp/jit_out.s","r");
-    uint32_t* jit_asm = malloc(10000);
-    memset(jit_asm, 0, 10000);
-    fread(jit_asm,1,10000,asm_f);
+    uint32_t* jit_asm = malloc(64000);
+    memset(jit_asm, 0, 64000);
+    fread(jit_asm,1,63999,asm_f);
     fclose(asm_f);
         
 #ifdef DEBUG
@@ -32,7 +32,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
     free(jit_asm);
         
     // prefix with arm-none-eabi- on ARM  -mlittle-endian
-      
+    
     system("as /tmp/jit_out.s -o /tmp/jit_out.o");
     system("objcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
 
@@ -45,6 +45,11 @@ int compile_for_platform(Cell* expr, Cell** res) {
 
 #ifdef DEBUG
     printf("<assembled bytes: %d at: %p>\n",bytes_read,jit_binary);
+    char cmd[256];
+    sprintf(cmd,"cp /tmp/jit_out.o /tmp/jit_%p.o",jit_binary);
+    system(cmd);
+    sprintf(cmd,"cp /tmp/jit_out.s /tmp/jit_%p.s",jit_binary);
+    system(cmd);
 #endif
 
     if (bytes_read>codesz) {

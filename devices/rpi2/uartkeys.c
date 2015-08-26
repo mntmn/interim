@@ -41,21 +41,22 @@ Cell* uartkeys_read(Cell* stream) {
   
   if (k==27) {
     k = uart_getc();
-    if (k==91) {
-      k = uart_getc();
-      if (k==27) {
-        // fast repetition
-        k = uart_getc();
-        k = uart_getc();
-      }
-      if (k==68) k=130;
-      if (k==67) k=131;
-      if (k==65) k=132;
-      if (k==66) k=133;
-      printf("~~ inkey unknown sequence: 91,%d\r\n",k);
-      k = 0;
-    }
   }
+  if (k==91) {
+    k = uart_getc();
+    if (k==27) {
+      // fast repetition
+      k = uart_getc();
+      k = uart_getc();
+    }
+    if (k==68) k=19;
+    if (k==67) k=20;
+    if (k==65) k=17;
+    if (k==66) k=18;
+    //printf("~~ inkey unknown sequence: 91,%d\r\n",k);
+  }
+  
+  if (k==13) k=10;
   
   /*char c = 0;
   if (ki>0) {

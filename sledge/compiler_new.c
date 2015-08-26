@@ -46,7 +46,7 @@ Cell* insert_global_symbol(Cell* symbol, Cell* cell) {
   return insert_symbol(symbol, cell, &global_env);
 }
 
-// register used for passing args to functions
+// register base used for passing args to functions
 #define LBDREG R4
 
 static FILE* jit_out;
@@ -205,8 +205,8 @@ int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
 }
 
 // TODO: optimize!
-void push_frame_regs(Arg* fn_frame) {
-  if (!fn_frame) return;
+int push_frame_regs(Arg* fn_frame) {
+  if (!fn_frame) return 0;
   
   int pushreg=0;
   int pushstack=0;
@@ -219,10 +219,11 @@ void push_frame_regs(Arg* fn_frame) {
   if (pushreg) {
     jit_push(LBDREG,LBDREG+pushreg-1);
   }
+  return pushreg;
 }
 
-void pop_frame_regs(Arg* fn_frame) {
-  if (!fn_frame) return;
+int pop_frame_regs(Arg* fn_frame) {
+  if (!fn_frame) return 0;
   
   int pushreg=0;
   int pushstack=0;
@@ -235,6 +236,7 @@ void pop_frame_regs(Arg* fn_frame) {
   if (pushreg) {
     jit_pop(LBDREG,LBDREG+pushreg-1);
   }
+  return pushreg;
 }
 
 static char* analyze_buffer[MAXFRAME];
@@ -1039,10 +1041,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_GC: {
+      push_frame_regs(frame->f);
       jit_lea(ARGR0,global_env);
       jit_movi(ARGR1,(jit_word_t)frame->stack_end);
       jit_movr(ARGR2,RSP);
       jit_call(collect_garbage,"collect_garbage");
+      pop_frame_regs(frame->f);
       break;
     }
     case BUILTIN_SYMBOLS: {
@@ -1051,13 +1055,14 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_DEBUG: {
-      jit_lea(ARGR0,global_env);
-      jit_call(platform_debug,"platform_debug");
+      //jit_call(platform_debug,"platform_debug");
       break;
     }
     case BUILTIN_PRINT: {
       load_cell(ARGR0,argdefs[0], frame);
+      push_frame_regs(frame->f);
       jit_call(lisp_print,"lisp_print");
+      pop_frame_regs(frame->f);
       break;
     }
     case BUILTIN_MOUNT: {
@@ -1092,18 +1097,39 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
   } else {
     // λλλ lambda call λλλ
+
+    // save our args
+
+    int pushed = push_frame_regs(frame->f);
+    frame->sp+=pushed;
+
+    /*Cell* dbg1 = alloc_string_copy("---- debug stack save ----");
+    Cell* dbg2 = alloc_string_copy("---- end debug stack  ----");
     
-    if (argi>1) {
+    push_frame_regs(frame->f);
+    
+    jit_lea(ARGR0,dbg1);
+      jit_call(lisp_print,"debug stack");
+    
+    for (int i=0; i<pushed; i++) {
+      jit_ldr_stack(ARGR0, i*PTRSZ);
+      jit_call(lisp_print,"debug stack");
+    }
+    jit_lea(ARGR0,dbg2);
+    jit_call(lisp_print,"debug stack");
+    pop_frame_regs(frame->f);*/
+    
+    /*if (argi>1) {
       jit_push(LBDREG, LBDREG+argi-2);
       frame->sp+=(1+argi-2);
-    }
+    }*/
     
     for (int j=0; j<argi-1; j++) {
       if (argdefs[j].type == ARGT_REG) {
         if (argdefs[j].slot<j) {
           // register already clobbered, load from stack
-          printf("-- loading clobbered reg %d from stack to %d\n",argdefs[j].slot,LBDREG+j);
-          jit_ldr_stack(LBDREG+j, (argdefs[j].slot)*PTRSZ);
+          printf("-- loading clobbered reg %d from stack to reg %d\n",argdefs[j].slot,LBDREG+j);
+          jit_ldr_stack(LBDREG+j, (pushed-1-argdefs[j].slot)*PTRSZ);
         } else {
           // no need to move a reg into itself
           if (argdefs[j].slot!=j) {
@@ -1116,10 +1142,14 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
     }
     jit_call(op->next,"lambda");
-    if (argi>1) {
+
+    pop_frame_regs(frame->f);
+    frame->sp-=pushed;
+    
+    /*if (argi>1) {
       jit_pop(LBDREG, LBDREG+argi-2);
       frame->sp-=(1+argi-2);
-    }
+    }*/
   }
 
 #ifdef CPU_X64

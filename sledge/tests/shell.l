@@ -13,6 +13,38 @@
   (car l)
 )))
 
+(def list-size (fn lst (do
+  (let i 0)
+  (let l lst)
+  (while (car l) (do
+    (let l (cdr l))
+    (let i (+ i 1))))
+  i
+)))
+
+(def split (fn str sepstr (do
+  (let sep (get sepstr 0))
+  (let result (quote ()))
+  (let sz (size str))
+  (let i 0)
+  (let i (- sz 1))
+  (let last-i 0)
+  (let last-i (+ i 1))
+  (let partsize 0)
+  
+  (while (gt i -2) (do
+    (if (or (eq (get str i) sep) (eq i -1)) (do
+      (let partsize (- (- last-i i) 1))
+  
+      (if (gt partsize -1)
+        (let result (cons (substr str (+ i 1) partsize) result)) 0)
+      (let last-i i)
+    ) 0)
+    (let i (- i 1))
+  ))
+  result
+)))
+
 (def sintab [80828486888b8d8f919496989a9c9ea1a3a5a7a9abadafb2b4b6b8babcbec0c1c3c5c7c9cbcdced0d2d3d5d7d8dadcdddfe0e2e3e4e6e7e8eaebecedeeeff1f2f3f4f4f5f6f7f8f9f9fafbfbfcfcfdfdfefefefffffffffffffffffffffffffffffffefefefdfdfcfcfbfbfaf9f9f8f7f6f5f4f4f3f2f1efeeedecebeae8e7e6e4e3e2e0dfdddcdad8d7d5d3d2d0cecdcbc9c7c5c3c1c0bebcbab8b6b4b2afadaba9a7a5a3a19e9c9a989694918f8d8b88868482807d7b79777472706e6b69676563615e5c5a58565452504d4b49474543413f3e3c3a38363432312f2d2c2a2827252322201f1d1c1b1918171514131211100e0d0c0b0b0a0908070606050404030302020101010000000000000000000000000000000101010202030304040506060708090a0b0b0c0d0e1011121314151718191b1c1d1f2022232527282a2c2d2f31323436383a3c3e3f41434547494b4d50525456585a5c5e61636567696b6e70727477797b7d])
 
 (def sin (fn deg (get sintab (% deg 360))))
@@ -20,7 +52,9 @@
 (def abs (fn a (if (lt a 0) (- 0 a) a)))
 
 (def load (fn path (recv (open path))))
-(def ls (fn (load "/sd/")))
+(def ls (fn (do
+  (split (load "/sd/") [0a])
+)))
 (def run (fn path (eval (read (recv (open path))))))
 
 (def scr (open "/framebuffer"))
@@ -62,17 +96,21 @@
   0
 )))
 
-(def ox 824)
-(def oy 550)
-(def stroke-color 0xdddd)
-(line (pt (+ ox 16) (- oy 38)) (pt (+ ox 16) (- oy 102)))
-(line (pt (+ ox 16) (- oy 102)) (pt (+ ox 80) (- oy 38)))
-(line (pt (+ ox 80) (- oy 38)) (pt (+ ox 80) (- oy 102)))
-(line (pt (+ ox 80) (- oy 102)) (pt (+ ox 144) (- oy 38)))
-(line (pt (+ ox 144) (- oy 38)) (pt (+ ox 144) (- oy 102)))
-(line (pt (+ ox 144) (- oy 102)) (pt (+ ox 208) (- oy 38)))
-(line (pt (+ ox 208) (- oy 38)) (pt (+ ox 208) (- oy 102)))
-(line (pt (+ ox 208) (- oy 102)) (pt (+ ox 272) (- oy 102)))
+(def draw-logo (fn ox oy (do
+  (def stroke-color 0xff8e)
+  (line (pt (+ ox 16) (- oy 38)) (pt (+ ox 16) (- oy 102)))
+  (line (pt (+ ox 16) (- oy 102)) (pt (+ ox 80) (- oy 38)))
+  (line (pt (+ ox 80) (- oy 38)) (pt (+ ox 80) (- oy 102)))
+  (line (pt (+ ox 80) (- oy 102)) (pt (+ ox 144) (- oy 38)))
+  (line (pt (+ ox 144) (- oy 38)) (pt (+ ox 144) (- oy 102)))
+  (line (pt (+ ox 144) (- oy 102)) (pt (+ ox 208) (- oy 38)))
+  (line (pt (+ ox 208) (- oy 38)) (pt (+ ox 208) (- oy 102)))
+  (line (pt (+ ox 208) (- oy 102)) (pt (+ ox 272) (- oy 102)))
+)))
+
+(draw-logo 824 550)
+(draw-logo 825 550)
+(draw-logo 824 551)
 
 (def f (open "/sd/unifont.565"))
 (def unifont (recv f))
@@ -187,7 +225,10 @@
     (let ofs (- (+ ofs screen-pitch) ww))
     (let yi (+ yi 1))
   ))
+  0 ; crashes x64 if this is not here
 )))
+
+(def clear (fn color (do (boxfill 0 0 500 500 color) 0)))
 
 (blit-str "Welcome to Interim OS." 32 32)
 
@@ -283,16 +324,6 @@
   (let x 0)
   (while (lt x 359) (do
     (set-pixel (+ cx (* (sin x) r)) (+ cy (* (cos x) r)) stroke-color)
-    (let x (+ x 1))
-  ))
-  x
-)))
-
-(def graph (fn center max (do
-  (let x 0)
-  (while (lt x max) (do
-    (print x)
-    (set-pixel x (+ center (sin (sin x))) stroke-color)
     (let x (+ x 1))
   ))
   x
