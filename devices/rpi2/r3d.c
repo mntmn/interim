@@ -136,8 +136,8 @@ void r3d_init(uint32_t* fb) {
 
 nv_vertex_t* r3d_init_frame() {  
   // reset and stop binning and render threads
-  //*((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT0CS)) = (1<<15) | (1<<5);
-  //*((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT1CS)) = (1<<15) | (1<<5);
+  //*((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT0CS)) = (1<<15) | (1<<5);
+  //*((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT1CS)) = (1<<15) | (1<<5);
 
   // advance lists index (cycle through lists)
   cl_idx++;
@@ -171,13 +171,13 @@ void r3d_render_frame(uint32_t clear_color) {
   //khrn_hw_full_memory_barrier();
 
   // reset binning and frame flush counters
-  *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_BFC)) = 1;
-  *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_RFC)) = 1;
+  *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_BFC)) = 1;
+  *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_RFC)) = 1;
   
   
   // submit binning list
-  *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT0CA)) = (uint32_t)control_list_bin;
-  *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT0EA)) = (uint32_t)control_list_bin_end;
+  *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT0CA)) = (uint32_t)control_list_bin;
+  *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT0EA)) = (uint32_t)control_list_bin_end;
   
   //khrn_hw_full_memory_barrier();
 
@@ -188,8 +188,8 @@ void r3d_render_frame(uint32_t clear_color) {
   
   // submit render
   
-  *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT1CA)) = (uint32_t)control_list_render;
-  *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT1EA)) = (uint32_t)control_list_render_end;
+  *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT1CA)) = (uint32_t)control_list_render;
+  *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT1EA)) = (uint32_t)control_list_render_end;
 
   arm_dmb();
   //printf("~~ submitted rendering list %p-%p\r\n",control_list_render,control_list_render_end);
@@ -199,7 +199,7 @@ void r3d_render_frame(uint32_t clear_color) {
     //printf("bfc loop\r\n");
     arm_dmb();
     r3d_debug_gpu();
-    bfc = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_BFC));
+    bfc = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_BFC));
   } while (bfc==0);
   */
   uint32_t rfc = 0;
@@ -207,7 +207,7 @@ void r3d_render_frame(uint32_t clear_color) {
     //printf("rfc loop\r\n");
     arm_dmb();
     r3d_debug_gpu();
-    rfc = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_RFC));
+    rfc = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_RFC));
     } while (rfc==0);*/
 
   uint32_t ct1cs = 0x20;
@@ -216,7 +216,7 @@ void r3d_render_frame(uint32_t clear_color) {
   do {
     timeout++;
     if (timeout>1000*1000) break;
-    ct1cs = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT1CS));
+    ct1cs = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT1CS));
   } while (ct1cs & 0x20);
   
   //printf("~~ r3d timeout: %d\r\n",timeout);
@@ -228,16 +228,16 @@ void r3d_debug_gpu() {
   arm_dmb();
   arm_dsb();
   
-  dbge = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_DBGE));
-  fdbgo = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_FDBGO));
-  fdbgr = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_FDBGR));
-  fdbgs = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_FDBGS));
-  bfc = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_BFC));
-  rfc = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_RFC));
-  errstat = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_ERRSTAT));
-  pcs = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_PCS));
-  status0 = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT0CS));
-  status1 = *((volatile uint32_t*)(peripheral_base + V3D_BASE + V3D_CT1CS));
+  dbge = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_DBGE));
+  fdbgo = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_FDBGO));
+  fdbgr = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_FDBGR));
+  fdbgs = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_FDBGS));
+  bfc = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_BFC));
+  rfc = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_RFC));
+  errstat = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_ERRSTAT));
+  pcs = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_PCS));
+  status0 = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT0CS));
+  status1 = *((volatile uint32_t*)(PERIPHERAL_BASE + V3D_BASE + V3D_CT1CS));
     
   //printf("-- BFC: 0x%x RFC: 0x%x PCS: 0x%x ERRST: 0x%x DBGE: 0x%x DBGO: 0x%x DBGR: 0x%x DBGS: 0x%x ST0: 0x%x ST1: 0x%x\r\n",bfc,rfc,pcs,errstat,dbge,fdbgo,fdbgr,fdbgs,status0,status1);
 }

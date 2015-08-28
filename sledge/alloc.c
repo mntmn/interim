@@ -394,6 +394,18 @@ Cell* alloc_string_copy(char* str) {
   return cell;
 }
 
+Cell* alloc_string_to_bytes(Cell* bytes) {
+  if (bytes->size<1) return alloc_string_copy("");
+  
+  Cell* cell = cell_alloc();
+  cell->addr = bytes_alloc(bytes->size+1);
+  memcpy(cell->addr, bytes->addr, bytes->size);
+  ((char*)cell->addr)[bytes->size]=0;
+  cell->tag = TAG_STR;
+  cell->size = bytes->size;
+  return cell;
+}
+
 Cell* alloc_concat(Cell* str1, Cell* str2) {
   if (!str1 || !str2) return alloc_error(ERR_INVALID_PARAM_TYPE);
   if (str1->tag!=TAG_BYTES && str1->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);

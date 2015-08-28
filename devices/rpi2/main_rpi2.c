@@ -10,7 +10,7 @@
 #include "devices/rpi2/raspi.h"
 #include "devices/rpi2/mmu.h"
 #include "devices/rpi2/r3d.h"
-#include "devices/rpi2/rpi-boot/vfs.h"
+//#include "devices/rpi2/rpi-boot/vfs.h"
 #include "devices/rpi2/rpi-boot/util.h"
 #include "devices/rpi2/uspi/include/uspi.h"
 
@@ -39,7 +39,7 @@ void enable_mmu(void);
 extern void* _get_stack_pointer();
 void uart_repl();
 
-extern void libfs_init();
+//extern void libfs_init();
 extern void uspi_keypress_handler(const char *str);
 
 static int have_eth = 0;
@@ -116,7 +116,7 @@ void main()
   have_eth = USPiEthernetAvailable();
   printf("uu USPI has ethernet: %d\r\n", have_eth);
   
-  libfs_init();
+  //libfs_init();
   printf("malloc4096 test 4: %p\r\n",malloc(4096));
   
   uart_repl();
@@ -127,6 +127,7 @@ void main()
 //#include "devices/rpi2/usbkeys.c"
 #include "devices/rpi2/uartkeys.c"
 #include "devices/rpi2/dev_ethernet.c"
+#include "devices/rpi2/dev_sound.c"
 
 #include <os/libc_glue.c>
 
@@ -185,6 +186,7 @@ void uart_repl() {
   mount_fatfs();
 
   mount_ethernet();
+  mount_soundfs();
   
   fatfs_debug();
   

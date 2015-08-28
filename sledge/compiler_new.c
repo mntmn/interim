@@ -1016,8 +1016,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_BYTES_TO_STR: {
-      load_int(ARGR0,argdefs[0], frame);
-      jit_call(alloc_string_copy,"alloc_string_copy");
+      load_cell(ARGR0,argdefs[0], frame);
+      jit_call(alloc_string_to_bytes,"alloc_string_to_bytes");
       break;
     }
     case BUILTIN_WRITE: {

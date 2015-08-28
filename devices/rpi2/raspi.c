@@ -271,7 +271,7 @@ uint32_t* init_rpi_gfx()
   arm_dsb();
 
   // https://github.com/PeterLemon/RaspberryPi/blob/master/HelloWorld/CPU/LIB/R_PI2.INC
-  *((volatile uint32_t*)(peripheral_base + 0xb880 + 0x20 + 0x8)) = (uint32_t)gfx_message + 0x8; // MAIL_TAGS = 8
+  *((volatile uint32_t*)(PERIPHERAL_BASE + 0xb880 + 0x20 + 0x8)) = (uint32_t)gfx_message + 0x8; // MAIL_TAGS = 8
   
   uint32_t* framebuffer = 0;
   
@@ -306,7 +306,7 @@ static volatile uint32_t qpu_message[] __attribute__ ((aligned (16))) = {
 void init_rpi_qpu() {
   
 
-  *((volatile uint32_t*)(peripheral_base + 0xb880 + 0x20 + 0x8)) = (uint32_t)qpu_message + 0x8; // MAIL_TAGS = 8
+  *((volatile uint32_t*)(PERIPHERAL_BASE + 0xb880 + 0x20 + 0x8)) = (uint32_t)qpu_message + 0x8; // MAIL_TAGS = 8
 
   do {
     arm_dmb();
