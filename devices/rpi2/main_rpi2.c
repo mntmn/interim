@@ -125,6 +125,7 @@ void main()
 #include "devices/fbfs.c"
 #include "devices/rpi2/fatfs.c"
 //#include "devices/rpi2/usbkeys.c"
+#include "devices/rpi2/usbmouse.c"
 #include "devices/rpi2/uartkeys.c"
 #include "devices/rpi2/dev_ethernet.c"
 #include "devices/rpi2/dev_sound.c"
@@ -185,7 +186,15 @@ void uart_repl() {
   mount_uartkeys();
   mount_fatfs();
 
-  mount_ethernet();
+  if (have_eth) {
+    mount_ethernet();
+  }
+
+  if (USPiMouseAvailable()) {
+    USPiMouseRegisterStatusHandler(uspi_mouse_handler);
+    mount_mouse();
+  }
+  
   mount_soundfs();
   
   fatfs_debug();

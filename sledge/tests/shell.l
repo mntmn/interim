@@ -287,11 +287,33 @@
   (def tasks (cons t tasks))
 )))
 
-(def mt 0)
+(def mouse (open "/mouse"))
+(def mouse-x 0)
+(def mouse-y 0)
+(def mouse-dx 0)
+(def mouse-dy 0)
+(def mouse-btn 0)
 (def mt-test (fn (do
   (add-task (fn (do
-    (def mt (% (+ mt 1) 0xffff))
-    (boxfill 0 0 32 32 mt))))
+    (blit-char 32 mouse-x mouse-y)
+    
+    (let mouse-info (recv mouse))
+    (def mouse-dx (car (car mouse-info)))
+    (def mouse-dy (cdr (car mouse-info)))
+    (def mouse-x (+ mouse-x mouse-dx))
+    (def mouse-y (+ mouse-y mouse-dy))
+    (if (lt mouse-x 0) (def mouse-x 0) 0)
+    (if (lt mouse-y 0) (def mouse-y 0) 0)
+    (if (gt mouse-x maxx) (def mouse-x maxx) 0)
+    (if (gt mouse-y maxy) (def mouse-y maxy) 0)
+    
+    (def mouse-btn (cdr mouse-info))
+    (p (list mouse-x mouse-y mouse-btn) 0 0)
+
+    (if mouse-btn (blit-char 0x219c mouse-x mouse-y)
+      (blit-char 0x2196 mouse-x mouse-y))
+
+  )))
 )))
 
 (def net (open "/net"))
