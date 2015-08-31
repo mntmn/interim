@@ -276,7 +276,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   
   //printf("-- %d high water mark.\n\n",cells_used);
 
-  return alloc_int(gc);
+  return alloc_int(cells_used);
 }
 
 void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes) {
@@ -425,6 +425,7 @@ Cell* alloc_concat(Cell* str1, Cell* str2) {
   cell->tag = TAG_STR;
   strncpy(cell->addr, str1->addr, size1);
   strncpy(cell->addr+size1, str2->addr, 1+cell->size-size1);
+  ((char*)cell->addr)[newsize]=0;
   return cell;
 }
 

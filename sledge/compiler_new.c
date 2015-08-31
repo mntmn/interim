@@ -9,7 +9,7 @@
 #define env_t StrMap
 static env_t* global_env = NULL;
 
-#define CHECK_BOUNDS
+//#define CHECK_BOUNDS
 
 env_entry* lookup_global_symbol(char* name) {
   env_entry* res;
@@ -47,11 +47,12 @@ Cell* insert_global_symbol(Cell* symbol, Cell* cell) {
 
 // register base used for passing args to functions
 #define LBDREG R4
+#define TMP_PRINT_BUFSZ 1024
 
 static FILE* jit_out;
 static Cell* cell_heap_start;
 static int label_skip_count = 0;
-static char temp_print_buffer[1024];
+static char temp_print_buffer[TMP_PRINT_BUFSZ];
 static Cell* consed_type_error;
 static Cell* reusable_type_error;
 static Cell* reusable_nil;
@@ -93,7 +94,7 @@ typedef struct Frame {
 } Frame;
 
 Cell* lisp_print(Cell* arg) {
-  lisp_write(arg, temp_print_buffer, 1023);
+  lisp_write(arg, temp_print_buffer, TMP_PRINT_BUFSZ);
   printf("%s\r\n",temp_print_buffer);
   return arg;
 }
@@ -350,6 +351,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     
   } else if (op->tag == TAG_LAMBDA) {
     signature_args = car((Cell*)(op->addr));
+  } else {
+    printf("[compile-expr] error: non-lambda symbol %s in operator position.\n",opsym->addr);
+    return 0;
   }
   
   //lisp_write(op, debug_buf, sizeof(debug_buf));
@@ -1018,8 +1022,6 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_BYTES_TO_STR: {
       load_cell(ARGR0,argdefs[0], frame);
       jit_call(alloc_string_from_bytes,"alloc_string_to_bytes");
-      
-      compiled_type = TAG_ANY;
       break;
     }
     case BUILTIN_WRITE: {

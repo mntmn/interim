@@ -288,14 +288,20 @@ Cell* platform_eval(Cell* expr) {
     printf("[platform_eval] error: no expr given.\r\n");
     return NULL;
   }
-
-  char buf[512];
+  char eval_buf[512];
 
   int i = 0;
   Cell* res = alloc_nil();
   Cell* c;
   while ((c = car(expr))) {
     i++;
+    arm_dmb();
+    arm_isb();
+    arm_dsb();
+
+    lisp_write(c, eval_buf, 512);
+    printf("<- compiling %d: %s\r\n",i,eval_buf);
+    
     code = malloc(CODESZ);
     memset(code, 0, CODESZ);
     jit_init(0x400);
@@ -320,12 +326,15 @@ Cell* platform_eval(Cell* expr) {
       __asm("mov r6,r0");
       res = retval;
 
-      //printf("~~ expr %d res: %p\r\n",i,res);
-      lisp_write(res, buf, 512);
-      printf("~> %s\r\n",buf);
+      arm_dmb();
+      arm_isb();
+      arm_dsb();
+      printf("~~ expr %d res: %p\r\n",i,res);
+      lisp_write(res, eval_buf, 512);
+      printf("~> %s\r\n",eval_buf);
     } else {
-      lisp_write(expr, buf, 512);
-      printf("[platform_eval] stopped at expression %d: '%s'\r\n",i,buf);
+      lisp_write(expr, eval_buf, 512);
+      printf("[platform_eval] stopped at expression %d: '%s'\r\n",i,eval_buf);
       break;
     }
     // when to free the code? -> when no bound lambdas involved

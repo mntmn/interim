@@ -275,8 +275,6 @@
 
 (def evbuf (alloc-str 4096))
 (def p (fn xp x y (do
-  (print "reached p")
-  (print (list x y xp))
   (write xp evbuf)
   (blit-str evbuf x y)
 )))
@@ -397,11 +395,11 @@
       (def temp-maxx maxx)
 
       (def minx 1000)
-      (def maxx 1800)
+      (def maxx 1700)
       (let msg (bytes->str packet))
-      
+
+      (boxfill 1000 net-y 716 64 0xffff)
       (let ofsy (+ (blit-str msg minx net-y) rune-h))
-      (print (list "ofsy" ofsy))
       
       (def minx temp-minx)
       (def maxx temp-maxx)
@@ -514,7 +512,6 @@
       (do
         (blit-char 32 term-x term-y)
         (def term-x (- term-x rune-spacing))
-        (print buffer)
         (let nl (- (strlen buffer) 1))
         (def buffer (substr buffer 0 nl)) ) 0) 0)
 

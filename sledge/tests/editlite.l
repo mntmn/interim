@@ -82,7 +82,10 @@
 (def buf-render-y 32)
 (def cursor-char 32)
 (def cursor-x 0)
+(def cursor-y 0)
 (def last-num-lines 0)
+(def scroll-y 0)
+(def scroll-dirty 0)
 
 (def buf-render (fn cursor b (do
   (let lines (split b [0a]))
@@ -95,18 +98,20 @@
   (let render-all 0)
   
   ; number of lines changed? then rerender
-  (if (not (eq last-num-lines (list-size lines))) (do
+  (if (or scroll-dirty (not (eq last-num-lines (list-size lines)))) (do
       (let render-all 1)
       (boxfill minx miny maxx maxy 0xffff)
+      (def scroll-dirty 0)
     )
   0)
-  
-  ;(print (list "cursor pos buf-render-x buf-render-y" cursor pos buf-render-x buf-render-y))
 
   (def last-num-lines (list-size lines))
+
+  (let i 0)
   
   (while ln (do
     (let is-current-line 0)
+    (let i (+ i 1))
     
     (let nextpos (+ 1 (+ pos (size ln))))
 
@@ -114,11 +119,10 @@
       ; cursor is in this line
       (def term-y (+ y 0))
       (def cursor-x (- cursor pos))
+      (def cursor-y (- (- i 1) scroll-y ))
       (def term-x (+ buf-render-x (* rune-spacing cursor-x)))
       (def cursor-char (get ln cursor-x))
       (let is-current-line 1)
-
-      ;(print "blank out")
 
       ; blank out the line
       ;(if only-current (do
@@ -130,12 +134,17 @@
     ; (or is-current-line (not only-current))
     
     (if (or render-all is-current-line) (do
-      (blit-str ln buf-render-x y)
+      (if (and (lt y maxy) (not (gt scroll-y i)))
+        (blit-str ln buf-render-x y)
+        0)
     ) 0)
     
     (let pos (+ nextpos 0))
-    (let y (+ y 16))
-    (let i (+ i 1))
+    
+    (if (not (gt scroll-y i))
+      (let y (+ y 16))
+      0)
+    
     (let lines (cdr lines))
     (let ln (car lines))
   ))
@@ -174,9 +183,16 @@
   (def buf-dirty 1)
 )))
 
+(def scroll-speed 10)
+
 (def cursor-up (fn (do
   (repair-at-cursor)
   (def cursor (find-prev buf 10 (- cursor 1)))
+  (if (and (lt cursor-y 5) (gt scroll-y 0)) (do
+    (def scroll-y (- scroll-y scroll-speed))
+    (if (lt scroll-y 0) (def scroll-y 0) 0)
+    (def scroll-dirty 1)
+  ) 0)
   (def buf-dirty 1)
 )))
 
@@ -185,6 +201,11 @@
   (let nextzero (find-next buf 0 (+ cursor 1)))
   (let nextnl (find-next buf 10 (+ cursor 1)))
   (def cursor (if (lt nextzero nextnl) cursor nextnl))
+  (if (and (gt cursor-y 30) (lt scroll-y last-num-lines)) (do
+    (def scroll-y (+ scroll-y scroll-speed))
+    (if (gt scroll-y (- last-num-lines 1)) (def scroll-y (- last-num-lines 1)) 0)
+    (def scroll-dirty 1)
+  ) 0)
   (def buf-dirty 1)
 )))
 
@@ -221,7 +242,7 @@
 (def handle-command-key (fn 0))
 
 (def edit (fn edit-buf (do
-  (def buf edit-buf)
+  (def buf (concat edit-buf (alloc-str 1024)))
   (def editor-running 1)
   (def last-num-lines -1)
   (def cursor 0)
@@ -266,6 +287,4 @@
 (def edit-new (fn (do
   (edit (alloc-str 4096))
 )))
-
-"editor compiled. usage: (edit str) (edit-file path) (edit-new)"
 )

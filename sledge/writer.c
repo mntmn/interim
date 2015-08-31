@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define TMP_BUF_SIZE 1024
+#define TMP_BUF_SIZE 512
 #define INTFORMAT "%ld"
 
 char* tag_to_str(int tag) {
@@ -68,20 +68,20 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   } else if (cell->tag == TAG_SYM) {
     snprintf(buffer, bufsize, "%s", (char*)cell->addr);
   } else if (cell->tag == TAG_STR) {
-    snprintf(buffer, min(bufsize,cell->size+2), "\"%s\"", (char*)cell->addr);
+    snprintf(buffer, min(bufsize-1,cell->size+3), "\"%s\"", (char*)cell->addr);
   } else if (cell->tag == TAG_BIGNUM) {
     snprintf(buffer, bufsize, "%s", (char*)cell->addr);
   } else if (cell->tag == TAG_LAMBDA) {
-    char tmp_args[TMP_BUF_SIZE];
-    char tmp_body[TMP_BUF_SIZE*4];
+    //char tmp_args[TMP_BUF_SIZE];
+    char tmp_body[TMP_BUF_SIZE*2];
     Cell* args = car(cell->addr);
     int ai = 0;
-    while (args && args->addr && args->next) {
+    /*while (args && args->addr && args->next) {
       ai += snprintf(tmp_args+ai, TMP_BUF_SIZE-ai, "%s ", (char*)(car(car(args)))->addr);
       args = cdr(args);
-    }
+    }*/
     write_(cdr(cell->addr), tmp_body, 0, TMP_BUF_SIZE);
-    snprintf(buffer, bufsize, "(fn %s %s)", tmp_args, tmp_body);
+    snprintf(buffer, bufsize, "(fn %s %s)", "", tmp_body);
   } else if (cell->tag == TAG_BUILTIN) {
     snprintf(buffer, bufsize, "(op "INTFORMAT")", cell->value);
   } else if (cell->tag == TAG_ERROR) {
@@ -95,14 +95,18 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
       default: snprintf(buffer, bufsize, "<e"INTFORMAT":unknown>", cell->value); break;
     }
   } else if (cell->tag == TAG_BYTES) {
-    char* hex_buffer = malloc(cell->size*2+2);
-    unsigned int i;
-    for (i=0; i<cell->size && i<bufsize; i++) {
-      // FIXME: buffer overflow?
-      snprintf(hex_buffer+i*2, bufsize-i*2, "%02x",((uint8_t*)cell->addr)[i]);
+    int strsize = min(cell->size*2+3, bufsize);
+    int max_bytes = (strsize-3)/2;
+
+    if (bufsize>5) {
+      buffer[0]='[';
+      unsigned int i;
+      for (i=0; i<max_bytes; i++) {
+        sprintf(buffer+1+i*2, "%02x", ((uint8_t*)cell->addr)[i]);
+      }
+      buffer[i*2+1]=']';
+      buffer[i*2+2]=0;
     }
-    snprintf(buffer, bufsize, "\[%s]", hex_buffer);
-    free(hex_buffer);
   } else if (cell->tag == TAG_STREAM) {
     Stream* s = (Stream*)cell->addr;
     snprintf(buffer, bufsize, "<stream:%d:%s:%s>", s->id, s->path->addr, s->fs->mount_point->addr);
@@ -118,7 +122,7 @@ char* lisp_write(Cell* cell, char* buffer, int bufsize) {
 
 Cell* lisp_write_to_cell(Cell* cell, Cell* buffer_cell) {
   if (buffer_cell->tag == TAG_STR || buffer_cell->tag == TAG_BYTES) {
-    lisp_write(cell, buffer_cell->addr, buffer_cell->size-1);
+    lisp_write(cell, buffer_cell->addr, buffer_cell->size);
   }
   return buffer_cell;
 }

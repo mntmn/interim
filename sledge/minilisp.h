@@ -50,7 +50,7 @@
 #define ERR_FORBIDDEN 403
 
 #define max(a,b) (a > b ? a : b)
-#define min(a,b) (b > a ? a : b)
+#define min(a,b) (a < b ? a : b)
 
 typedef struct Cell {
   union {
