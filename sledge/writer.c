@@ -68,13 +68,20 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   } else if (cell->tag == TAG_SYM) {
     snprintf(buffer, bufsize, "%s", (char*)cell->addr);
   } else if (cell->tag == TAG_STR) {
-    snprintf(buffer, min(bufsize,cell->size), "\"%s\"", (char*)cell->addr);
+    snprintf(buffer, min(bufsize,cell->size+2), "\"%s\"", (char*)cell->addr);
   } else if (cell->tag == TAG_BIGNUM) {
     snprintf(buffer, bufsize, "%s", (char*)cell->addr);
   } else if (cell->tag == TAG_LAMBDA) {
-    char tmpr[TMP_BUF_SIZE];
-    write_((Cell*)cell->addr, tmpr, 0, TMP_BUF_SIZE);
-    snprintf(buffer, bufsize, "(fn %s) ; assembled at %p", tmpr, cell->next);
+    char tmp_args[TMP_BUF_SIZE];
+    char tmp_body[TMP_BUF_SIZE*4];
+    Cell* args = car(cell->addr);
+    int ai = 0;
+    while (args && args->addr && args->next) {
+      ai += snprintf(tmp_args+ai, TMP_BUF_SIZE-ai, "%s ", (char*)(car(car(args)))->addr);
+      args = cdr(args);
+    }
+    write_(cdr(cell->addr), tmp_body, 0, TMP_BUF_SIZE);
+    snprintf(buffer, bufsize, "(fn %s %s)", tmp_args, tmp_body);
   } else if (cell->tag == TAG_BUILTIN) {
     snprintf(buffer, bufsize, "(op "INTFORMAT")", cell->value);
   } else if (cell->tag == TAG_ERROR) {
@@ -111,7 +118,7 @@ char* lisp_write(Cell* cell, char* buffer, int bufsize) {
 
 Cell* lisp_write_to_cell(Cell* cell, Cell* buffer_cell) {
   if (buffer_cell->tag == TAG_STR || buffer_cell->tag == TAG_BYTES) {
-    lisp_write(cell, buffer_cell->addr, buffer_cell->size);
+    lisp_write(cell, buffer_cell->addr, buffer_cell->size-1);
   }
   return buffer_cell;
 }

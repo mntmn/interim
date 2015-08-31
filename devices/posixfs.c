@@ -29,15 +29,19 @@ Cell* posixfs_open(Cell* cpath) {
     }
 
     if (!filename || !filename[0]) filename = ".";
+
+    printf("filename: %s\r\n",filename);
     
     if (filename) {
       DIR* dirp;
       if ((dirp = opendir(filename))) {
-        _file_cell = alloc_nil();
         struct dirent *dp;
+        Cell* nl = alloc_string_copy("\n");
+        _file_cell = alloc_string_copy("");
+        
         do {
           if ((dp = readdir(dirp)) != NULL) {
-            _file_cell = alloc_cons(alloc_string_copy(dp->d_name), _file_cell);
+            _file_cell = alloc_concat(_file_cell,alloc_concat(alloc_string_copy(dp->d_name),nl));
           }
         } while (dp != NULL);
         return _file_cell;

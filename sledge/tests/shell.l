@@ -112,9 +112,9 @@
 (draw-logo 825 550)
 (draw-logo 824 551)
 
-(def f (open "/sd/unifont.565"))
+(def f (open "/sd/unifont.bin"))
 (def unifont (recv f))
-(def unifont-pitch 8192)
+(def unifont-pitch 4096)
 
 (def font unifont)
 (def font-pitch unifont-pitch)
@@ -136,7 +136,7 @@
 (def fghi 0xff)
 (def fglo 0x00)
 
-(def blit-char (fn rune x y (do
+(def blit-char16 (fn rune x y (do
   (let sx 0)
   (let sy 0)
   (let so 0)
@@ -169,6 +169,40 @@
   0
 )))
 
+(def blit-char (fn rune x y (do
+  (let sx 0)
+  (let sy 0)
+  (let so 0)
+  (let do 0)
+  (let iy 0)
+  (let rune-ww 0)
+  (let c 0)
+  (let d 0)
+  
+  (let sx (* rune-w (% rune rune-mod)))
+  (let sy (* rune-h (/ rune rune-mod)))
+  (let so (+ sx (* sy font-pitch)))
+  (let do (+ (*  x 2) (*  y screen-pitch)))
+
+  (let rune-ww rune-spacing)
+  
+  (while (lt iy rune-h) (do
+    (let ix 0)
+    (let dx 0)
+    (while (lt ix rune-ww) (do
+      (let c (get font (+ so ix)))
+      (let dx (+ do (shl ix 1)))
+      (put fb dx c)
+      (put fb (+ dx 1) c)
+      (let ix (+ ix 1))
+    ))
+    (let so (+ so font-pitch))
+    (let do (+ do screen-pitch))
+    (let iy (+ iy 1))
+  ))
+  0
+)))
+
 ; 112 x 30 chars at scale 2
 
 (def scale 2)
@@ -184,10 +218,13 @@
   (let xx (+ x 0))
   (let yy (+ y 0))
   (let sz (+ (size str) 0))
+  (let c 0)
   (while (lt i sz) (do
-    (blit-char (get str i) xx yy)
+    (let c (get str i))
+    (blit-char c xx yy)
     (let xx (+ xx rune-spacing))
-    (if (gt xx maxx) (do
+    ; newline
+    (if (or (eq c 10) (gt xx maxx)) (do
       (let xx minx)
       (let yy (+ yy rune-h))
       (if (gt yy maxy) (do
@@ -228,12 +265,18 @@
   0 ; crashes x64 if this is not here
 )))
 
-(def clear (fn color (do (boxfill 0 0 500 500 color) 0)))
+(def clear (fn (do
+  (boxfill 0 0 maxx maxy 0xffff)
+  (def term-x minx)
+  (def term-y miny)
+0)))
 
 (blit-str "Welcome to Interim OS." 32 32)
 
-(def evbuf (alloc-str 512))
+(def evbuf (alloc-str 4096))
 (def p (fn xp x y (do
+  (print "reached p")
+  (print (list x y xp))
   (write xp evbuf)
   (blit-str evbuf x y)
 )))
@@ -325,19 +368,20 @@
 
 (def irc-msg (fn msg (do
   (let ircbuf (concat "PRIVMSG #nodrama.de :" msg))
-  (print (list "ircbuf:" ircbuf))
   (send net ircbuf)
   (send net [0a])
 )))
 
 (def cmdbuf (alloc-str 512))
+(def cmd-read (list))
 (def remote-cmd (fn msg (do
   (let parts (split msg "$"))
   (if (gt (list-size parts) 1) (do
     (let cmd (concat (concat "(" (item parts 1)) ")"))
     (print (list "remote cmd" cmd))
     (def cmdbuf (alloc-str 512))
-    (write (eval (read cmd)) cmdbuf)
+    (def cmd-read (read cmd))
+    (write (eval cmd-read) cmdbuf)
     (print (list "result" cmdbuf))
     (irc-msg cmdbuf)
   ) 0)
@@ -354,7 +398,6 @@
 
       (def minx 1000)
       (def maxx 1800)
-      (print "about to print packet")
       (let msg (bytes->str packet))
       
       (let ofsy (+ (blit-str msg minx net-y) rune-h))
@@ -382,7 +425,7 @@
   (send net [0a])
 )))
 
-(def task-func (fn (print "hello from placeholder")))
+(def task-func (fn (print "empty task-func")))
 
 (def run-tasks (fn (do
   (let tl tasks)
@@ -421,6 +464,8 @@
 
 (def ed (fn (import "/sd/tests/editlite.l") ))
 
+(def buffer-read (list))
+
 (def main (fn (do
   (let blink 0)
   (let running 1)
@@ -447,13 +492,15 @@
       (do
         (blit-char 32 term-x term-y)
         (def history (cons buffer history))
-        (print history)
-        
-        (let r (eval (list (read buffer))))
+
+        (def buffer-read (list (read buffer))) ; FIXME let here crashes
+        (let result (eval buffer-read))
         
         (def buffer "")
-        (def term-x minx) (def term-y (+ term-y rune-w))
-        (def term-y (+ rune-h (p r term-x term-y)))
+        (def term-x minx)
+        (def term-y (+ term-y rune-h))
+        (def term-y (+ rune-h (p result term-x term-y)))
+        0
       ) 0)
 
     (if (eq c 17) ; cursor up

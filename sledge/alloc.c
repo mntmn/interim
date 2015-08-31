@@ -321,7 +321,7 @@ Cell* alloc_sym(char* str) {
   
   sym->tag = TAG_SYM;
   if (str) {
-    int sz = strlen(str)+1;
+    int sz = strnlen(str,128)+1;
     sym->size = sz;
     //printf("alloc_sym: %s (%d)\r\n",str,sz);
     //memdump(sym,sizeof(Cell),0);
@@ -385,6 +385,7 @@ Cell* alloc_string() {
   return alloc_num_string(SYM_INIT_BUFFER_SIZE);
 }
 
+// FIXME: max size?
 Cell* alloc_string_copy(char* str) {
   Cell* cell = cell_alloc();
   cell->addr = bytes_alloc(strlen(str)+1);
@@ -394,30 +395,36 @@ Cell* alloc_string_copy(char* str) {
   return cell;
 }
 
-Cell* alloc_string_to_bytes(Cell* bytes) {
+Cell* alloc_string_from_bytes(Cell* bytes) {
   if (bytes->size<1) return alloc_string_copy("");
   
   Cell* cell = cell_alloc();
   cell->addr = bytes_alloc(bytes->size+1);
+  
   memcpy(cell->addr, bytes->addr, bytes->size);
   ((char*)cell->addr)[bytes->size]=0;
   cell->tag = TAG_STR;
-  cell->size = bytes->size;
+  cell->size = bytes->size+1;
   return cell;
 }
 
 Cell* alloc_concat(Cell* str1, Cell* str2) {
-  if (!str1 || !str2) return alloc_error(ERR_INVALID_PARAM_TYPE);
-  if (str1->tag!=TAG_BYTES && str1->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
-  if (str2->tag!=TAG_BYTES && str2->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
+  if (!str1 || !str2) return alloc_string_copy("");
+  if (str1->tag!=TAG_BYTES && str1->tag!=TAG_STR) return alloc_string_copy("");
+  if (str2->tag!=TAG_BYTES && str2->tag!=TAG_STR) return alloc_string_copy("");
+  
+  //printf("### str1: #%s#\n",str1->addr);
+  //printf("### str2: #%s#\n",str2->addr);
   
   Cell* cell = cell_alloc();
-  unsigned int newsize = strlen(str1->addr)+strlen(str2->addr)+1;
+  int size1 = strnlen(str1->addr,str1->size);
+  int size2 = strnlen(str2->addr,str2->size);
+  int newsize = size1+size2+1;
   cell->addr = bytes_alloc(newsize+1);
-  strcpy(cell->addr, str1->addr);
-  strcpy(cell->addr+strlen(str1->addr), str2->addr);
-  cell->tag = TAG_STR;
   cell->size = newsize;
+  cell->tag = TAG_STR;
+  strncpy(cell->addr, str1->addr, size1);
+  strncpy(cell->addr+size1, str2->addr, 1+cell->size-size1);
   return cell;
 }
 

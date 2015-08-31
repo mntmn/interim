@@ -9,7 +9,7 @@
 #define env_t StrMap
 static env_t* global_env = NULL;
 
-//#define CHECK_BOUNDS
+#define CHECK_BOUNDS
 
 env_entry* lookup_global_symbol(char* name) {
   env_entry* res;
@@ -93,7 +93,7 @@ typedef struct Frame {
 } Frame;
 
 Cell* lisp_print(Cell* arg) {
-  lisp_write(arg, temp_print_buffer, sizeof(temp_print_buffer)-1);
+  lisp_write(arg, temp_print_buffer, 1023);
   printf("%s\r\n",temp_print_buffer);
   return arg;
 }
@@ -1017,7 +1017,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_BYTES_TO_STR: {
       load_cell(ARGR0,argdefs[0], frame);
-      jit_call(alloc_string_to_bytes,"alloc_string_to_bytes");
+      jit_call(alloc_string_from_bytes,"alloc_string_to_bytes");
+      
+      compiled_type = TAG_ANY;
       break;
     }
     case BUILTIN_WRITE: {

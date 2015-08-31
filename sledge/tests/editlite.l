@@ -94,17 +94,14 @@
   (let y buf-render-y)
   (let render-all 0)
   
-  (print (list "num-lines" (list-size lines)))
-  
   ; number of lines changed? then rerender
   (if (not (eq last-num-lines (list-size lines))) (do
-      (print "re-render!")
       (let render-all 1)
       (boxfill minx miny maxx maxy 0xffff)
     )
   0)
   
-  (print (list "cursor pos buf-render-x buf-render-y" cursor pos buf-render-x buf-render-y))
+  ;(print (list "cursor pos buf-render-x buf-render-y" cursor pos buf-render-x buf-render-y))
 
   (def last-num-lines (list-size lines))
   
@@ -113,8 +110,6 @@
     
     (let nextpos (+ 1 (+ pos (size ln))))
 
-    (print (list "line " i "cursor" cursor "pos/nextpos/lnsize" pos nextpos ln (size ln)))
-    
     (if (and (gt cursor (- pos 1)) (lt cursor (+ nextpos 1))) (do
       ; cursor is in this line
       (def term-y (+ y 0))
@@ -135,7 +130,6 @@
     ; (or is-current-line (not only-current))
     
     (if (or render-all is-current-line) (do
-      (print (list "blit-str " ln buf-render-x y))
       (blit-str ln buf-render-x y)
     ) 0)
     
@@ -233,7 +227,7 @@
   (def cursor 0)
 
   (let blink 0)
-  (clear 0xffff)
+  (clear)
   (gc)
   (def term-x buf-render-x)
   (def term-y buf-render-y)
@@ -260,7 +254,7 @@
     (send scr 0)
     (gc)
   ))
-  buf
+  (concat buf "")
 )))
 
 (def edit-file (fn path (do
@@ -273,4 +267,5 @@
   (edit (alloc-str 4096))
 )))
 
+"editor compiled. usage: (edit str) (edit-file path) (edit-new)"
 )
