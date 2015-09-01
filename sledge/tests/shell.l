@@ -385,7 +385,7 @@
 (def mouse-dx 0)
 (def mouse-dy 0)
 (def mouse-btn 0)
-(def mt-test (fn (do
+(def mouse-task (fn (do
   (add-task (fn (do
     (blit-char 32 mouse-x mouse-y)
     
@@ -413,7 +413,6 @@
 (def temp-minx minx)
 (def temp-maxx maxx)
 
-
 (def irc-msg (fn msg (do
   (let ircbuf (concat "PRIVMSG #nodrama.de :" msg))
   (send net ircbuf)
@@ -435,9 +434,16 @@
   ) 0)
   0
 )))
-      
-(def net-test (fn (do
-  (def net (open "/net/tcp/62.231.75.133/6667"))
+
+(def freenode "/net/tcp/62.231.75.133/6667")
+(def sternfreunde "/net/tcp/46.101.207.85/80")
+(def interim-os "/net/tcp/91.250.115.15/80")
+
+(def connect (fn net-path (do
+  (def net (open net-path))
+)))
+
+(def net-task (fn (do
   (add-task (fn (do
     (let packet (recv net))
     (if (size packet) (do
@@ -460,6 +466,13 @@
       
     ) 0)
   )))
+  1
+)))
+
+(def http-get (fn host path (do
+  (boxfill 1000 0 800 1000 0xffff)
+  (let header (concat (concat "Host: " host) (bytes->str [0d0a0d0a])))
+  (send net (concat (concat (concat (concat "GET " path) " HTTP/1.1") (bytes->str [0d0a])) header))
 )))
 
 (def irc-join (fn nick (do
