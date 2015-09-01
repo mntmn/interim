@@ -122,13 +122,15 @@ Cell* fatfs_write(Cell* stream, Cell* packet) {
   Stream* s = (Stream*)stream->addr;
   char* path = ((char*)s->path->addr)+3;
   printf("writing to stream with path %s\r\n",path);
-  FRESULT rc = f_open(&fp, path, FA_WRITE|FA_CREATE_NEW);
+  FRESULT rc = f_open(&fp, path, FA_WRITE|FA_CREATE_ALWAYS);
   UINT bytes_written = 0;
   if (!rc) {
     printf("opened for writing!\r\n");
     rc = f_write(&fp, packet->addr, packet->size, &bytes_written);
     printf("rc: %d bytes_written: %d\r\n",rc,bytes_written);
     rc = f_close(&fp);
+  } else {
+    printf("fatfs cannot write: rc %d\r\n",rc);
   }
   return alloc_int(bytes_written);
 }

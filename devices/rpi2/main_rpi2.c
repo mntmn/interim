@@ -60,22 +60,29 @@ void main()
   
   uart_puts("-- INTERIM/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
+
+  arm_clear_data_caches();
+  arm_invalidate_data_caches();
   
   printf("-- init page table… --\r\n");
   init_page_table();
   
-  printf("-- clear caches… -- \r\n");
-  arm_invalidate_data_caches();
+  printf("-- syncing… -- \r\n");
+  arm_dmb();
+  arm_isb();
+  arm_dsb();
   arm_clear_data_caches();
+  arm_invalidate_data_caches();
+  arm_dmb();
+  arm_isb();
   arm_dsb();
   
   printf("-- enable MMU… --\r\n");
   mmu_init();
   printf("-- MMU enabled. --\r\n");
 
-  printf("-- clear caches… -- \r\n");
-  arm_invalidate_data_caches();
-  arm_clear_data_caches();
+  arm_dmb();
+  arm_isb();
   arm_dsb();
 
   //printf("-- enable QPU… -- \r\n");
@@ -144,28 +151,6 @@ Cell* platform_eval(Cell* expr); // FIXME
 void fatfs_debug(); // FIXME
 
 Cell* platform_debug() {
-
-  for (int color=0; color<0xff; color+=5) {
-    for (int y=0; y<500; y++) {
-      int ofs = y*1920*2;
-      for (int x=0; x<1000; x+=2) {
-        ((char*)FB)[ofs+x]=color;
-        ((char*)FB)[ofs+x+1]=color;
-      }
-    }
-    printf("painted a.\r\n");
-  }
-
-  for (int j=0;j<100;j++) {
-    for (int color=0; color<0xff; color+=5) {
-      for (int y=0; y<500; y++) {
-        memset(((char*)FB)+y*1920*2,color,1000);
-      }
-      printf("painted b.\r\n");
-    }
-  }
-  
-  return alloc_nil();
 }
 
 void uart_repl() {

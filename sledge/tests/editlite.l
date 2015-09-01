@@ -225,6 +225,7 @@
   (if (and (gt k 0) (lt k 250))
     (do
       (print (list "handle-editor-key2" k))
+      (def buf (concat buf " ")) ; room for new character
       (insert buf cursor (+ k 0))
       (def cursor (+ cursor 1))
       (def buf-dirty 1)
@@ -242,7 +243,7 @@
 (def handle-command-key (fn 0))
 
 (def edit (fn edit-buf (do
-  (def buf (concat edit-buf (alloc-str 1024)))
+  (def buf edit-buf)
   (def editor-running 1)
   (def last-num-lines -1)
   (def cursor 0)
@@ -280,8 +281,7 @@
 
 (def edit-file (fn path (do
   (let content (load path))
-  (let headroom (alloc-str 4096))
-  (edit (concat content headroom))
+  (edit content)
 )))
 
 (def edit-new (fn (do

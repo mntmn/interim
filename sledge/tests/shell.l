@@ -203,6 +203,57 @@
   0
 )))
 
+(def grab-from fb)
+(def grab-pitch screen-pitch)
+(def grab (fn x y w h (do
+  (let xx 0)
+  (let yy 0)
+  (let di 0)
+  (let yy (+ y 0))
+  (let xw (+ x w))
+  (let yh (+ y h)) 
+  (let res (alloc (* (shl w 1) h)))
+  (let from grab-from)
+  (let pitch grab-pitch)
+  (while (lt yy yh) (do
+    (let xx (+ x 0))
+    (while (lt xx xw) (do
+      (put res di (get from (+ xx (* pitch yy))))
+      (let di (+ di 1))
+      (put res di (get from (+ (+ xx (* pitch yy)) 1)))
+      (let di (+ di 1))
+      (let xx (+ xx 1))
+    ))
+    (let yy (+ yy 1))
+  ))
+  res
+)))
+
+(def paste (fn from x y w h (do
+  (let xx 0)
+  (let yy 0)
+  (let di 0)
+  (let si 0)
+  (let yy (+ y 0))
+  (let xw (+ x w))
+  (let yh (+ y h))
+  (let to grab-from)
+  (let pitch (+ grab-pitch 0))
+  (while (lt yy yh) (do
+    (let xx (+ x 0))
+    (while (lt xx xw) (do
+      (let di (+ xx (* pitch yy)))
+      (put to di (get from si))
+      (put to (+ di 1) (get from (+ si 1)))
+      (let si (+ si 2))
+      (let di (+ di 2))
+      (let xx (+ xx 1))
+    ))
+    (let yy (+ yy 1))
+  ))
+  1
+)))
+
 ; 112 x 30 chars at scale 2
 
 (def scale 2)
@@ -349,7 +400,6 @@
     (if (gt mouse-y maxy) (def mouse-y maxy) 0)
     
     (def mouse-btn (cdr mouse-info))
-    (p (list mouse-x mouse-y mouse-btn) 0 0)
 
     (if mouse-btn (blit-char 0x219c mouse-x mouse-y)
       (blit-char 0x2196 mouse-x mouse-y))

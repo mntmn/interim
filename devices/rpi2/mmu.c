@@ -228,11 +228,9 @@ void mmu_init(void) {
 	//mode = 0x20000026;
 
   mode = MODE_MMU|MODE_CACHE|MODE_ICACHE|MODE_BRANCHPRED|MODE_RESERVED|MODE_BARRIERS|MODE_ALIGN|MODE_AFE|MODE_FASTINT;
-  printf("[mmu-p15-c1-c0] %x\r\n",mode);
 	asm volatile ("mcr p15, 0, %0, c1, c0, 0" :: "r" (mode) : "memory");
-
-  instruction_barrier();
-	data_memory_barrier();
+  
+  printf("[mmu-p15-c1-c0] %x\r\n",mode);
 }
 
 void map(uint32_t slot, uint32_t phys_addr) {
