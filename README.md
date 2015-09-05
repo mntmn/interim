@@ -11,6 +11,8 @@ Interim runs on:
 - ARM5+ Linux (Hosted)
 - Intel/AMD x64 Linux (Hosted)
 
+Detailed docs are in *docs/index.html*.
+
 Architecture
 ------------
 
@@ -35,7 +37,7 @@ Building
 
 2. To build the hosted variant, cd to ````sledge```` and ````./build_x64.sh````.
 
-3. To cross-compile for bare metal, use ````./rpi2-build.sh```` or ````./imx233-build.sh````.
+3. To cross-compile for bare metal, use ````./rpi2-build.sh````. This will create build/interim-arm.elf.
 
 Running (Hosted)
 ----------------

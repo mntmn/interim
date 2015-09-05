@@ -5,7 +5,7 @@
 #include "alloc.h"
 #include "reader.h"
 #include "compiler_new.h"
-#include "os/debug_util.h"
+#include "devices/debug_util.h"
 
 #include "devices/rpi2/raspi.h"
 #include "devices/rpi2/mmu.h"
@@ -137,7 +137,7 @@ void main()
 #include "devices/rpi2/dev_ethernet.c"
 #include "devices/rpi2/dev_sound.c"
 
-#include <os/libc_glue.c>
+#include "devices/libc_glue.c"
 
 typedef jit_word_t (*funcptr)();
 
