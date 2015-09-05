@@ -226,7 +226,7 @@ Finds all reachable objects and frees the rest.
 
 ## "Multitasking"
 
-Tasks are a list of functions executed in a loop.
+Interim is single-tasked. Cooperative multi-tasking is emulated by round-robin executing a list of functions in the global *tasks* list. Tasks can be spawned by appending a function to this list.
 
 ## MMU/L1/L2 Caches setup
 
@@ -257,3 +257,129 @@ Tasks are a list of functions executed in a loop.
       …
     ))
 
+## Interim Lisp
+
+Interim's syntax is defined as follows.
+
+An atom is one of the following:
+
+- an integer: 1234
+- an ASCII symbol: hello
+- a UTF-8 string: "こんにちは"
+- a hexadecimal byte string: [deadbeef01020304]
+- a pair: (123 . 456)
+- a "lambda", which is an applicable function
+- nothing
+
+A pair is a link between two atoms; it has a left-hand side (traditionally called "car", "contents of address register") and a right-hand side (traditionally called "cdr", "contents of data register").
+
+A list atom is a pair whose left side points to an atom of any type and whose right side points to the next list atom or an "empty list" atom (a pair of two "nothings"). Lists are entered and displayed simply by separating atoms with whitespace and wrapping the result in parentheses: (1 2 3 4).
+
+Interim programs are simply Interim lists. The first item of a progam list must be the symbol of the function to apply to the following parameters; the remaining items of the list are the parameters:
+
+    (+ 1 2)    ; evaluates to 3.
+    (- 5 4)    ; evaluates to 1.
+    (def a 23) ; evaluates to 23. as a side-effect, the symbol "a" is defined as the number 23.
+
+    (def double (fn x (+ x x))) ; defines the function "double" that takes one parameter called "x"
+    (double a)                  ; now evaluates to 46.
+
+A number of built-in symbols are available at system startup.
+
+Symbol definition and functions
+-------------------------------
+
+    (def <symbol> <atom>)
+Definition. Binds an atom to a symbol (globally).
+
+    (let <symbol> <atom>)
+Definition. Binds an atom to a symbol (function-locally).
+
+    (fn <arg1 argn …> <body>)
+Function. Defines a function with parameter symbols ("arguments") which can be used as placeholders anywhere in the function body.
+
+    (<symbol> <arg1 argn…>)
+Application. Apply arguments to the function bound to the symbol.
+
+Arithmetic
+----------
+
+    (+), (-), (*), (/), (%)
+Add, subtract, multiply, divide, modulus. These operate on integers. A non-nothing non-integer is interpreted as 1. Nothing is interpreted as 0. This allows logic to be constructed from arithmetic.
+
+    (gt <a> <b>), (lt <a> <b>), (eq <a> <b>)
+Compare two values (a and b). Gt returns 1 if a is greater than b and 0 if not. Lt does the opposite. Eq returns 1 if a and b are equal (they represent the same number or object) and 0 if not.
+
+Flow control
+------------
+
+    (if <condition> <then> <else>)
+Conditional branch. If condition evaluates to non-zero, <then> is evaluated, or else <else> is evaluted. The value of the evaluated branch is returned.
+
+    (while <condition> <then>)
+Conditional loop. As long as condition evaluates to non-zero, <then> is evaluated over and over again. The value of the last evaluation is returned.
+
+    (do <expr1> <exprn> …)
+Sequencing. Expressions are evaluated in the given order; The value of the last evaluation is returned.
+
+Pairs & Lists
+-------------
+
+    (cons <a> <b>)
+Returns a pair of a and b: (a.b). 
+
+    (car <pair>)
+Returns the left side of a pair.
+
+    (cdr <pair>)
+Returns the right side of a pair.
+
+    (quote <s-expression>)
+Returns the given S-expression unmodified without evaluating it.
+
+    (list <a> <b> …)
+Constructs a list from the given parameters.
+
+Homoiconicity & Reflection
+--------------------------
+
+    (read <string>)
+Deserialization. Parses a string (text) into atoms.
+
+    (write <op>)
+Serialization. Returns a string representation of the given atom.
+
+    (symbols)
+Returns a list of all visible symbols.
+
+Strings & Buffers
+-----------------
+
+Strings (text), byte strings (binary data) and files have a uniform interface in Interim OS. All system resources (see Section 3.6) in Interim OS are exposed as file systems which can be addressed using (open <path>). The opened "file" behaves exactly like a byte string; thus, a string created at run-time is a nameless file in memory.
+
+    (alloc 65536)
+Returns a 64-kilobyte string of zeroes.
+
+    (size <str>)
+Returns the length of a string in bytes.
+
+    (substr <str> <offset> <length>)
+Returns a substring of length <length> that starts at <offset> bytes in the given string.
+
+    (put <str> <offset> <byte>)
+Replaces the byte at position <offset> in the given string with a copy of <byte>.
+
+    (get <str> <offset>)
+Returns the byte at position <offset> in the given string.
+
+Filesystem
+----------
+
+    (open "/path/to/file")
+Returns a stream that is an interface to the file at the specified path.
+
+    (send <sym> <str2>)
+Sends (appends) a string to the given symbol representing a stream.
+
+    (recv <sym> <length>)
+Receives (consumes) up to <length> bytes from the stream represented by <sym>.
