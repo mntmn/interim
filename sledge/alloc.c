@@ -53,28 +53,21 @@ Cell* get_cell_heap() {
 env_t* get_global_env();
 
 Cell* cell_alloc() {
-
-  /*if (free_list_avail<free_list_consumed) {
-    // try gc
-    // FIXME need access to current frame
-    collect_garbage(get_global_env());
-  }*/
-  
   if (free_list_avail>free_list_consumed) {
     // serve from free list
     int idx = free_list_consumed;
     free_list_consumed++;
     Cell* res = free_list[idx];
-    //printf("++ cell_alloc: recycled %d (%p)\r\n",idx,res);
     return res;
   } else {
+    // grow heap
     Cell* res = &cell_heap[cells_used];
     cells_used++;
     if (cells_used>MAX_CELLS) {
-      printf("!! cell_alloc failed, MAX_CELLS used.\n");
+      // out of memory
+      printf("[cell_alloc] failed: MAX_CELLS used.\n");
       exit(1);
     }
-    //printf("++ cell_alloc: %d \r\n",cells_used);
     return res;
   }
 }
@@ -296,7 +289,6 @@ MemStats* alloc_stats() {
 }
 
 Cell* alloc_cons(Cell* ar, Cell* dr) {
-  //printf("alloc_cons: ar %p dr %p\n",ar,dr);
   Cell* cons = cell_alloc();
   cons->tag = TAG_CONS;
   cons->addr = ar; //?alloc_clone(ar):ar;

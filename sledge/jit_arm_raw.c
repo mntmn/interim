@@ -89,8 +89,8 @@ void jit_movi(int reg, uint32_t imm) {
 
 void jit_movr(int dreg, int sreg) {
   uint32_t op = 0xe1a00000;
-  op |= (sreg<<0); // base reg = pc
-  op |= (dreg<<12); // dreg
+  op |= (sreg<<0);
+  op |= (dreg<<12);
   
   code[code_idx++] = op;
 }
