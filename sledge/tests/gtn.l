@@ -103,8 +103,7 @@
 
 (def fill-tile-rect (fn x y xx yy tile (do
   (print (cons "fill-tile-rect" tile))
-  (let y (+ 0 y))
-  (let x (+ 0 x))
+  (print (list x y xx yy))
   (while (lt y (+ yy 1)) (do
     (let i x)
     (while (lt i (+ xx 1)) (do
@@ -242,7 +241,7 @@
     (def state state-playing)
   ) 0)
 
-  (let str (recv k))
+  (let str (recv keyboard))
   (let c (get str 0))
 
   (handle-game-key c)
