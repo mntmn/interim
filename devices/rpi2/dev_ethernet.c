@@ -10,13 +10,11 @@ static uint8_t* eth_rx_buffer;
 
 int ethernet_rx(uint8_t* packet) {
   int frame_len = 0;
-  if (have_eth) {
-    USPiReceiveFrame(packet, &frame_len);
+  USPiReceiveFrame(packet, &frame_len);
 
-    if (frame_len) {
-      printf("[ethfs] frame received! len: %d\r\n",frame_len);   
-      memdump(packet,frame_len,0);
-    }
+  if (frame_len) {
+    printf("[ethfs] frame received! len: %d\r\n",frame_len);   
+    memdump(packet,frame_len,0);
   }
   return frame_len;
 }

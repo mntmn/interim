@@ -10,7 +10,6 @@
 #include "devices/rpi2/raspi.h"
 #include "devices/rpi2/mmu.h"
 #include "devices/rpi2/r3d.h"
-//#include "devices/rpi2/rpi-boot/vfs.h"
 #include "devices/rpi2/rpi-boot/util.h"
 #include "devices/rpi2/uspi/include/uspi.h"
 
@@ -27,11 +26,7 @@ void _cstartup(unsigned int r0, unsigned int r1, unsigned int r2)
   while(1) {};
 }
 
-// GPIO Register set
-volatile unsigned int* gpio;
-
 uint32_t* FB;
-uint32_t* FB_MEM;
 
 char buf[128];
 
@@ -39,43 +34,23 @@ void enable_mmu(void);
 extern void* _get_stack_pointer();
 void uart_repl();
 
-//extern void libfs_init();
 extern void uspi_keypress_handler(const char *str);
-
-static int have_eth = 0;
-
-//void init_mini_ip(Cell* buffer_cell);
 
 /*
 multicore:
-> You need to write a physical ARM address to:
+> write a physical ARM address to:
 > 0x4000008C + 0x10 * core // core := 1..3
 */
 
 void main()
 {
-  //arm_invalidate_data_caches();
-
   uart_init(); // gpio setup also affects emmc TODO: document
   
   uart_puts("-- INTERIM/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
 
-  arm_clear_data_caches();
-  arm_invalidate_data_caches();
-  
   printf("-- init page table… --\r\n");
   init_page_table();
-  
-  printf("-- syncing… -- \r\n");
-  arm_dmb();
-  arm_isb();
-  arm_dsb();
-  arm_clear_data_caches();
-  arm_invalidate_data_caches();
-  arm_dmb();
-  arm_isb();
-  arm_dsb();
   
   printf("-- enable MMU… --\r\n");
   mmu_init();
@@ -85,12 +60,11 @@ void main()
   arm_isb();
   arm_dsb();
 
-  //printf("-- enable QPU… -- \r\n");
-  //init_rpi_qpu();
-  //uart_puts("-- QPU enabled.\r\n");
+  printf("-- enable QPU… -- \r\n");
+  init_rpi_qpu();
+  uart_puts("-- QPU enabled.\r\n");
   
   FB = init_rpi_gfx();
-  FB_MEM = FB;
 
   sprintf(buf, "-- framebuffer at %p.\r\n",FB);
   uart_puts(buf);
@@ -103,35 +77,24 @@ void main()
 
   memset(FB,0xff,1920*1080*2);
   
-  printf("malloc4096 test 0: %p\r\n",malloc(4096));
-  
   // uspi glue
-  printf("uu uspi glue init…\r\n");
+  printf("[usb] uspi glue init…\r\n");
   extern void uspi_glue_init();
   uspi_glue_init();
 
-  printf("uu USPiInitialize…\r\n");
+  printf("[usb] uspi initialize…\r\n");
   int res = USPiInitialize();
-  printf("uu USPI initialization: %d\r\n", res);
+  printf("[usb] uspi initialization: %d\r\n", res);
   
-  int have_kbd = USPiKeyboardAvailable();
-  printf("uu USPI has keyboard: %d\r\n", have_kbd);
-  if (have_kbd) {
-    USPiKeyboardRegisterKeyPressedHandler(uspi_keypress_handler);
-  }
-  
-  have_eth = USPiEthernetAvailable();
+  int have_eth = USPiEthernetAvailable();
   printf("uu USPI has ethernet: %d\r\n", have_eth);
-  
-  //libfs_init();
-  printf("malloc4096 test 4: %p\r\n",malloc(4096));
   
   uart_repl();
 }
 
 #include "devices/fbfs.c"
 #include "devices/rpi2/fatfs.c"
-//#include "devices/rpi2/usbkeys.c"
+#include "devices/rpi2/usbkeys.c"
 #include "devices/rpi2/usbmouse.c"
 #include "devices/rpi2/uartkeys.c"
 #include "devices/rpi2/dev_ethernet.c"
@@ -161,20 +124,21 @@ void uart_repl() {
   sbrk(0);
   uart_puts("\r\n\r\n++ welcome to sledge arm/32 (c)2015 mntmn.\r\n");
   
-  printf("malloc4096 test 1: %p\r\n",malloc(4096));
   init_compiler();
-  printf("malloc4096 test 2: %p\r\n",malloc(4096));
-  //insert_rootfs_symbols();
   mount_fbfs(FB);
-  printf("malloc4096 test 3: %p\r\n",malloc(4096));
-  //mount_usbkeys();
-  mount_uartkeys();
-  mount_fatfs();
 
-  if (have_eth) {
-    mount_ethernet();
+  int have_kbd = USPiKeyboardAvailable();
+  printf("[usb] has keyboard: %d\r\n", have_kbd);
+  if (have_kbd) {
+    USPiKeyboardRegisterKeyPressedHandler(uspi_keypress_handler);
+    mount_usbkeys();
+  } else {
+    mount_uartkeys();
   }
-
+  
+  mount_fatfs();
+  mount_ethernet();
+  
   if (USPiMouseAvailable()) {
     USPiMouseRegisterStatusHandler(uspi_mouse_handler);
     mount_mouse();
@@ -186,22 +150,12 @@ void uart_repl() {
   
   uart_puts("\r\n~~ fs initialized.\r\n");
 
-  printf("out_buf clear %p\r\n",out_buf);
   memset(out_buf,0,REPLBUFSZ);
-  fatfs_debug();
-  printf("in_line clear %p\r\n",in_line);
   memset(in_line,0,REPLBUFSZ);
-  fatfs_debug();
-  printf("in_buf clear %p\r\n",in_buf);
   memset(in_buf,0,REPLBUFSZ);
-  fatfs_debug();
-  
-  long count = 0;
   
   int in_offset = 0;
   int parens = 0;
-
-  int linec = 0;
 
   Cell* expr;
   char c = 0;
@@ -238,8 +192,6 @@ void uart_repl() {
     if (len>1) {
       strncpy(in_buf+in_offset, in_line, len-1);
       in_buf[in_offset+len-1] = 0;
-      
-      linec++;
     }
     printf("\r\n[%s]\r\n",in_buf);
     

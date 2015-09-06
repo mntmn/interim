@@ -87,18 +87,8 @@ void init_page_table(void) {
 	// VC ram up to 0x3F000000
 	for (; base < 1024 - 16; base++) {
     // section descriptor (1 MB)
-    // outer and inner write through, no write allocate, shareable
-    // page_table[base] = base << 20 | 0x1040A;
-    // outer write back, write allocate
-    // inner write through, no write allocate, shareable
-
-    //page_table[base] = base << 20 | 0x1540A;
-
-    //page_table[base] = base << 20 | 0x1140E;
-    //page_table[base] = base << 20 | 0x1040A;
     
     page_table[base] = base << 20 | SECTION_WRITETHROUGH_NO_ALLOCATE|SECTION_SHAREABLE|SECTION_FULL_ACCESS;
-    //page_table[base] = base << 20 | 1<<14 | 1<<12 | 1<<2 | 2 | SECTION_SHAREABLE | SECTION_FULL_ACCESS;
 	}
 
 	// 16 MB peripherals at 0x3F000000
@@ -131,15 +121,15 @@ void init_page_table(void) {
 	for (base = 0; base < 256; base++) {
     leaf_table[base] = 0;
   }
-
-  /*for (int i=0; i<2048; i++) {
-    printf("[pagetable] %04i %08x\r\n",i,page_table[i]);
-  }*/
 }
     
 void mmu_init(void) {
 	// set SMP bit in ACTLR
   // enable d-side prefetch
+
+  
+  printf("-- smp + prefetch --\r\n");
+  
 	uint32_t auxctrl;
 	asm volatile ("mrc p15, 0, %0, c1, c0,  1" : "=r" (auxctrl));
 	auxctrl |= 1 << 6; // smp
@@ -149,11 +139,14 @@ void mmu_init(void) {
   // setup domains (CP15 c3)
 	// Write Domain Access Control Register
   // use access permissions from TLB entry
-	//asm volatile ("mcr     p15, 0, %0, c3, c0, 0" :: "r" (0x55555555));
+	asm volatile ("mcr     p15, 0, %0, c3, c0, 0" :: "r" (0x55555555));
 
 	// set domain 0 to client
-	//asm volatile ("mcr p15, 0, %0, c3, c0, 0" :: "r" (1));
+	asm volatile ("mcr p15, 0, %0, c3, c0, 0" :: "r" (1));
 
+  printf("-- TTBR0 --\r\n");
+
+  // without this (and/or the above), the system often hangs on boot
 	// always use TTBR0
 	asm volatile ("mcr p15, 0, %0, c2, c0, 2" :: "r" (0));
 

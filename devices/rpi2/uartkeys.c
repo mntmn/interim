@@ -6,27 +6,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define KBUFSZ 5
-static char uart_key_in[KBUFSZ];
-static int ki = 0;
-
-void uspi_keypress_handler (const char *str)
-{
-  printf("[uspi-keyboard] pressed: '%s' (%d)\r\n",str,str[0]);
-  uart_key_in[ki] = str[0];
-  ki++;
-  if (ki>=KBUFSZ) ki = 0;
-}
-
 Cell* uartkeys_open(Cell* cpath) {
   if (!cpath || cpath->tag!=TAG_STR) {
     printf("[uartkeys] open error: non-string path given\r\n");
     return alloc_nil();
   }
-  for (int i=0; i<KBUFSZ; i++) {
-    uart_key_in[i]=0;
-  }
-  ki = 0;
 
   return alloc_int(1);
 }
