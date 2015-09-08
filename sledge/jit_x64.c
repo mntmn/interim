@@ -223,3 +223,38 @@ void jit_pop(int r1, int r2) {
     fprintf(jit_out, "pop %s\n",regnames[i]);
   }
 }
+
+void debug_handler(char* line, Frame* frame) {
+  printf("@ %s\r\n",line);
+  
+  if (frame) {
+    if (frame->f) {
+      for (int i=0; i<MAXFRAME; i++) {
+        char* typestr = "UNKNOWN";
+        Arg a = frame->f[i];
+          
+        if (a.type) {
+          switch (a.type) {
+          case ARGT_CONST: typestr = "CONST"; break;
+          case ARGT_CELL: typestr = "CELL"; break;
+          case ARGT_ENV: typestr = "ENV"; break;
+          case ARGT_LAMBDA: typestr = "LAMBDA"; break;
+          case ARGT_REG: {
+            char buf[10];
+            sprintf(buf,"R%d(%s)",a.slot+LBDREG,regnames[a.slot+LBDREG]);
+            typestr = buf;
+            break;
+          }
+          case ARGT_INT: typestr = "INT"; break;
+          case ARGT_STACK: typestr = "STACK"; break;
+          case ARGT_STACK_INT: typestr = "STACK_INT"; break;
+          }
+      
+          printf("  %2d\t%s\t%s\t%d\r\n",i,a.name,typestr,a.slot);
+        }
+      }
+    } else {
+      //printf("  empty frame\r\n");
+    }
+  }
+}

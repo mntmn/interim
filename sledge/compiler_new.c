@@ -67,32 +67,6 @@ static Cell* reusable_nil;
 #define PTRSZ 8
 #endif
 
-typedef enum arg_t {
-  ARGT_CONST,
-  ARGT_CELL,
-  ARGT_ENV,
-  ARGT_LAMBDA,
-  ARGT_REG,
-  ARGT_INT,
-  ARGT_STACK,
-  ARGT_STACK_INT
-} arg_t;
-
-typedef struct Arg {
-  arg_t type;
-  Cell* cell;
-  env_entry* env;
-  int slot;
-  char* name;
-} Arg;
-
-typedef struct Frame {
-  Arg* f;
-  int sp;
-  int locals;
-  void* stack_end;
-} Frame;
-
 Cell* lisp_print(Cell* arg) {
   lisp_write(arg, temp_print_buffer, TMP_PRINT_BUFSZ);
   printf("%s\r\n",temp_print_buffer);
@@ -181,9 +155,6 @@ void load_cell(int dreg, Arg arg, Frame* f) {
     jit_movi(dreg, 0xdeadcafe);
   }
 }
-
-#define MAXARGS 8
-#define MAXFRAME 24 // maximum MAXFRAME-MAXARGS local vars
 
 int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
   if (!fn_frame) return -1;
@@ -280,6 +251,8 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
   return num_lets;
 }
 
+static int debug_mode = 1;
+
 int compile_expr(Cell* expr, Frame* frame, int return_type) {
   if (!expr) return 0;
   if (!frame) return 0;
@@ -322,10 +295,6 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   Cell* orig_args = args; // keep around for specials forms like DO
   Cell* signature_args = NULL;
 
-  char debug_buf[256];
-
-  //printf("opsym tag: %d\n",opsym->tag);
-
   if (!opsym || opsym->tag != TAG_SYM) {
     printf("[compile_expr] error: non-symbol in operator position.\n");
     return 0;
@@ -355,11 +324,22 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     printf("[compile-expr] error: non-lambda symbol %s in operator position.\n",opsym->addr);
     return 0;
   }
-  
-  //lisp_write(op, debug_buf, sizeof(debug_buf));
+
   //printf("[op] %s\n",debug_buf);
   //lisp_write(signature_args, debug_buf, sizeof(debug_buf));
   //printf("[sig] %s\n",debug_buf);
+
+  if (debug_mode) {
+    push_frame_regs(frame->f);
+    char* debug_buf = malloc(256);
+    lisp_write(expr, debug_buf, 256);
+    jit_push(R0, ARGR1);
+    jit_lea(ARGR0, debug_buf);
+    jit_lea(ARGR1, frame);
+    jit_call(debug_handler,"dbg");
+    jit_pop(R0, ARGR1);
+    pop_frame_regs(frame->f);
+  }
   
   // first, we need a signature
 
@@ -663,6 +643,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // scan args (build signature)
       Cell* fn_args = alloc_nil();
       Arg fn_new_frame[MAXFRAME];
+      
       for (int i=0; i<MAXFRAME; i++) {
         fn_new_frame[i].type = 0;
         fn_new_frame[i].slot = -1;
@@ -700,15 +681,30 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       jit_jmp(label_fe);
       jit_label(label_fn);
-      jit_movi(R2,STACK_FRAME_MARKER);
+      jit_movi(R2,(jit_word_t)lambda|STACK_FRAME_MARKER);
       jit_push(R2,R2);
 
       int num_lets = analyze_fn(fn_body,NULL,0);
       
       jit_dec_stack(num_lets*PTRSZ);
-      
+
+      Frame* nframe_ptr;
       Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
-      int tag = compile_expr(fn_body, &nframe, TAG_ANY); // new frame, fresh sp
+
+      if (debug_mode) {
+        // in debug mode, we need a copy of the frame definition at runtime
+        nframe_ptr = malloc(sizeof(Frame));
+        memcpy(nframe_ptr, &nframe, sizeof(Frame));
+        Arg* nargs_ptr = malloc(sizeof(Arg)*MAXFRAME);
+        memcpy(nargs_ptr, nframe.f, sizeof(Arg)*MAXFRAME);
+        nframe_ptr->f = nargs_ptr;
+
+        printf("frame copied: %p args: %p\r\n",nframe_ptr,nframe_ptr->f);
+      } else {
+        nframe_ptr = &nframe;
+      }
+      
+      int tag = compile_expr(fn_body, nframe_ptr, TAG_ANY); // new frame, fresh sp
       if (!tag) return 0;
 
       //printf(">> fn has %d args and %d locals. predicted locals: %d\r\n",fn_argc,nframe.locals,num_lets);

@@ -8,13 +8,8 @@
 
 #define env_t StrMap
 
-#ifdef CPU_ARM
-#define STACK_FRAME_MARKER 0x11111111
-#endif
-
-#ifdef CPU_X64
-#define STACK_FRAME_MARKER 0x1111111111111111
-#endif
+// functions store a pointer to their own definition ORed with this marker on the stack
+#define STACK_FRAME_MARKER 0x1
 
 enum cell_allocator_t {
   CA_STACK,

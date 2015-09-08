@@ -3,7 +3,36 @@
 
 #include <string.h>
 
+#define MAXARGS 8
+#define MAXFRAME 24 // maximum MAXFRAME-MAXARGS local vars
+
 typedef jit_word_t (*funcptr)();
+
+typedef enum arg_t {
+  ARGT_CONST,
+  ARGT_CELL,
+  ARGT_ENV,
+  ARGT_LAMBDA,
+  ARGT_REG,
+  ARGT_INT,
+  ARGT_STACK,
+  ARGT_STACK_INT
+} arg_t;
+
+typedef struct Arg {
+  arg_t type;
+  Cell* cell;
+  env_entry* env;
+  int slot;
+  char* name;
+} Arg;
+
+typedef struct Frame {
+  Arg* f;
+  int sp;
+  int locals;
+  void* stack_end;
+} Frame;
 
 typedef enum builtin_t {
   BUILTIN_ADD = 1,

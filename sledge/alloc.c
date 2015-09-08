@@ -170,13 +170,14 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
 
   // (def foo (fn (do (let a 1) (let b 2) (+ a b) (gc))))
 
-  //printf("[gc] stack at: %p, stack end: %p\r\n",stack_pointer,stack_end);
+  printf("[gc] stack at: %p, stack end: %p\r\n",stack_pointer,stack_end);
 
+  // FIXME: how low can we safely go?
   int sw_state = 0;
-  for (jit_word_t* a=(jit_word_t*)stack_end; a>=(jit_word_t*)stack_pointer; a--) {
+  for (jit_word_t* a=(jit_word_t*)stack_end; a>(jit_word_t*)stack_pointer+1; a--) {
     jit_word_t item = *a;
     jit_word_t next_item = *(a-1);
-    if (next_item==STACK_FRAME_MARKER) {
+    if (next_item&STACK_FRAME_MARKER) {
       sw_state=2;
     } else {
       if (sw_state==2) {
@@ -190,7 +191,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
       }
     }
 
-    /*if (sw_state==2) {
+    if (sw_state==2) {
       printf(KMAG "%p: 0x%08lx\r\n" KWHT,a,item);
     }
     else if (sw_state==1) {
@@ -198,9 +199,9 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
     }
     else {
       printf(KWHT "%p: 0x%08lx\r\n" KWHT,a,item);
-      }*/
+    }
   }
-  //printf("[gc] stack walk complete -------------------------------\r\n");
+  printf("[gc] stack walk complete -------------------------------\r\n");
 
   sm_enum(global_env, collect_garbage_iter, NULL);
   mark_tree(get_fs_list());
