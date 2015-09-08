@@ -527,6 +527,8 @@
 
 (def buffer-read (list))
 
+(def zz (fn (import "/sd/tests/gtn.l")))
+
 (def main (fn (do
   (let blink 0)
   (let running 1)

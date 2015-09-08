@@ -9,6 +9,7 @@
 (def solidmap (alloc (* screen-w screen-h)))
 
 (def fill (fn buf from to c (do
+  (print (list "fill" (size buf) from to c))
   (let i from)
   (while (lt i (+ to 1)) (do
     (put buf i c)
@@ -17,30 +18,35 @@
 )))
 
 (def buf-render (fn b bx by (do
-  (blit-str b bx by)
+  (let y 0)
+  (while (lt y screen-h) (do
+    (blit-str (substr b (* y screen-w) screen-w) bx (+ by (* y 16)))
+    (let y (+ y 1))
+  ))
+  0
 )))
 
 ; symbols ------------------------------------------------------
 
-(def sym-block 0x2b1b)
-(def sym-umbrella 0x2614)
-(def sym-coffee 0x2615)
-(def sym-scissors 0x2700)
-(def sym-zigzag 0x2307)
-(def sym-dog 0x2620)
-(def sym-pot 0x1013)
-(def sym-pill 0x1005)
-(def sym-egg 0x1810)
-(def sym-ear 0x1028)
-(def sym-rabbit 0x0c20)
-(def sym-table 0x213f)
-(def sym-salad 0x2e19)
-(def sym-hot 0x2668)
-(def sym-fish 0x1864)
-(def sym-disc 0x105c)
-(def sym-potb 0x1053)
-(def sym-person 0x3020)
-(def sym-blockb 0x2b12)
+(def sym-block (get "#" 0))
+(def sym-umbrella  (get "m" 0))
+(def sym-coffee  (get "c" 0))
+(def sym-scissors  (get "x" 0))
+(def sym-zigzag  (get "z" 0))
+(def sym-dog  (get "D" 0))
+(def sym-pot  (get "p" 0))
+(def sym-pill  (get "." 0))
+(def sym-egg  (get "o" 0))
+(def sym-ear  (get "e" 0))
+(def sym-rabbit  (get "R" 0))
+(def sym-table  (get "T" 0))
+(def sym-salad  (get "s" 0))
+(def sym-hot  (get "~" 0))
+(def sym-fish  (get "<" 0))
+(def sym-disc  (get "0" 0))
+(def sym-potb  (get "p" 0))
+(def sym-person  (get "@" 0))
+(def sym-blockb  (get "=" 0))
 
 ; structures -----------------------------------------------------------
 
@@ -48,12 +54,12 @@
 
 (def make-tile (fn rune color solid (cons rune (cons color (cons solid nil)))))
 
-(def tile-space (make-tile sym-block 0 0))
+(def tile-space (make-tile 32 0 0))
 (def tile-wall (make-tile sym-block 12 1))
-(def tile-asphalt (make-tile sym-block 11 0))
-(def tile-floor-yellow (make-tile sym-block 7 0))
-(def tile-floor-wood (make-tile sym-block 8 0))
-(def tile-floor-woodl (make-tile sym-block 9 0))
+(def tile-asphalt (make-tile (get "." 0) 11 0))
+(def tile-floor-yellow (make-tile (get "_" 0) 7 0))
+(def tile-floor-wood (make-tile (get "_" 0) 8 0))
+(def tile-floor-woodl (make-tile (get "_" 0) 9 0))
 (def tile-dog (make-tile sym-dog 1 0))
 (def tile-pot (make-tile sym-pot 1 0))
 (def tile-pill (make-tile sym-pill 1 0))
@@ -68,7 +74,7 @@
 ; coffee
 
 (def put-tile (fn x y tile (do
-  (put screen (+ x (* screen-w y))  (car tile))
+  (put screen   (+ x (* screen-w y))  (car tile))
   (put colormap (+ x (* screen-w y)) (car (cdr tile)))
   (put solidmap (+ x (* screen-w y)) (car (cdr (cdr tile))))
 )))
@@ -182,8 +188,8 @@
 )))
 
 (def handle-game-key (fn k (do
-  (if (eq k 19) (player-east)
-      (if (eq k 20) (player-west)
+  (if (eq k 20) (player-east)
+      (if (eq k 19) (player-west)
         (if (eq k 17) (player-north)
           (if (eq k 18) (player-south)
               
@@ -206,7 +212,7 @@
   (let aa (car ad))
   
   (while aa (do
-    (blit-char (actor-rune aa) (* 16 (actor-x aa)) (* 16 (actor-y aa)))
+    (blit-char (actor-rune aa) (* 8 (actor-x aa)) (* 16 (actor-y aa)))
     
     (let ad (cdr ad))
     (let aa (car ad))
@@ -219,8 +225,8 @@
 
   (if (eq state state-init) (do
     (fill colormap 0 (- screen-size 1) 0)
-    (fill screen 0 (* (- screen-size 1) 2) 32)
-    (fill screen 0 (- screen-size 1) sym-block)
+    (fill screen 0 (- screen-size 1) 32)
+    ;(fill screen 0 (- screen-size 1) sym-block)
 
     (fill-tile-rect 0 0 60 12 tile-asphalt)
 

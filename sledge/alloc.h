@@ -9,7 +9,7 @@
 #define env_t StrMap
 
 // functions store a pointer to their own definition ORed with this marker on the stack
-#define STACK_FRAME_MARKER 0x1
+#define STACK_FRAME_MARKER 0xf000000000000001
 
 enum cell_allocator_t {
   CA_STACK,

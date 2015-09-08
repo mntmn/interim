@@ -49,18 +49,22 @@ void jit_movi(int reg, uint64_t imm) {
 }
 
 void jit_movr(int dreg, int sreg) {
+  if (dreg == sreg) return;
   fprintf(jit_out, "movq %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
 void jit_movneg(int dreg, int sreg) {
+  if (dreg == sreg) return;
   fprintf(jit_out, "cmovs %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
 void jit_movne(int dreg, int sreg) {
+  if (dreg == sreg) return;
   fprintf(jit_out, "cmovne %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
 void jit_moveq(int dreg, int sreg) {
+  if (dreg == sreg) return;
   fprintf(jit_out, "cmoveq %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
@@ -227,7 +231,7 @@ void jit_pop(int r1, int r2) {
 void debug_handler(char* line, Frame* frame) {
   printf("@ %s\r\n",line);
   
-  if (frame) {
+  if (0 && frame) {
     if (frame->f) {
       for (int i=0; i<MAXFRAME; i++) {
         char* typestr = "UNKNOWN";
