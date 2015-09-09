@@ -10,6 +10,8 @@
 static env_t* global_env = NULL;
 
 #define CHECK_BOUNDS
+#define ARG_SPILLOVER 3 // max 4 args (0-3) via regs, rest via stack
+static int debug_mode = 0;
 
 env_entry* lookup_global_symbol(char* name) {
   env_entry* res;
@@ -250,8 +252,6 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
   }
   return num_lets;
 }
-
-static int debug_mode = 0;
 
 int compile_expr(Cell* expr, Frame* frame, int return_type) {
   if (!expr) return 0;
@@ -593,6 +593,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_LET: {
+      if (!frame->f) {
+        printf("<error: let is not allowed on global level, only in fn>\r\n");
+        return 0;
+      }
+      
       int is_int = 0;
 
       int offset = MAXARGS + frame->locals;
@@ -662,7 +667,6 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         fn_new_frame[i].name = NULL;
       }
 
-      int spillover = 1;
       int spo_count = 0;
 
       int fn_argc = 0;
@@ -670,7 +674,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         Cell* arg = alloc_cons(alloc_sym(argdefs[j].cell->addr),alloc_int(TAG_ANY));
         fn_args = alloc_cons(arg,fn_args);
 
-        if (spillover) {
+        if (j>=ARG_SPILLOVER) { // max args passed in registers
           fn_new_frame[j].type = ARGT_STACK;
           fn_new_frame[j].slot = num_lets + 2 + ((argi-3)-j);
           spo_count++;
@@ -806,6 +810,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_DO: {
       args = orig_args;
       Cell* arg;
+
+      if (!car(args)) {
+        printf("<empty (do) not allowed>\r\n");
+        return 0;
+      }
       
       while ((arg = car(args))) {
         int tag;
@@ -845,6 +854,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     }
     case BUILTIN_QUOTE: {
       args = orig_args;
+
+      if (!car(args)) {
+        printf("<empty (quote) not allowed>\r\n");
+        return 0;
+      }
+      
       Cell* arg = car(args);
       jit_lea(R0,arg);
       break;
@@ -1159,11 +1174,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       frame->sp+=(1+argi-2);
     }*/
 
-    int spillover = 1;
     int spo_adjust = 0;
     
     for (int j=0; j<argi-1; j++) {
-      if (spillover) {
+      if (j>=ARG_SPILLOVER) {
         // pass arg on stack
           
         load_cell(R0, argdefs[j], frame);

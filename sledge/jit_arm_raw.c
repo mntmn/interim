@@ -421,3 +421,7 @@ void jit_pop(int r1, int r2) {
   }
   code[code_idx++] = op; 
 }
+
+void debug_handler() {
+  // NYI
+}

@@ -231,7 +231,7 @@ void jit_pop(int r1, int r2) {
 void debug_handler(char* line, Frame* frame) {
   printf("@ %s\r\n",line);
   
-  if (0 && frame) {
+  if (debug_mode==2 && frame) {
     if (frame->f) {
       for (int i=0; i<MAXFRAME; i++) {
         char* typestr = "UNKNOWN";

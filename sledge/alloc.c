@@ -187,7 +187,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
         // maybe type/signature byte frame header?
         if ((Cell*)item>cell_heap) {
           printf("[gc] stack %p\r\n",item);
-          mark_tree((Cell*)item);
+          //mark_tree((Cell*)item);
         }
       }
     }
@@ -363,7 +363,9 @@ Cell* alloc_num_string(unsigned int num_bytes) {
 }
 
 Cell* alloc_substr(Cell* str, unsigned int from, unsigned int len) {
-  //printf("substr %s %d %d\n",str->addr,from,len);
+  if (!str) return alloc_string_copy("");
+  if (str->tag!=TAG_BYTES && str->tag!=TAG_STR) return alloc_string_copy("");
+  
   if (from>=str->size) from=str->size-1;
   if (len+from>str->size) len=str->size-from; // FIXME TEST
   
@@ -390,6 +392,8 @@ Cell* alloc_string_copy(char* str) {
 }
 
 Cell* alloc_string_from_bytes(Cell* bytes) {
+  if (!bytes) return alloc_string_copy("");
+  if (bytes->tag!=TAG_BYTES && bytes->tag!=TAG_STR) return alloc_string_copy("");
   if (bytes->size<1) return alloc_string_copy("");
   
   Cell* cell = cell_alloc();
@@ -469,9 +473,6 @@ Cell* alloc_clone(Cell* orig) {
   if (orig->tag == TAG_SYM || orig->tag == TAG_STR || orig->tag == TAG_BYTES) {
     clone->addr = bytes_alloc(orig->size+1);
     memcpy(clone->addr, orig->addr, orig->size);
-  /*} else if (orig->tag == TAG_BYTES) {
-    clone->addr = bytes_alloc(orig->size);
-    memcpy(clone->addr, orig->addr, orig->size);*/
   } else if (orig->tag == TAG_CONS) {
     if (orig->addr) {
       clone->addr = alloc_clone(orig->addr);
