@@ -73,7 +73,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 - newlib: GNU GPLv2, Maintained by Corinna Vinschen, Jeff Johnston / Red Hat Inc.
 - devices/rpi2/uspi: GNU GPLv3, Copyright (C) 2014-2015  R. Stange <rsta2@o2online.de>
 - devices/rpi2/rpi-boot: Copyright (C) 2013 by John Cronin <jncronin@tysos.org>
+- devices/rpi2/mmu.c for Raspberry Pi 2 adapted from code Copyright (C) 2015 by Goswin von Brederlow, GNU GPLv3+
+- devices/rpi2/fat FAT file system module Copyright by (C) 2013 by ChaN, Free Software / Custom License
 - GNU Unifont: GNU GPLv2+, originally by Roman Czyborra
+- devices/imx233 IMX233 Port contains code from U-Boot, GPLv2+, written by various engineers. See license headers in source files.
 
 Codecs
 
