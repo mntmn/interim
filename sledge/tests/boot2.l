@@ -1,1 +1,1 @@
-(eval (read (recv (open "/sd/tests/shell.l"))))
+(eval (read (recv (open "/sd/os/shell.l"))))

@@ -53,28 +53,21 @@ Cell* get_cell_heap() {
 env_t* get_global_env();
 
 Cell* cell_alloc() {
-
-  /*if (free_list_avail<free_list_consumed) {
-    // try gc
-    // FIXME need access to current frame
-    collect_garbage(get_global_env());
-  }*/
-  
   if (free_list_avail>free_list_consumed) {
     // serve from free list
     int idx = free_list_consumed;
     free_list_consumed++;
     Cell* res = free_list[idx];
-    //printf("++ cell_alloc: recycled %d (%p)\r\n",idx,res);
     return res;
   } else {
+    // grow heap
     Cell* res = &cell_heap[cells_used];
     cells_used++;
     if (cells_used>MAX_CELLS) {
-      printf("!! cell_alloc failed, MAX_CELLS used.\n");
+      // out of memory
+      printf("[cell_alloc] failed: MAX_CELLS used.\n");
       exit(1);
     }
-    //printf("++ cell_alloc: %d \r\n",cells_used);
     return res;
   }
 }
@@ -134,7 +127,7 @@ void mark_tree(Cell* c) {
     }
     else if (c->tag & TAG_STREAM) {
       Stream* s = (Stream*)c->addr;
-      mark_tree(s->path);
+      //mark_tree(s->path);
     }
     else if (c->tag & TAG_FS) {
       Filesystem* fs = (Filesystem*)c->next;
@@ -179,17 +172,23 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
 
   //printf("[gc] stack at: %p, stack end: %p\r\n",stack_pointer,stack_end);
 
+  // FIXME: how low can we safely go?
   int sw_state = 0;
   for (jit_word_t* a=(jit_word_t*)stack_end; a>=(jit_word_t*)stack_pointer; a--) {
     jit_word_t item = *a;
     jit_word_t next_item = *(a-1);
-    if (next_item==STACK_FRAME_MARKER) {
+    if (next_item&STACK_FRAME_MARKER) {
       sw_state=2;
     } else {
       if (sw_state==2) {
         sw_state=1;
       } else if (sw_state==1) {
-        mark_tree((Cell*)item);
+        // FIXME total hack, need type information for stack
+        // maybe type/signature byte frame header?
+        if ((Cell*)item>cell_heap) {
+          //printf("[gc] stack %p\r\n",item);
+          mark_tree((Cell*)item);
+        }
       }
     }
 
@@ -201,7 +200,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
     }
     else {
       printf(KWHT "%p: 0x%08lx\r\n" KWHT,a,item);
-      }*/
+    }*/
   }
   //printf("[gc] stack walk complete -------------------------------\r\n");
 
@@ -261,7 +260,9 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   }
   
   //printf("[gc] highwater %d fl_avail %d \r\n",highwater,free_list_avail);
-  cells_used = highwater+1;
+
+  // FIXME on x64, this line causes corruption over time 
+  //cells_used = highwater+1;
   
 #ifdef DEBUG_GC
   printf("\n\n");
@@ -270,7 +271,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   
   //printf("-- %d high water mark.\n\n",cells_used);
 
-  return alloc_int(gc);
+  return alloc_int(cells_used);
 }
 
 void* cell_realloc(void* old_addr, unsigned int old_size, unsigned int num_bytes) {
@@ -290,7 +291,6 @@ MemStats* alloc_stats() {
 }
 
 Cell* alloc_cons(Cell* ar, Cell* dr) {
-  //printf("alloc_cons: ar %p dr %p\n",ar,dr);
   Cell* cons = cell_alloc();
   cons->tag = TAG_CONS;
   cons->addr = ar; //?alloc_clone(ar):ar;
@@ -315,7 +315,7 @@ Cell* alloc_sym(char* str) {
   
   sym->tag = TAG_SYM;
   if (str) {
-    int sz = strlen(str)+1;
+    int sz = strnlen(str,128)+1;
     sym->size = sz;
     //printf("alloc_sym: %s (%d)\r\n",str,sz);
     //memdump(sym,sizeof(Cell),0);
@@ -363,7 +363,9 @@ Cell* alloc_num_string(unsigned int num_bytes) {
 }
 
 Cell* alloc_substr(Cell* str, unsigned int from, unsigned int len) {
-  //printf("substr %s %d %d\n",str->addr,from,len);
+  if (!str) return alloc_string_copy("");
+  if (str->tag!=TAG_BYTES && str->tag!=TAG_STR) return alloc_string_copy("");
+  
   if (from>=str->size) from=str->size-1;
   if (len+from>str->size) len=str->size-from; // FIXME TEST
   
@@ -379,6 +381,7 @@ Cell* alloc_string() {
   return alloc_num_string(SYM_INIT_BUFFER_SIZE);
 }
 
+// FIXME: max size?
 Cell* alloc_string_copy(char* str) {
   Cell* cell = cell_alloc();
   cell->addr = bytes_alloc(strlen(str)+1);
@@ -388,18 +391,39 @@ Cell* alloc_string_copy(char* str) {
   return cell;
 }
 
-Cell* alloc_concat(Cell* str1, Cell* str2) {
-  if (!str1 || !str2) return alloc_error(ERR_INVALID_PARAM_TYPE);
-  if (str1->tag!=TAG_BYTES && str1->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
-  if (str2->tag!=TAG_BYTES && str2->tag!=TAG_STR) return alloc_error(ERR_INVALID_PARAM_TYPE);
+Cell* alloc_string_from_bytes(Cell* bytes) {
+  if (!bytes) return alloc_string_copy("");
+  if (bytes->tag!=TAG_BYTES && bytes->tag!=TAG_STR) return alloc_string_copy("");
+  if (bytes->size<1) return alloc_string_copy("");
   
   Cell* cell = cell_alloc();
-  unsigned int newsize = strlen(str1->addr)+strlen(str2->addr)+1;
-  cell->addr = bytes_alloc(newsize+1);
-  strcpy(cell->addr, str1->addr);
-  strcpy(cell->addr+strlen(str1->addr), str2->addr);
+  cell->addr = bytes_alloc(bytes->size+1);
+  
+  memcpy(cell->addr, bytes->addr, bytes->size);
+  ((char*)cell->addr)[bytes->size]=0;
   cell->tag = TAG_STR;
+  cell->size = bytes->size+1;
+  return cell;
+}
+
+Cell* alloc_concat(Cell* str1, Cell* str2) {
+  if (!str1 || !str2) return alloc_string_copy("");
+  if (str1->tag!=TAG_BYTES && str1->tag!=TAG_STR) return alloc_string_copy("");
+  if (str2->tag!=TAG_BYTES && str2->tag!=TAG_STR) return alloc_string_copy("");
+  
+  //printf("### str1: #%s#\n",str1->addr);
+  //printf("### str2: #%s#\n",str2->addr);
+  
+  Cell* cell = cell_alloc();
+  int size1 = strnlen(str1->addr,str1->size);
+  int size2 = strnlen(str2->addr,str2->size);
+  int newsize = size1+size2+1;
+  cell->addr = bytes_alloc(newsize+1);
   cell->size = newsize;
+  cell->tag = TAG_STR;
+  strncpy(cell->addr, str1->addr, size1);
+  strncpy(cell->addr+size1, str2->addr, 1+cell->size-size1);
+  ((char*)cell->addr)[newsize]=0;
   return cell;
 }
 
@@ -449,9 +473,6 @@ Cell* alloc_clone(Cell* orig) {
   if (orig->tag == TAG_SYM || orig->tag == TAG_STR || orig->tag == TAG_BYTES) {
     clone->addr = bytes_alloc(orig->size+1);
     memcpy(clone->addr, orig->addr, orig->size);
-  /*} else if (orig->tag == TAG_BYTES) {
-    clone->addr = bytes_alloc(orig->size);
-    memcpy(clone->addr, orig->addr, orig->size);*/
   } else if (orig->tag == TAG_CONS) {
     if (orig->addr) {
       clone->addr = alloc_clone(orig->addr);

@@ -13,7 +13,20 @@ static int ki = 0;
 void uspi_keypress_handler (const char *str)
 {
   printf("[uspi-keyboard] pressed: '%s' (%d)\r\n",str,str[0]);
-  usb_key_in[ki] = str[0];
+
+  char k=str[0];
+  if (strlen(str)>1) {
+    if (k==27) {
+      k = str[2];
+      printf("[uspi-keyboard] esc seq key2: %d",k);
+    }
+    if (k==68) k=19;
+    if (k==67) k=20;
+    if (k==65) k=17;
+    if (k==66) k=18;
+  }
+  
+  usb_key_in[ki] = k;
   ki++;
   if (ki>=KBUFSZ) ki = 0;
 }

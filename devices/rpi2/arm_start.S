@@ -25,12 +25,6 @@ _start:
 	mcr p15, #0, r1, c7, c5, #4
 	mov r0,#0x40000000
 	fmxr FPEXC, r0
-
-  // enable unaligned access (doesn't seem to work on rpi2)
-  mrc p15, #0, r0, c1, c0, #0
-  bic r0, r0, #2 // clear A bit
-  orr r0, #0x400000         // 1<<22 set U bit
-	mcr p15, #0, r0, c1, c0, #0
   
 	// jump to kernel_main
 	ldr r3, =_cstartup
@@ -49,16 +43,8 @@ DelayLoop:
 	subs	r0, r0, #1
 	bhi	DelayLoop
 	mov	pc, lr
-  
+
 // constants for ldr macro
 constants:
 .ltorg
 .section ".bss"
-  
-// 16k stack aligned to 4 byte
-/*.balign 4
-.global stack
-stack:
-.fill 64000, 4, 0
-.global stack_top
-stack_top:*/

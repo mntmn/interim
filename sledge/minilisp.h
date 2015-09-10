@@ -49,8 +49,8 @@
 #define ERR_NOT_FOUND 404
 #define ERR_FORBIDDEN 403
 
-#define min(a,b) (a > b ? a : b)
-#define max(a,b) (b > a ? a : b)
+#define max(a,b) (a > b ? a : b)
+#define min(a,b) (a < b ? a : b)
 
 typedef struct Cell {
   union {

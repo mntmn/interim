@@ -9,11 +9,12 @@
 #define env_t StrMap
 
 #if defined(CPU_ARM) || defined(CPU_X86)
-#define STACK_FRAME_MARKER 0x11111111
+#define STACK_FRAME_MARKER 0xf0000001
 #endif
 
 #ifdef CPU_X64
-#define STACK_FRAME_MARKER 0x1111111111111111
+// functions store a pointer to their own definition ORed with this marker on the stack
+#define STACK_FRAME_MARKER 0xf000000000000001
 #endif
 
 enum cell_allocator_t {
@@ -44,6 +45,7 @@ Cell* alloc_num_bytes(unsigned int num_bytes);
 Cell* alloc_string();
 Cell* alloc_num_string(unsigned int num_bytes);
 Cell* alloc_string_copy(char* str);
+Cell* alloc_string_from_bytes(Cell* bytes);
 Cell* alloc_concat(Cell* str1, Cell* str2);
 Cell* alloc_substr(Cell* str, unsigned int from, unsigned int len);
 Cell* alloc_int(int i);

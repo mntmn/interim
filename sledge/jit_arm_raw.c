@@ -89,8 +89,8 @@ void jit_movi(int reg, uint32_t imm) {
 
 void jit_movr(int dreg, int sreg) {
   uint32_t op = 0xe1a00000;
-  op |= (sreg<<0); // base reg = pc
-  op |= (dreg<<12); // dreg
+  op |= (sreg<<0);
+  op |= (dreg<<12);
   
   code[code_idx++] = op;
 }
@@ -105,6 +105,14 @@ void jit_movneg(int dreg, int sreg) {
 
 void jit_movne(int dreg, int sreg) {
   uint32_t op = 0x11a00000;
+  op |= (sreg<<0); // base reg = pc
+  op |= (dreg<<12); // dreg
+  
+  code[code_idx++] = op;
+}
+
+void jit_moveq(int dreg, int sreg) {
+  uint32_t op = 0x01a00000;
   op |= (sreg<<0); // base reg = pc
   op |= (dreg<<12); // dreg
   
@@ -215,10 +223,57 @@ void jit_mulr(int dreg, int sreg) {
   code[code_idx++] = op;
 }
 
+void jit_andr(int dreg, int sreg) {
+  uint32_t op = 0xe0000000;
+  op |= (sreg<<0);
+  op |= (dreg<<12);
+  op |= (dreg<<16);
+  code[code_idx++] = op;
+}
+
+void jit_orr(int dreg, int sreg) {
+  uint32_t op = 0xe1800000;
+  op |= (sreg<<0);
+  op |= (dreg<<12);
+  op |= (dreg<<16);
+  code[code_idx++] = op;
+}
+
+void jit_xorr(int dreg, int sreg) {
+  uint32_t op = 0xe0200000;
+  op |= (sreg<<0);
+  op |= (dreg<<12);
+  op |= (dreg<<16);
+  code[code_idx++] = op;
+}
+
+void jit_shlr(int dreg, int sreg) {
+  uint32_t op = 0xe1a00010;
+  op |= (sreg<<8);
+  op |= (dreg<<12);
+  op |= (dreg<<0);
+  code[code_idx++] = op;
+}
+
+void jit_shrr(int dreg, int sreg) {
+  uint32_t op = 0xe1a00030;
+  op |= (sreg<<8);
+  op |= (dreg<<12);
+  op |= (dreg<<0);
+  code[code_idx++] = op;
+}
+
 void jit_call(void* func, char* note) {
   code[code_idx++] = 0xe92d4000; // stmfd	sp!, {lr}
   jit_movr(14,15);
   jit_lea(15,func);
+  code[code_idx++] = 0xe8bd4000; // ldmfd	sp!, {lr}
+}
+
+void jit_callr(int reg) {
+  code[code_idx++] = 0xe92d4000; // stmfd	sp!, {lr}
+  jit_movr(14,15);
+  jit_movr(15,reg);
   code[code_idx++] = 0xe8bd4000; // ldmfd	sp!, {lr}
 }
 
@@ -303,8 +358,12 @@ void jit_emit_branch(uint32_t op, char* label) {
 }
 
 void jit_je(char* label) {
-  //printf("je to label: %s\r\n",label);
   uint32_t op = 0x0a000000; // beq
+  jit_emit_branch(op, label);
+}
+
+void jit_jge(char* label) {
+  uint32_t op = 0xaa000000; // bge
   jit_emit_branch(op, label);
 }
 
@@ -327,8 +386,6 @@ void jit_jmp(char* label) {
 void jit_label(char* label) {
   jit_labels[label_idx].name = strdup(label);
   jit_labels[label_idx].idx = code_idx;
-
-  //printf("register label: %s\r\n",label);
 
   Label* unres_lbl = NULL;
   while ((unres_lbl = find_unresolved_label(label))) {
@@ -363,4 +420,8 @@ void jit_pop(int r1, int r2) {
     op |= (1<<i); // build bit pattern of registers to pop
   }
   code[code_idx++] = op; 
+}
+
+void debug_handler() {
+  // NYI
 }

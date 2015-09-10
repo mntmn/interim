@@ -70,31 +70,31 @@ int InterruptSystemInitialize (TInterruptSystem *pThis)
 	TExceptionTable *pTable = (TExceptionTable *) ARM_EXCEPTION_TABLE_BASE;
 	pTable->IRQ = ARM_OPCODE_BRANCH (ARM_DISTANCE (pTable->IRQ, IRQStub));
 
-	CleanDataCache ();
-	DataSyncBarrier ();
+	CleanDataCache();
+	DataSyncBarrier();
 
-	InvalidateInstructionCache ();
-	FlushBranchTargetCache ();
-	DataSyncBarrier ();
+	InvalidateInstructionCache();
+	FlushBranchTargetCache();
+	DataSyncBarrier();
 
-	InstructionSyncBarrier ();
+	InstructionSyncBarrier();
 
-	DataMemBarrier ();
+	DataMemBarrier();
 
-	write32 (ARM_IC_FIQ_CONTROL, 0);
+	write32(ARM_IC_FIQ_CONTROL, 0);
 
-	write32 (ARM_IC_DISABLE_IRQS_1, (u32) -1);
-	write32 (ARM_IC_DISABLE_IRQS_2, (u32) -1);
-	write32 (ARM_IC_DISABLE_BASIC_IRQS, (u32) -1);
+	write32(ARM_IC_DISABLE_IRQS_1, (u32) -1);
+	write32(ARM_IC_DISABLE_IRQS_2, (u32) -1);
+	write32(ARM_IC_DISABLE_BASIC_IRQS, (u32) -1);
 
 	// Ack pending IRQs
-	write32 (ARM_IC_IRQ_BASIC_PENDING, read32 (ARM_IC_IRQ_BASIC_PENDING));
-	write32 (ARM_IC_IRQ_PENDING_1, 	   read32 (ARM_IC_IRQ_PENDING_1));
-	write32 (ARM_IC_IRQ_PENDING_2,     read32 (ARM_IC_IRQ_PENDING_2));
+	write32(ARM_IC_IRQ_BASIC_PENDING, read32 (ARM_IC_IRQ_BASIC_PENDING));
+	write32(ARM_IC_IRQ_PENDING_1, 	   read32 (ARM_IC_IRQ_PENDING_1));
+	write32(ARM_IC_IRQ_PENDING_2,     read32 (ARM_IC_IRQ_PENDING_2));
 
-	DataMemBarrier ();
+	DataMemBarrier();
 
-	EnableInterrupts ();
+	EnableInterrupts();
 
 	return TRUE;
 }

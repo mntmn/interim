@@ -72,7 +72,7 @@
 //#define SD_CARD_INTERRUPTS
 
 // Enable EXPERIMENTAL (and possibly DANGEROUS) SD write support
-//#define SD_WRITE_SUPPORT
+#define SD_WRITE_SUPPORT
 
 // The particular SDHCI implementation
 #define SDHCI_IMPLEMENTATION_GENERIC        0
@@ -461,6 +461,10 @@ static void sd_power_off()
 	mmio_write(EMMC_BASE + EMMC_CONTROL0, control0);
 }
 
+
+static volatile uint32_t mailbuffer[8] __attribute__ ((aligned (16)));
+static volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
+
 static uint32_t sd_get_base_clock_hz()
 {
   uint32_t base_clock;
@@ -470,8 +474,6 @@ static uint32_t sd_get_base_clock_hz()
 #elif SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_BCM_2708
   //uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
 
-
-  volatile uint32_t mailbuffer[8] __attribute__ ((aligned (16)));
     
   //volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
@@ -523,9 +525,7 @@ static uint32_t sd_get_base_clock_hz()
 
 #if SDHCI_IMPLEMENTATION == SDHCI_IMPLEMENTATION_BCM_2708
 static int bcm_2708_power_off()
-{
-  volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
-  
+{ 
 	//uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
 	volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
@@ -576,7 +576,7 @@ static int bcm_2708_power_off()
 static int bcm_2708_power_on()
 {
 	//uint32_t mb_addr = 0x40007000;		// 0x7000 in L2 cache coherent mode
-  volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
+  //volatile uint32_t mb_addr[8] __attribute__ ((aligned (16)));
   
   volatile uint32_t *mailbuffer = (uint32_t *)mb_addr;
 
@@ -932,18 +932,19 @@ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, u
             size_t cur_byte_no = 0;
             while(cur_byte_no < dev->block_size)
             {
-                if(is_write)
-				{
-					uint32_t data = read_word((uint8_t *)cur_buf_addr, 0);
-                    mmio_write(EMMC_BASE + EMMC_DATA, data);
-				}
-                else
-				{
-					uint32_t data = mmio_read(EMMC_BASE + EMMC_DATA);
-					write_word(data, (uint8_t *)cur_buf_addr, 0);
-				}
-                cur_byte_no += 4;
-                cur_buf_addr++;
+              if(is_write)
+              {
+                uint32_t data = read_word((uint8_t *)cur_buf_addr, 0);
+                //printf("emmc write_word %lx\r\n",data);
+                mmio_write(EMMC_BASE + EMMC_DATA, data);
+              }
+              else
+              {
+                uint32_t data = mmio_read(EMMC_BASE + EMMC_DATA);
+                write_word(data, (uint8_t *)cur_buf_addr, 0);
+              }
+              cur_byte_no += 4;
+              cur_buf_addr++;
             }
 
 #ifdef EMMC_DEBUG
@@ -1204,6 +1205,7 @@ static void sd_issue_command(struct emmc_block_dev *dev, uint32_t command, uint3
     //  handled
     if(dev->card_removal)
     {
+      printf("SD: card removal detected\r\n");
         dev->last_cmd_success = 0;
         return;
     }
@@ -1254,7 +1256,7 @@ static void sd_issue_command(struct emmc_block_dev *dev, uint32_t command, uint3
 #ifdef EMMC_DEBUG
     if(FAIL(dev))
     {
-        printf("SD: error issuing command: interrupts %08x: ", dev->last_interrupt);
+      printf("SD: error issuing command: %i interrupts %08x: ", command, dev->last_interrupt);
         if(dev->last_error == 0)
             printf("TIMEOUT");
         else
@@ -1915,7 +1917,7 @@ static int sd_ensure_data_mode(struct emmc_block_dev *edev)
 	}
 
 #ifdef EMMC_DEBUG
-	printf("SD: ensure_data_mode() obtaining status register for card_rca %08x: ",
+	printf("SD: ensure_data_mode() obtaining status register for card_rca %08x: \r\n",
 		edev->card_rca);
 #endif
 
@@ -2035,10 +2037,14 @@ static int sd_do_data_command(struct emmc_block_dev *edev, int is_write, uint8_t
 	int command;
 	if(is_write)
 	{
-	    if(edev->blocks_to_transfer > 1)
-            command = WRITE_MULTIPLE_BLOCK;
-        else
-            command = WRITE_BLOCK;
+    if(edev->blocks_to_transfer > 1) {
+      command = WRITE_MULTIPLE_BLOCK;
+      printf("SD: WRITE_MULTIPLE_BLOCK\r\n");
+    }
+    else {
+      command = WRITE_BLOCK;
+      printf("SD: WRITE_BLOCK\r\n");
+    }
 	}
 	else
     {
@@ -2121,14 +2127,14 @@ int sd_write(struct block_device *dev, uint8_t *buf, size_t buf_size, uint32_t b
         return -1;
 
 #ifdef EMMC_DEBUG
-	printf("SD: write() card ready, reading from block %u\r\n", block_no);
+	printf("SD: write() card ready, writing to block %u\r\n", block_no);
 #endif
 
     if(sd_do_data_command(edev, 1, buf, buf_size, block_no) < 0)
         return -1;
 
 #ifdef EMMC_DEBUG
-	printf("SD: write read successful\r\n");
+	printf("SD: data write successful\r\n");
 #endif
 
 	return buf_size;

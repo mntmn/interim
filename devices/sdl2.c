@@ -9,7 +9,7 @@
 #define HEIGHT 1080
 #define BPP 2
 #define DEPTH 16
-#define SCALE 4
+#define SCALE 1
 
 SDL_Surface* win_surf;
 SDL_Surface* pixels_surf;
@@ -47,17 +47,6 @@ void* sdl_init(int fullscreen)
 
 static int sdl_key = 0;
 static int sdl_modifiers = 0;
-int sdl_get_key() {
-  int k = sdl_key;
-  sdl_key = 0;
-  return k;
-}
-
-int sdl_get_modifiers() {
-  int m = sdl_modifiers;
-  return m;
-}
-
 
 void* sdl_get_fb() {
   return pixels_surf->pixels;
@@ -66,7 +55,6 @@ void* sdl_get_fb() {
 long sdl_get_fbsize() {
   return WIDTH*HEIGHT*BPP;
 }
-
 
 Cell* fbfs_open() {
   sdl_init(0);
@@ -115,9 +103,16 @@ Cell* keyfs_open() {
   return alloc_int(1);
 }
 
+#include <time.h>
+#include <unistd.h>
+
 Cell* keyfs_read() {
+  sdl_key = 0;
   SDL_Event event;
-  if (SDL_PollEvent(&event)) 
+
+  usleep(20000);
+  
+  if (SDL_PollEvent(&event))
   {
     //printf("sdl event! %d\n",event.type);
     
@@ -126,13 +121,26 @@ Cell* keyfs_read() {
     case SDL_QUIT:
       exit(0);
       break;
+    case SDL_TEXTINPUT:
     case SDL_KEYDOWN:
-      sdl_modifiers = event.key.keysym.mod;
-      printf("key: %d, mod: %x\r\n",event.key.keysym.sym,event.key.keysym.mod);
-      if (event.key.keysym.sym<200) {
+      if (event.type == SDL_KEYDOWN) {
+        sdl_modifiers = event.key.keysym.mod;
+        //printf("key: %d, mod: %x\r\n",event.key.keysym.sym,event.key.keysym.mod);
         sdl_key = event.key.keysym.sym;
       } else {
-        sdl_key = 0;
+        sdl_modifiers = 0;
+        sdl_key = event.text.text[0];
+      }
+      
+      if (sdl_key<200) {
+      } else {
+        switch (sdl_key) {
+          case 1073741906: sdl_key = 17; break; // DC1 cursor up
+          case 1073741905: sdl_key = 18; break; // DC2 cursor down
+          case 1073741904: sdl_key = 19; break; // DC3 cursor left
+          case 1073741903: sdl_key = 20; break; // DC4 cursor right
+          default: sdl_key = 0;
+        }
       }
       if (sdl_modifiers&1 || sdl_modifiers&2) {
         if (sdl_key>='a' && sdl_key<='z') {

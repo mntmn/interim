@@ -11,6 +11,8 @@ Interim runs on:
 - ARM5+ Linux (Hosted)
 - Intel/AMD x64 Linux (Hosted)
 
+Detailed docs are in *docs/index.html*.
+
 Architecture
 ------------
 
@@ -35,7 +37,7 @@ Building
 
 2. To build the hosted variant, cd to ````sledge```` and ````./build_x64.sh````.
 
-3. To cross-compile for bare metal, use ````./rpi2-build.sh```` or ````./imx233-build.sh````.
+3. To cross-compile for bare metal, use ````./rpi2-build.sh````. This will create build/interim-arm.elf.
 
 Running (Hosted)
 ----------------
@@ -43,10 +45,14 @@ Running (Hosted)
     cd sledge
     ./sledge
 
+To launch the graphical REPL/Shell:
+
+    ./sledge < tests/boot2.l
+
 Running (Raspberry Pi 2)
 ------------------------
 
-Prepare a bootable SD card with the usual FAT partition that has the Pi-specific boot blobs in it and copy ````kernel.img```` into it. You can recycle any other Raspberry OS distribution, i.e. Raspian for this. Just replace the kernel.img and delete cmdline.txt. Keyboard input is currently only over UART, so you will probably want to connect a UART->USB cable to another computer and use it to control Interim. 
+Prepare a bootable SD card with the usual FAT partition that has the Pi-specific boot blobs in it and copy ````kernel.img```` into it. You can recycle any other Raspberry OS distribution, i.e. Raspian for this. Just replace the kernel7.img and delete cmdline.txt. Keyboard input is currently only over UART, so you will probably want to connect a UART->USB cable to another computer and use it to control Interim. 
 
 Licenses
 --------
@@ -67,7 +73,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 - newlib: GNU GPLv2, Maintained by Corinna Vinschen, Jeff Johnston / Red Hat Inc.
 - devices/rpi2/uspi: GNU GPLv3, Copyright (C) 2014-2015  R. Stange <rsta2@o2online.de>
 - devices/rpi2/rpi-boot: Copyright (C) 2013 by John Cronin <jncronin@tysos.org>
+- devices/rpi2/mmu.c for Raspberry Pi 2 adapted from code Copyright (C) 2015 by Goswin von Brederlow, GNU GPLv3+
+- devices/rpi2/fat FAT file system module Copyright by (C) 2013 by ChaN, Free Software / Custom License
 - GNU Unifont: GNU GPLv2+, originally by Roman Czyborra
+- devices/imx233 IMX233 Port contains code from U-Boot, GPLv2+, written by various engineers. See license headers in source files.
 
 Codecs
 

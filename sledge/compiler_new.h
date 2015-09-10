@@ -3,7 +3,36 @@
 
 #include <string.h>
 
+#define MAXARGS 8
+#define MAXFRAME 24 // maximum MAXFRAME-MAXARGS local vars
+
 typedef jit_word_t (*funcptr)();
+
+typedef enum arg_t {
+  ARGT_CONST,
+  ARGT_CELL,
+  ARGT_ENV,
+  ARGT_LAMBDA,
+  ARGT_REG,
+  ARGT_INT,
+  ARGT_STACK,
+  ARGT_STACK_INT
+} arg_t;
+
+typedef struct Arg {
+  arg_t type;
+  Cell* cell;
+  env_entry* env;
+  int slot;
+  char* name;
+} Arg;
+
+typedef struct Frame {
+  Arg* f;
+  int sp;
+  int locals;
+  void* stack_end;
+} Frame;
 
 typedef enum builtin_t {
   BUILTIN_ADD = 1,
@@ -35,6 +64,8 @@ typedef enum builtin_t {
 
   BUILTIN_ALLOC,
   BUILTIN_ALLOC_STR,
+  BUILTIN_BYTES_TO_STR,
+  BUILTIN_STR_TO_BYTES,
   BUILTIN_CONCAT,
   BUILTIN_SUBSTR,
 
@@ -75,16 +106,12 @@ typedef enum builtin_t {
   BUILTIN_BLIT_STRING,
   BUILTIN_INKEY,
 
-  BUILTIN_ALIEN,
   BUILTIN_GC,
   BUILTIN_SYMBOLS,
+  BUILTIN_DEBUG,
+  
   BUILTIN_LOAD,
   BUILTIN_SAVE,
-  BUILTIN_UDP_POLL,
-  BUILTIN_UDP_SEND,
-  BUILTIN_TCP_CONNECT,
-  BUILTIN_TCP_BIND,
-  BUILTIN_TCP_SEND,
 
   BUILTIN_SIN,
   BUILTIN_COS,
@@ -93,5 +120,7 @@ typedef enum builtin_t {
 
 Cell* insert_global_symbol(Cell* symbol, Cell* cell);
 env_entry* lookup_global_symbol(char* name);
+
+extern Cell* platform_debug();
 
 #endif

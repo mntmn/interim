@@ -49,15 +49,23 @@ void jit_movi(int reg, uint64_t imm) {
 }
 
 void jit_movr(int dreg, int sreg) {
+  if (dreg == sreg) return;
   fprintf(jit_out, "movq %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
 void jit_movneg(int dreg, int sreg) {
+  if (dreg == sreg) return;
   fprintf(jit_out, "cmovs %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
 void jit_movne(int dreg, int sreg) {
+  if (dreg == sreg) return;
   fprintf(jit_out, "cmovne %s, %s\n", regnames[sreg], regnames[dreg]);
+}
+
+void jit_moveq(int dreg, int sreg) {
+  if (dreg == sreg) return;
+  fprintf(jit_out, "cmoveq %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
 void jit_lea(int reg, void* addr) {
@@ -162,6 +170,10 @@ void jit_call(void* func, char* note) {
   fprintf(jit_out, "callq *%%rax # %s\n", note);
 }
 
+void jit_callr(int reg) {
+  fprintf(jit_out, "callq *%s\n", regnames[reg]);
+}
+
 int32_t inline_mod(int64_t a, int64_t b) {
   return a%b;
 }
@@ -182,6 +194,10 @@ void jit_cmpr(int sreg, int dreg) {
 
 void jit_je(char* label) {
   fprintf(jit_out, "je %s\n", label);
+}
+
+void jit_jge(char* label) {
+  fprintf(jit_out, "jge %s\n", label);
 }
 
 void jit_jneg(char* label) {
@@ -209,5 +225,40 @@ void jit_push(int r1, int r2) {
 void jit_pop(int r1, int r2) {
   for (int i=r2; i>=r1; i--) {
     fprintf(jit_out, "pop %s\n",regnames[i]);
+  }
+}
+
+void debug_handler(char* line, Frame* frame) {
+  printf("@ %s\r\n",line);
+  
+  if (debug_mode==2 && frame) {
+    if (frame->f) {
+      for (int i=0; i<MAXFRAME; i++) {
+        char* typestr = "UNKNOWN";
+        Arg a = frame->f[i];
+          
+        if (a.type) {
+          switch (a.type) {
+          case ARGT_CONST: typestr = "CONST"; break;
+          case ARGT_CELL: typestr = "CELL"; break;
+          case ARGT_ENV: typestr = "ENV"; break;
+          case ARGT_LAMBDA: typestr = "LAMBDA"; break;
+          case ARGT_REG: {
+            char buf[10];
+            sprintf(buf,"R%d(%s)",a.slot+LBDREG,regnames[a.slot+LBDREG]);
+            typestr = buf;
+            break;
+          }
+          case ARGT_INT: typestr = "INT"; break;
+          case ARGT_STACK: typestr = "STACK"; break;
+          case ARGT_STACK_INT: typestr = "STACK_INT"; break;
+          }
+      
+          printf("  %2d\t%s\t%s\t%d\r\n",i,a.name,typestr,a.slot);
+        }
+      }
+    } else {
+      //printf("  empty frame\r\n");
+    }
   }
 }

@@ -1,11 +1,11 @@
-#define CODESZ 4096
+#define CODESZ 8192
 #include <unistd.h>
 #include <fcntl.h>
 
 int compile_for_platform(Cell* expr, Cell** res) {
   code = mmap(0, CODESZ, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
   memset(code, 0, CODESZ);
-  jit_init(512);
+  jit_init(0x400);
   //cpool_idx = CODESZ/2; // 128 ops gap
   //code_idx = 0;
 
@@ -19,6 +19,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
   fclose(f);
 
   // disassemble
+#ifdef DEBUG
   system("arm-linux-gnueabihf-objdump -D -b binary -marmv5 /tmp/test >/tmp/disasm");
   int fd = open("/tmp/disasm",O_RDONLY);
   char buf[1024];
@@ -28,7 +29,8 @@ int compile_for_platform(Cell* expr, Cell** res) {
     write(1, buf, buflen);
   }
   close(fd);
-  
+#endif
+
   int mp_res = mprotect(code, CODESZ, PROT_EXEC|PROT_READ);
   
   funcptr fn = (funcptr)code;

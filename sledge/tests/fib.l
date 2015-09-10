@@ -1,13 +1,15 @@
-(def fib (fn n (if (lt n 3) 1 (+ (fib (- n 1)) (fib (- n 2))) )))
-
-
-(fib 5)
-
-(def fib (fn n (do
+(
+(def fib (fn on (do
   (let i 1)
+  (print i)
   (let j 1)
+  (print j)
   (let r 1)
-  (let n n)
+  (print r)
+  (let n on)
+  (print on)
+  (print n)
+  (print (gt n 2))
 
   (while (gt n 2) (do
     (let r (+ i j))
@@ -18,5 +20,4 @@
 
   r
 )))
-
-
+)

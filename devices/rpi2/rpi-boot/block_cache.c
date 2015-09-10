@@ -195,7 +195,7 @@ int cache_read(struct block_device *dev, uint8_t *buf, size_t buf_size, uint32_t
 	}
 
 	// Copy the cached data to the calling process
-	qmemcpy(buf, cache_buf, buf_size);
+	memcpy(buf, cache_buf, buf_size);
 	return buf_size;
 }
 
@@ -221,7 +221,7 @@ int cache_write(struct block_device *dev, uint8_t *buf, size_t buf_size, uint32_
 	{
 		int idx = cache_idx(cd, starting_block + i);
 		if(cd->cached_blocks[idx] == starting_block + i)
-			qmemcpy((void *)(cd->cache_start + idx * cd->bd.block_size), &buf[i * cd->bd.block_size], cd->bd.block_size);
+			memcpy((void *)(cd->cache_start + idx * cd->bd.block_size), &buf[i * cd->bd.block_size], cd->bd.block_size);
 	}
 
 	return buf_size;

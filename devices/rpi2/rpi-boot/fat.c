@@ -362,7 +362,7 @@ int fat_init(struct block_device *parent, struct fs **fs)
   
 	ret->b.block_size = ret->bytes_per_sector * ret->sectors_per_cluster;
 	*fs = (struct fs *)ret;
-	free(block_0);
+	//free(block_0); // FIXME
 
 	printf("FAT: found a %s filesystem on %s\r\n", ret->b.fs_name, ret->b.parent->device_name);
 
@@ -430,6 +430,7 @@ static uint32_t get_next_fat_entry(struct fat_fs *fs, uint32_t current_cluster)
 
 struct dirent *fat_read_directory(struct fs *fs, char **name)
 {
+  printf("[fat_read_directory]\r\n");
 	struct dirent *cur_dir = fat_read_dir((struct fat_fs *)fs, (void*)0);
 	while(*name)
 	{
@@ -489,6 +490,7 @@ static uint32_t fat_get_next_bdev_block_num(uint32_t f_block_idx, fs_file *s, vo
 
 struct dirent *fat_read_dir(struct fat_fs *fs, struct dirent *d)
 {
+  printf("[fat_read_dir]\r\n");
 	int is_root = 0;
 	struct fat_fs *fat = (struct fat_fs *)fs;
 

@@ -61,13 +61,23 @@ int main(int argc, char *argv[])
   mount_bios();
 #endif
   
+#ifdef DEV_CONSOLEKEYS
+  void mount_consolekeys();
+  mount_consolekeys();
+#endif
+
+  FILE* in_file = stdin;  
+
+  if (argc==2) {
+    in_file = fopen(argv[1],"r");
+  }
+
   while (1) {
     expr = NULL;
     
     printf(KWHT "sledge> ");
     len = 0;
-    
-    int r = getline(&in_line, &len, stdin);
+    int r = getline(&in_line, &len, in_file);
 
     if (r<1 || !in_line) exit(0);
 
@@ -129,7 +139,12 @@ Cell* platform_eval(Cell* expr) {
   int i = 0;
   Cell* res = alloc_nil();
   Cell* c;
-  while ((c = car(expr))) {
+  while (expr>=cell_heap_start && (c = car(expr))) {
+    if (c<cell_heap_start) {
+      printf("[platform_eval] aborting.\r\n");
+      return res;
+    }
+    
     i++;
     int tag = compile_for_platform(c, &res); 
   

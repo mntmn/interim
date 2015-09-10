@@ -9,3 +9,4 @@ sledge/sledge
 build/*.elf
 newlib
 .#*
+build/interim.bin

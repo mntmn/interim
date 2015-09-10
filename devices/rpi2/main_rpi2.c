@@ -5,12 +5,11 @@
 #include "alloc.h"
 #include "reader.h"
 #include "compiler_new.h"
-#include "os/debug_util.h"
+#include "devices/debug_util.h"
 
 #include "devices/rpi2/raspi.h"
 #include "devices/rpi2/mmu.h"
 #include "devices/rpi2/r3d.h"
-#include "devices/rpi2/rpi-boot/vfs.h"
 #include "devices/rpi2/rpi-boot/util.h"
 #include "devices/rpi2/uspi/include/uspi.h"
 
@@ -27,11 +26,7 @@ void _cstartup(unsigned int r0, unsigned int r1, unsigned int r2)
   while(1) {};
 }
 
-// GPIO Register set
-volatile unsigned int* gpio;
-
 uint32_t* FB;
-uint32_t* FB_MEM;
 
 char buf[128];
 
@@ -39,45 +34,41 @@ void enable_mmu(void);
 extern void* _get_stack_pointer();
 void uart_repl();
 
-extern void libfs_init();
 extern void uspi_keypress_handler(const char *str);
-
-static int have_eth = 0;
-uint8_t* eth_rx_buffer;
-
-void init_mini_ip(Cell* buffer_cell);
 
 /*
 multicore:
-> You only need to write a physical ARM address to:
+> write a physical ARM address to:
 > 0x4000008C + 0x10 * core // core := 1..3
 */
 
 void main()
 {
-  //arm_invalidate_data_caches();
-
   uart_init(); // gpio setup also affects emmc TODO: document
   
   uart_puts("-- INTERIM/PI kernel_main entered.\r\n");
   setbuf(stdout, NULL);
 
+  printf("-- init page table… --\r\n");
   init_page_table();
+  
   printf("-- enable MMU… --\r\n");
   mmu_init();
   printf("-- MMU enabled. --\r\n");
-  
+
+  arm_dmb();
+  arm_isb();
+  arm_dsb();
+
+  printf("-- enable QPU… -- \r\n");
   init_rpi_qpu();
   uart_puts("-- QPU enabled.\r\n");
-
+  
   FB = init_rpi_gfx();
-  FB_MEM = FB;
-  
-  //init_blitter(FB);
-  
+
   sprintf(buf, "-- framebuffer at %p.\r\n",FB);
   uart_puts(buf);
-  
+
   sprintf(buf, "-- heap starts at %p.\r\n", heap_end);
   uart_puts(buf);
   
@@ -85,45 +76,18 @@ void main()
   uart_puts(buf);
 
   memset(FB,0xff,1920*1080*2);
-
-  printf("speedtest…\r\n");
-  //while (!uart_getc()) {};
-  int j=0;
-  for (int i=100000000; i>0; i--) { j+=i; }
-  printf("done… %d\r\n",j);
-  //while (!uart_getc()) {};
   
   // uspi glue
-  printf("uu uspi glue init…\r\n");
+  printf("[usb] uspi glue init…\r\n");
   extern void uspi_glue_init();
   uspi_glue_init();
 
-  printf("uu USPiInitialize…\r\n");
+  printf("[usb] uspi initialize…\r\n");
   int res = USPiInitialize();
-  printf("uu USPI initialization: %d\r\n", res);
+  printf("[usb] uspi initialization: %d\r\n", res);
   
-  int have_kbd = USPiKeyboardAvailable();
-  printf("uu USPI has keyboard: %d\r\n", have_kbd);
-  if (have_kbd) {
-    USPiKeyboardRegisterKeyPressedHandler(uspi_keypress_handler);
-  }
-  
-  have_eth = USPiEthernetAvailable();
+  int have_eth = USPiEthernetAvailable();
   printf("uu USPI has ethernet: %d\r\n", have_eth);
-
-  //eth_rx_buffer=malloc(64*1024);*/
-  
-  libfs_init();
-
-  const int border = 32;
-  
-  for (int y=0; y<1080; y++) {
-    for (int x=0; x<1920; x++) {
-      if (x<32 || y<32 || y>(1080-32) || x>(1920-32)) {
-        ((uint16_t*)FB)[x+y*1920] = 0x000f;
-      }
-    }
-  }
   
   uart_repl();
 }
@@ -131,157 +95,12 @@ void main()
 #include "devices/fbfs.c"
 #include "devices/rpi2/fatfs.c"
 #include "devices/rpi2/usbkeys.c"
+#include "devices/rpi2/usbmouse.c"
+#include "devices/rpi2/uartkeys.c"
+#include "devices/rpi2/dev_ethernet.c"
+#include "devices/rpi2/dev_sound.c"
 
-#include <os/libc_glue.c>
-
-/*
-int machine_video_set_pixel(uint32_t x, uint32_t y, uint32_t color) {
-  if (x>=1920 || y>=1080) return 0;
-  FB_MEM[y*1920+x] = color;
-  
-  return 0;
-}
-
-int machine_video_rect(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint32_t color) {
-  uint32_t y1=y;
-  uint32_t y2=y+h;
-  uint32_t x2=x+w;
-  uint32_t off = y1*1920;
-
-  // FIXME: clip!
-  
-  for (; y1<y2; y1++) {
-    for (uint32_t x1=x; x1<x2; x1++) {
-      FB_MEM[off+x1] = color;
-    }
-    off+=1920;
-  }
-
-  return 0;
-}
-*/
-
-//Cell* lookup_global_symbol(char* name);
-
-int ethernet_rx(uint8_t* packet) {
-  int frame_len = 0;
-  if (have_eth) {
-    USPiReceiveFrame(packet, &frame_len);
-
-    if (frame_len) {
-      printf("[eth] frame received! len: %d\r\n",frame_len);   
-      memdump(packet,frame_len,0);
-    }
-  }
-  return frame_len;
-}
-
-void ethernet_tx(uint8_t* packet, int len) {
-  USPiSendFrame(packet, len);
-  printf("[eth] frame sent (%d)\r\n",len);
-}
-
-/*
-int machine_video_flip() {
-  nv_vertex_t* triangles = r3d_init_frame();
-
-  Cell* c_x1 = lookup_global_symbol("tx1");
-  Cell* c_x2 = lookup_global_symbol("tx2");
-  Cell* c_y1 = lookup_global_symbol("ty1");
-  Cell* c_y2 = lookup_global_symbol("ty2");
-  
-  int x1 = c_x1->value*16;
-  int y1 = c_y1->value*16;
-  int x2 = c_x2->value*16;
-  int y2 = c_y2->value*16;
-
-  triangles[0].x = x1;
-  triangles[0].y = y1;
-  triangles[0].z = 1.0f;
-  triangles[0].w = 1.0f;
-  triangles[0].r = 1.0f;
-  triangles[0].g = 0.0f;
-  triangles[0].b = 1.0f;
-  
-  triangles[1].x = x2;
-  triangles[1].y = y1;
-  triangles[1].z = 1.0f;
-  triangles[1].w = 1.0f;
-  triangles[1].r = 1.0f;
-  triangles[1].g = 1.0f;
-  triangles[1].b = 1.0f;
-  
-  triangles[2].x = x1;
-  triangles[2].y = y2;
-  triangles[2].z = 1.0f;
-  triangles[2].w = 1.0f;
-  triangles[2].r = 1.0f;
-  triangles[2].g = 1.0f;
-  triangles[2].b = 1.0f;
-  
-  triangles[3].x = x2;
-  triangles[3].y = y1;
-  triangles[3].z = 1.0f;
-  triangles[3].w = 1.0f;
-  triangles[3].r = 1.0f;
-  triangles[3].g = 1.0f;
-  triangles[3].b = 1.0f;
-  
-  triangles[4].x = x2;
-  triangles[4].y = y2;
-  triangles[4].z = 1.0f;
-  triangles[4].w = 1.0f;
-  triangles[4].r = 1.0f;
-  triangles[4].g = 0.0f;
-  triangles[4].b = 1.0f;
-  
-  triangles[5].x = x1;
-  triangles[5].y = y2;
-  triangles[5].z = 1.0f;
-  triangles[5].w = 1.0f;
-  triangles[5].r = 1.0f;
-  triangles[5].g = 1.0f;
-  triangles[5].b = 1.0f;
-  
-  r3d_triangles(2, triangles);
-  r3d_render_frame(0xffffffff);
-  
-  //memset(FB_MEM, 0xffffff, 1920*1080*4);
-  //r3d_debug_gpu();
-  
-  return 0;
-}
-*/
-
-/*
-int machine_get_key(int modifiers) {
-  if (modifiers) return 0;
-  int k = 0;
-  if (usb_keyboard_enabled) {
-    k = usb_key_in;
-    usb_key_in = 0;
-  } else {
-    k = uart_getc();
-    if (k==27) {
-      k = uart_getc();
-      if (k==91) {
-        k = uart_getc();
-        if (k==27) {
-          // fast repetition
-          k = uart_getc();
-          k = uart_getc();
-        }
-        if (k==68) return 130;
-        if (k==67) return 131;
-        if (k==65) return 132;
-        if (k==66) return 133;
-        printf("~~ inkey unknown sequence: 91,%d\r\n",k);
-        return 0;
-      }
-    }
-  }
-  return k;
-  }*/
+#include "devices/libc_glue.c"
 
 typedef jit_word_t (*funcptr)();
 
@@ -289,43 +108,60 @@ Cell* platform_eval(Cell* expr); // FIXME
 
 #include "compiler_new.c"
 
-#define CODESZ 4096
+#define CODESZ 8192
 #define REPLBUFSZ 1024*6
+
+void fatfs_debug(); // FIXME
+
+Cell* platform_debug() {
+}
 
 void uart_repl() {
   uart_puts("~~ trying to malloc repl buffers\r\n");
   char* out_buf = malloc(REPLBUFSZ);
   char* in_line = malloc(REPLBUFSZ);
   char* in_buf = malloc(REPLBUFSZ);
+  sbrk(0);
   uart_puts("\r\n\r\n++ welcome to sledge arm/32 (c)2015 mntmn.\r\n");
   
   init_compiler();
-  //insert_rootfs_symbols();
   mount_fbfs(FB);
-  mount_usbkeys();
+
+  int have_kbd = USPiKeyboardAvailable();
+  printf("[usb] has keyboard: %d\r\n", have_kbd);
+  if (have_kbd) {
+    USPiKeyboardRegisterKeyPressedHandler(uspi_keypress_handler);
+    mount_usbkeys();
+  } else {
+    mount_uartkeys();
+  }
+  
   mount_fatfs();
+  mount_ethernet();
+  
+  if (USPiMouseAvailable()) {
+    USPiMouseRegisterStatusHandler(uspi_mouse_handler);
+    mount_mouse();
+  }
+  
+  mount_soundfs();
+  
+  fatfs_debug();
   
   uart_puts("\r\n~~ fs initialized.\r\n");
-  
+
   memset(out_buf,0,REPLBUFSZ);
   memset(in_line,0,REPLBUFSZ);
   memset(in_buf,0,REPLBUFSZ);
-
-  long count = 0;
   
   int in_offset = 0;
   int parens = 0;
 
-  int linec = 0;
-
   Cell* expr;
   char c = 0;
 
-  strcpy(in_line,"(eval (read (recv (open \"/sd/font.l\"))))\n");
+  strcpy(in_line,"(eval (read (recv (open \"/sd/shell.l\"))))\n");
   c=13;
-  
-  //r3d_init(FB);
-  //uart_puts("-- R3D initialized.\r\n");
   
   while (1) {
     expr = NULL;
@@ -356,8 +192,6 @@ void uart_repl() {
     if (len>1) {
       strncpy(in_buf+in_offset, in_line, len-1);
       in_buf[in_offset+len-1] = 0;
-      
-      linec++;
     }
     printf("\r\n[%s]\r\n",in_buf);
     
@@ -391,25 +225,36 @@ Cell* platform_eval(Cell* expr) {
     printf("[platform_eval] error: no expr given.\r\n");
     return NULL;
   }
-
-  char buf[512];
+  char eval_buf[512];
 
   int i = 0;
   Cell* res = alloc_nil();
   Cell* c;
   while ((c = car(expr))) {
     i++;
+    arm_dmb();
+    arm_isb();
+    arm_dsb();
+
+    lisp_write(c, eval_buf, 512);
+    printf("<- compiling %d: %s\r\n",i,eval_buf);
+    
     code = malloc(CODESZ);
     memset(code, 0, CODESZ);
-    jit_init(0x300);
+    jit_init(0x400);
     register void* sp asm ("sp"); // FIXME maybe unportable
     Frame empty_frame = {NULL, 0, 0, sp};
     int tag = compile_expr(c, &empty_frame, TAG_ANY);
+
+    arm_dmb();
+    arm_isb();
+    arm_dsb();
+    printf("compiled %d\r\n",i);
   
     if (tag) {
       jit_ret();
       funcptr fn = (funcptr)code;
-      printf("~~ fn at %p\r\n",fn);
+      //printf("~~ fn at %p\r\n",fn);
       
       __asm("stmfd sp!, {r3-r12, lr}");
       (Cell*)fn();
@@ -418,11 +263,15 @@ Cell* platform_eval(Cell* expr) {
       __asm("mov r6,r0");
       res = retval;
 
+      arm_dmb();
+      arm_isb();
+      arm_dsb();
       printf("~~ expr %d res: %p\r\n",i,res);
-      lisp_write(res, buf, 512);
-      printf("~> %s\r\n",buf);
+      lisp_write(res, eval_buf, 512);
+      printf("~> %s\r\n",eval_buf);
     } else {
-      printf("[platform_eval] stopped at expression %d.\r\n",i);
+      lisp_write(expr, eval_buf, 512);
+      printf("[platform_eval] stopped at expression %d: '%s'\r\n",i,eval_buf);
       break;
     }
     // when to free the code? -> when no bound lambdas involved

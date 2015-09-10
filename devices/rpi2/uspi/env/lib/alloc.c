@@ -126,6 +126,7 @@ unsigned long mem_get_size (void)
 
 void *malloc (unsigned long ulSize)
 {
+  printf("++++++++++++++++++++++ WE SHOULD NOT BE HERE (alloc.c) ++++++++++++++++++++++\r\n");
 	assert (s_pNextBlock != 0);
 	
 	EnterCritical ();
