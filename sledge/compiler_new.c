@@ -9,8 +9,10 @@
 #define env_t StrMap
 static env_t* global_env = NULL;
 
-#define CHECK_BOUNDS
+#define CHECK_BOUNDS    // enforce boundaries of array put/get
 #define ARG_SPILLOVER 3 // max 4 args (0-3) via regs, rest via stack
+#define LBDREG R4       // register base used for passing args to functions
+
 static int debug_mode = 0;
 
 env_entry* lookup_global_symbol(char* name) {
@@ -47,8 +49,6 @@ Cell* insert_global_symbol(Cell* symbol, Cell* cell) {
   return insert_symbol(symbol, cell, &global_env);
 }
 
-// register base used for passing args to functions
-#define LBDREG R4
 #define TMP_PRINT_BUFSZ 1024
 
 static FILE* jit_out;
@@ -601,7 +601,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       int is_int = 0;
 
       int offset = MAXARGS + frame->locals;
-      int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
+      int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 0);
 
       // el cheapo type inference
       if (1 &&
@@ -617,11 +617,17 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         load_cell(R0, argdefs[1], frame);
         compiled_type = TAG_ANY;
       }
+
+      int is_reg = 0;
       
       if (fidx >= 0) {
         // existing stack entry
         offset = fidx;
         //printf("+~ frame entry %s, existing stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
+
+        if (fn_frame[offset].type == ARGT_REG) {
+          is_reg = 1;
+        }
       } else {
         fn_frame[offset].name = argdefs[0].cell->addr;
         fn_frame[offset].cell = NULL;
@@ -634,13 +640,20 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         //printf("++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
         frame->locals++;
       }
-      
-      jit_str_stack(R0,PTRSZ*(fn_frame[offset].slot+frame->sp));
+
+      if (!is_reg) {
+        jit_str_stack(R0,PTRSZ*(fn_frame[offset].slot+frame->sp));
+      }
       
       if (compiled_type == TAG_INT && return_type == TAG_ANY) {
         jit_movr(ARGR0,R0);
         jit_call(alloc_int, "alloc_int");
         compiled_type = TAG_ANY;
+      }
+
+      if (is_reg) {
+        jit_movr(LBDREG + fn_frame[offset].slot, R0);
+        printf("let %s to reg: %d\r\n",fn_frame[offset].name, LBDREG + fn_frame[offset].slot);
       }
       
       break;

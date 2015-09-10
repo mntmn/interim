@@ -1,11 +1,11 @@
 (
 (def cursor 0)
 
-(def screen-w 40)
-(def screen-h 40)
+(def screen-w 80)
+(def screen-h 32)
 
 (def screen   (alloc (* screen-w screen-h)))
-(def colormap (alloc (* screen-w screen-h)))
+(def tilemap (alloc (* screen-w screen-h)))
 (def solidmap (alloc (* screen-w screen-h)))
 
 (def fill (fn buf from to c (do
@@ -52,21 +52,30 @@
 
 ; rune color solid
 
-(def make-tile (fn rune color solid (cons rune (cons color (cons solid nil)))))
+(def tiles (list))
+(def num-tiles 0)
 
-(def tile-space (make-tile 32 0 0))
-(def tile-wall (make-tile sym-block 12 1))
-(def tile-asphalt (make-tile (get "." 0) 11 0))
-(def tile-floor-yellow (make-tile (get "_" 0) 7 0))
-(def tile-floor-wood (make-tile (get "_" 0) 8 0))
-(def tile-floor-woodl (make-tile (get "_" 0) 9 0))
-(def tile-dog (make-tile sym-dog 1 0))
-(def tile-pot (make-tile sym-pot 1 0))
-(def tile-pill (make-tile sym-pill 1 0))
-(def tile-coffee (make-tile sym-coffee 1 0))
-(def tile-window (make-tile sym-blockb 12 0))
+(def make-tile (fn definition (do
+  (let new-tile (cons num-tiles definition))
+  (def tiles (cons new-tile tiles))
+  (def num-tiles (+ num-tiles 1))
+  (print (list "added tile" new-tile))
+  new-tile
+)))
 
-(def tile-player (make-tile sym-person 10 1))
+(def tile-space        (make-tile (list 32 0 0 "space")))
+(def tile-wall         (make-tile (list sym-block 12 1 "wall")))
+(def tile-asphalt      (make-tile (list (get "." 0) 11 0 "asphalt")))
+(def tile-floor-yellow (make-tile (list (get "_" 0) 7 0 "yellow floor")))
+(def tile-floor-wood   (make-tile (list (get "_" 0) 8 0 "wooden floor")))
+(def tile-floor-woodl  (make-tile (list (get "_" 0) 9 0)))
+(def tile-dog          (make-tile (list sym-dog 1 0 "dog")))
+(def tile-pot          (make-tile (list sym-pot 1 0 "pot")))
+(def tile-pill         (make-tile (list sym-pill 1 0 "pill")))
+(def tile-coffee       (make-tile (list sym-coffee 1 0 "coffee")))
+(def tile-window       (make-tile (list sym-blockb 12 0 "window")))
+
+(def tile-player       (make-tile (list sym-person 10 1)))
 
 ; rat
 ; pills
@@ -74,9 +83,9 @@
 ; coffee
 
 (def put-tile (fn x y tile (do
-  (put screen   (+ x (* screen-w y))  (car tile))
-  (put colormap (+ x (* screen-w y)) (car (cdr tile)))
-  (put solidmap (+ x (* screen-w y)) (car (cdr (cdr tile))))
+  (put tilemap  (+ x (* screen-w y)) (car tile))
+  (put screen   (+ x (* screen-w y)) (car (cdr tile)))
+  (put solidmap (+ x (* screen-w y)) (car (cdr (cdr (cdr tile)))))
 )))
 
 (def is-tile-solid (fn tile (do
@@ -89,6 +98,11 @@
 
 (def get-tile-solid (fn x y (do
   (get solidmap (+ x (* screen-w y)))
+)))
+
+(def get-tile (fn x y (do
+  (let tile-id (get tilemap (+ x (* screen-w y))))
+  (item tiles (- (- num-tiles tile-id) 1))
 )))
 
 (def tile-rect (fn x y xx yy tile (do
@@ -122,9 +136,9 @@
 
 ; game ------------------------------------------------------------------------
 
-(def make-room (fn x y xx yy (do              
+(def make-room (fn x y xx yy (do
+  (fill-tile-rect (+ x 1) (+ y 1) xx yy tile-floor-yellow)
   (tile-rect      x y xx yy tile-wall)
-  (fill-tile-rect (+ x 1) (+ y 1) (- xx 1) (- yy 1) tile-floor-yellow)
   (put-tile       (/ (+ x xx) 2) y tile-floor-yellow)
 )))
 
@@ -145,8 +159,8 @@
 )))
 
 (def actor-tile (fn a (car a)))
-(def actor-rune (fn a (car (actor-tile a))))
-(def actor-color (fn a (car (cdr (actor-tile a)))))
+(def actor-rune (fn a (car (cdr (actor-tile a)))))
+(def actor-color (fn a (car (cdr (cdr (actor-tile a))))))
 (def actor-x (fn a (car (cdr a))))
 (def actor-y (fn a (car (cdr (cdr a)))))
 
@@ -187,19 +201,33 @@
   (move-player nx ny)
 )))
 
+(def px 0)
+(def py 0)
+(def player-tile (list))
+
+(def inventory (list))
+
+(def update-player-tile (fn (do
+  (def px (actor-x player))
+  (def py (actor-y player))
+  (def player-tile (get-tile px py))
+)))
+
 (def handle-game-key (fn k (do
   (if (eq k 20) (player-east)
       (if (eq k 19) (player-west)
         (if (eq k 17) (player-north)
-          (if (eq k 18) (player-south)
-              
-  (if (* (gt k 0) (lt k 64))
-    (do
-      (put screen 0 k)
-    )
-  0)
-  
+          (if (eq k 18) (player-south) 0
   ))))
+  
+  (update-player-tile)
+
+  (if (eq k (get "t" 0)) (do
+    ; take item
+    (def inventory (cons player-tile inventory))
+    (put-tile px py tile-asphalt)
+  ) 0)
+  
 )))
 
 ; --------------------------------------------------------------
@@ -224,18 +252,20 @@
 (while 1 (do
 
   (if (eq state state-init) (do
-    (fill colormap 0 (- screen-size 1) 0)
+    ;(fill colormap 0 (- screen-size 1) 0)
     (fill screen 0 (- screen-size 1) 32)
     ;(fill screen 0 (- screen-size 1) sym-block)
 
-    (fill-tile-rect 0 0 60 12 tile-asphalt)
+    (fill-tile-rect 0 0 screen-w 11 tile-asphalt)
 
     (make-room 10 10 25 22)
     (put-tile  15 15 tile-dog)
     (put-tile  17 17 tile-pill)
     (put-tile  18 17 tile-coffee)
 
-    (make-room 25 15 35 40)
+    (make-room 25 15 38 31)
+    (put-tile  27 18 tile-pill)
+    (put-tile  27 19 tile-pill)
 
     (print (cons "state" state))
     (print (cons "screen-size" screen-size))
@@ -249,10 +279,13 @@
 
   (let str (recv keyboard))
   (let c (get str 0))
-
+  
   (handle-game-key c)
   (buf-render screen 0 0)
   (actors-render 0 0)
+
+  (p (list px py player-tile inventory) 0 0)
+
   (send scr 0)
   (gc)
 ))

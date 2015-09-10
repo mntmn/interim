@@ -103,9 +103,16 @@ Cell* keyfs_open() {
   return alloc_int(1);
 }
 
+#include <time.h>
+#include <unistd.h>
+
 Cell* keyfs_read() {
+  sdl_key = 0;
   SDL_Event event;
-  if (SDL_PollEvent(&event)) 
+
+  usleep(20000);
+  
+  if (SDL_PollEvent(&event))
   {
     //printf("sdl event! %d\n",event.type);
     
@@ -114,10 +121,17 @@ Cell* keyfs_read() {
     case SDL_QUIT:
       exit(0);
       break;
+    case SDL_TEXTINPUT:
     case SDL_KEYDOWN:
-      sdl_modifiers = event.key.keysym.mod;
-      printf("key: %d, mod: %x\r\n",event.key.keysym.sym,event.key.keysym.mod);
-      sdl_key = event.key.keysym.sym;
+      if (event.type == SDL_KEYDOWN) {
+        sdl_modifiers = event.key.keysym.mod;
+        //printf("key: %d, mod: %x\r\n",event.key.keysym.sym,event.key.keysym.mod);
+        sdl_key = event.key.keysym.sym;
+      } else {
+        sdl_modifiers = 0;
+        sdl_key = event.text.text[0];
+      }
+      
       if (sdl_key<200) {
       } else {
         switch (sdl_key) {

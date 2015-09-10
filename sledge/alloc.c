@@ -186,7 +186,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
         // FIXME total hack, need type information for stack
         // maybe type/signature byte frame header?
         if ((Cell*)item>cell_heap) {
-          printf("[gc] stack %p\r\n",item);
+          //printf("[gc] stack %p\r\n",item);
           //mark_tree((Cell*)item);
         }
       }
