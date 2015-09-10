@@ -9,7 +9,7 @@
 #define env_t StrMap
 static env_t* global_env = NULL;
 
-#define CHECK_BOUNDS    // enforce boundaries of array put/get
+//#define CHECK_BOUNDS    // enforce boundaries of array put/get
 #define ARG_SPILLOVER 3 // max 4 args (0-3) via regs, rest via stack
 #define LBDREG R4       // register base used for passing args to functions
 

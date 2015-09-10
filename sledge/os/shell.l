@@ -595,8 +595,6 @@
     (run-tasks)
     (send scr 0)
     (gc)
-
-    (import "/sd/tests/gtn.l")
   ))
 )))
 
