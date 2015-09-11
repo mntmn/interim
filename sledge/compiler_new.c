@@ -593,7 +593,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_cell(ARGR1,argdefs[1],frame);
       
       push_frame_regs(frame->f);
-      jit_call(insert_global_symbol, "insert_global_symbol");
+      jit_call2(insert_global_symbol, "insert_global_symbol");
       pop_frame_regs(frame->f);
       break;
     }
@@ -865,7 +865,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       for (int i=0; i<n; i++) {
         jit_pop(ARGR0,ARGR0);
         frame->sp--;
-        jit_call(alloc_cons, "list:alloc_cons");
+        jit_call2(alloc_cons, "list:alloc_cons");
         jit_movr(ARGR1,R0);
       }
       break; // FIXME
@@ -922,20 +922,20 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_CONS: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
-      jit_call(alloc_cons,"alloc_cons");
+      jit_call2(alloc_cons,"alloc_cons");
       break;
     }
     case BUILTIN_CONCAT: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
-      jit_call(alloc_concat,"alloc_concat");
+      jit_call2(alloc_concat,"alloc_concat");
       break;
     }
     case BUILTIN_SUBSTR: {
       load_cell(ARGR0,argdefs[0], frame);
       load_int(ARGR1,argdefs[1], frame);
       load_int(ARGR2,argdefs[2], frame);
-      jit_call(alloc_substr,"alloc_substr");
+      jit_call3(alloc_substr,"alloc_substr");
       break;
     }
     case BUILTIN_GET: {
@@ -1082,7 +1082,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_WRITE: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
-      jit_call(lisp_write_to_cell,"lisp_write_to_cell");
+      jit_call2(lisp_write_to_cell,"lisp_write_to_cell");
       break;
     }
     case BUILTIN_READ: {
@@ -1113,7 +1113,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_lea(ARGR0,global_env);
       jit_movi(ARGR1,(jit_word_t)frame->stack_end);
       jit_movr(ARGR2,RSP);
-      jit_call(collect_garbage,"collect_garbage");
+      jit_call3(collect_garbage,"collect_garbage");
       pop_frame_regs(frame->f);
       break;
     }
@@ -1136,7 +1136,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_MOUNT: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
-      jit_call(fs_mount,"fs_mount");
+      jit_call2(fs_mount,"fs_mount");
       break;
     }
     case BUILTIN_OPEN: {
@@ -1158,7 +1158,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_cell(ARGR1,argdefs[1], frame);
       // FIXME clobbers stuff
       push_frame_regs(frame->f);
-      jit_call(stream_write,"stream_write");
+      jit_call2(stream_write,"stream_write");
       pop_frame_regs(frame->f);
       break;
     }

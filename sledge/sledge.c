@@ -110,8 +110,7 @@ int main(int argc, char *argv[])
     
     if (expr) {      
       Cell* res;
-      int success = 1; //compile_for_platform(expr, &res); 
-      res = expr;
+      int success = compile_for_platform(expr, &res);
       
       if (success) {
         // OK
