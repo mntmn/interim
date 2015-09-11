@@ -315,7 +315,7 @@ Cell* alloc_sym(char* str) {
   
   sym->tag = TAG_SYM;
   if (str) {
-    int sz = strnlen(str,128)+1;
+    int sz = strlen(str)+1;
     sym->size = sz;
     //printf("alloc_sym: %s (%d)\r\n",str,sz);
     //memdump(sym,sizeof(Cell),0);
@@ -415,8 +415,8 @@ Cell* alloc_concat(Cell* str1, Cell* str2) {
   //printf("### str2: #%s#\n",str2->addr);
   
   Cell* cell = cell_alloc();
-  int size1 = strnlen(str1->addr,str1->size);
-  int size2 = strnlen(str2->addr,str2->size);
+  int size1 = strlen(str1->addr); // ,str2->size
+  int size2 = strlen(str2->addr);
   int newsize = size1+size2+1;
   cell->addr = bytes_alloc(newsize+1);
   cell->size = newsize;

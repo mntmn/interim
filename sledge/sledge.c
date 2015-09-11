@@ -4,7 +4,7 @@
 #include "minilisp.h"
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/mman.h> // mprotect
+//#include <sys/mman.h> // mprotect
 
 Cell* platform_eval(Cell* expr); // FIXME
 
@@ -24,6 +24,8 @@ Cell* platform_eval(Cell* expr); // FIXME
 
 ssize_t getline(char **lineptr, size_t *n, FILE *stream);
 
+void terminal_writestring(const char* data);
+
 int main(int argc, char *argv[])
 {
   Cell* expr = NULL;
@@ -34,7 +36,7 @@ int main(int argc, char *argv[])
   size_t len = 0;
 
   init_compiler();
-  filesystems_init();
+  //filesystems_init();
 
 #ifdef DEV_SDL2
   void dev_sdl2_init();
@@ -66,7 +68,7 @@ int main(int argc, char *argv[])
   mount_consolekeys();
 #endif
 
-  FILE* in_file = stdin;  
+  FILE* in_file = stdin;
 
   if (argc==2) {
     in_file = fopen(argv[1],"r");
@@ -75,7 +77,7 @@ int main(int argc, char *argv[])
   while (1) {
     expr = NULL;
     
-    printf(KWHT "sledge> ");
+    printf("sledge> ");
     len = 0;
     int r = getline(&in_line, &len, in_file);
 
@@ -108,8 +110,9 @@ int main(int argc, char *argv[])
     
     if (expr) {      
       Cell* res;
-      int success = compile_for_platform(expr, &res); 
-
+      int success = 1; //compile_for_platform(expr, &res); 
+      res = expr;
+      
       if (success) {
         // OK
         if (res<cell_heap_start) {
@@ -117,7 +120,7 @@ int main(int argc, char *argv[])
         } else {
           char out_buf[1024*10];
           lisp_write(res, out_buf, 1024*10);
-          printf(KCYN "\n%s\n\n" KWHT,out_buf);
+          printf("\n%s\n\n",out_buf);
         }
       } else {
         printf("<compilation failed>\n");

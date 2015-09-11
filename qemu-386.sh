@@ -1,1 +1,1 @@
-qemu-system-i386 -kernel build/interim.bin
+qemu-system-i386 -m 512M -kernel build/interim.bin

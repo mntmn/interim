@@ -1,9 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-void uart_putc(unsigned char byte);
-void uart_puts(const char* str);
-
 void memdump(void* start,uint32_t len,int raw) {
   for (uint32_t i=0; i<len;) {
     if (!raw) printf("%08x | ",start+i);

@@ -60,6 +60,10 @@ void jit_movne(int dreg, int sreg) {
   fprintf(jit_out, "cmovne %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
+void jit_moveq(int dreg, int sreg) {
+  fprintf(jit_out, "cmoveq %s, %s\n", regnames[sreg], regnames[dreg]);
+}
+
 void jit_lea(int reg, void* addr) {
   fprintf(jit_out, "movq $%p, %s\n", addr, regnames[reg]);
 }
@@ -162,6 +166,9 @@ void jit_call(void* func, char* note) {
   fprintf(jit_out, "callq *%%rax # %s\n", note);
 }
 
+void jit_callr(int dreg) {
+}
+
 int32_t inline_mod(int a, int b) {
   return a%b;
 }
@@ -210,4 +217,7 @@ void jit_pop(int r1, int r2) {
   for (int i=r2; i>=r1; i--) {
     fprintf(jit_out, "pop %s\n",regnames[i]);
   }
+}
+
+void debug_handler() {
 }

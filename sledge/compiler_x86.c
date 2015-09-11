@@ -46,7 +46,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
 
     if (bytes_read>codesz) {
       printf("<error: max assembly size of %d exhausted. aborting>\n",codesz);
-      munmap(jit_binary,codesz);
+      //munmap(jit_binary,codesz);
       return 0;
     }
       

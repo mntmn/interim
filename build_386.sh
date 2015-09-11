@@ -1,6 +1,4 @@
-gcc -g -o build/interim.o --std=gnu99 -m32 -nostartfiles -nostdlib -ffreestanding devices/bios.S devices/bios.c -DCPU_X86 -lgcc
+gcc -T devices/bios.ld -o build/interim.bin --std=gnu99 -m32  -fno-asynchronous-unwind-tables -nostartfiles -nostdlib -ffreestanding -I/usr/include/newlib devices/bios.S devices/bios.c -DCPU_X86 -Isledge sledge/sledge.c sledge/reader.c sledge/writer.c sledge/alloc.c sledge/strmap.c sledge/stream.c -lgcc /home/mntmn/code/newlib/newlib/i686-elf/32/newlib/libc.a /home/mntmn/code/newlib/newlib/i686-elf/32/newlib/libm.a
 
-#gcc -g -o build/interim.o --std=gnu99 -m32 -nostartfiles -nostdlib -ffreestanding -Isledge sledge/sledge.c sledge/reader.c sledge/writer.c sledge/alloc.c sledge/strmap.c sledge/stream.c devices/bios.c devices/bios.S -DCPU_X86 ../dietlibc/bin-i386/dietlibc.a ../dietlibc/bin-i386/libm.a -lgcc
-
-ld -T devices/bios.ld -m elf_i386 --build-id=none -o build/interim.bin -nostdlib build/interim.o
+#gcc -T devices/bios.ld -m32 -o build/interim.bin -ffreestanding -nostdlib build/interim.o
 
