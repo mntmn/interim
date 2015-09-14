@@ -53,14 +53,14 @@
 #define min(a,b) (a < b ? a : b)
 
 typedef struct Cell {
-  union {
+  union ar {
     jit_word_t value;
     void* addr;
-  };
-  union {
+  } ar;
+  union dr {
     jit_word_t size;
     void* next;
-  };
+  } dr;
   jit_word_t tag;
 } Cell;
 
@@ -71,7 +71,7 @@ typedef struct env_entry {
   char name[64];
 } env_entry;
 
-#define car(x) (x?(Cell*)((Cell*)x)->addr:NULL)
-#define cdr(x) (x?(Cell*)((Cell*)x)->next:NULL)
+#define car(x) (x?(Cell*)((Cell*)x)->ar.addr:NULL)
+#define cdr(x) (x?(Cell*)((Cell*)x)->dr.next:NULL)
 
 #endif

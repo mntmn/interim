@@ -6,7 +6,7 @@
 #define MAXARGS 8
 #define MAXFRAME 24 // maximum MAXFRAME-MAXARGS local vars
 
-typedef jit_word_t (*funcptr)();
+typedef uint32_t (*funcptr)();
 
 typedef enum arg_t {
   ARGT_CONST,

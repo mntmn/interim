@@ -4,7 +4,7 @@
 #include "alloc.h"
 #include "compiler_new.h"
 #include "stream.h"
-#include "utf8.c"
+//#include "utf8.c"
 
 #define env_t StrMap
 static env_t* global_env = NULL;
@@ -25,21 +25,21 @@ env_entry* lookup_global_symbol(char* name) {
 
 Cell* insert_symbol(Cell* symbol, Cell* cell, env_t** env) {
   env_entry* e;
-  int found = sm_get(*env, symbol->addr, (void**)&e);
+  int found = sm_get(*env, symbol->ar.addr, (void**)&e);
   
   //printf("sm_get res: %d\r\n",found);
   
   if (found) {
     e->cell = cell;
-    //printf("[insert_symbol] update %s entry at %p (cell: %p value: %d)\r\n",symbol->addr,e,e->cell,e->cell->value);
+    //printf("[insert_symbol] update %s entry at %p (cell: %p value: %d)\r\n",symbol->ar.addr,e,e->cell,e->cell->ar.value);
     return e->cell;
   }
     
   e = malloc(sizeof(env_entry));
-  memcpy(e->name, (char*)symbol->addr, symbol->size);
+  memcpy(e->name, (char*)symbol->ar.addr, symbol->dr.size);
   e->cell = cell;
 
-  //printf("[insert_symbol] %s entry at %p (cell: %p)\r\n",symbol->addr,e,e->cell);
+  //printf("[insert_symbol] %s entry at %p (cell: %p)\r\n",symbol->ar.addr,e,e->cell);
   sm_put(*env, e->name, e);
 
   return e->cell;
@@ -74,6 +74,11 @@ static Cell* reusable_nil;
 #define PTRSZ 4
 #endif
 
+#ifdef __AMIGA
+#include "jit_m68k.c"
+#define PTRSZ 4
+#endif
+
 Cell* lisp_print(Cell* arg) {
   lisp_write(arg, temp_print_buffer, TMP_PRINT_BUFSZ);
   printf("%s\r\n",temp_print_buffer);
@@ -83,7 +88,7 @@ Cell* lisp_print(Cell* arg) {
 void load_int(int dreg, Arg arg, Frame* f) {
   if (arg.type == ARGT_CONST) {
     // argument is a constant like 123, "foo"
-    jit_movi(dreg, (jit_word_t)arg.cell->value);
+    jit_movi(dreg, (jit_word_t)arg.cell->ar.value);
   }
   else if (arg.type == ARGT_CELL) {
     if (arg.cell == NULL) {
@@ -100,7 +105,7 @@ void load_int(int dreg, Arg arg, Frame* f) {
     }
   }
   else if (arg.type == ARGT_ENV) {
-    // argument is an environment table entry, load e->cell->value
+    // argument is an environment table entry, load e->cell->ar.value
     jit_lea(dreg, arg.env);
     jit_ldr(dreg);
     jit_ldr(dreg);
@@ -164,9 +169,10 @@ void load_cell(int dreg, Arg arg, Frame* f) {
 }
 
 int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
+  int i;
   if (!fn_frame) return -1;
   
-  for (int i=0; i<MAXFRAME; i++) {
+  for (i=0; i<MAXFRAME; i++) {
     if (fn_frame[i].name) {
       //printf("<< get_sym_frame_idx %i (type %d, reg = %d, looking for %s): %s\n",i,fn_frame[i].type,ARGT_REG,argname,fn_frame[i].name);
       
@@ -184,11 +190,13 @@ int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
 
 // TODO: optimize!
 int push_frame_regs(Arg* fn_frame) {
-  if (!fn_frame) return 0;
-  
   int pushreg=0;
   int pushstack=0;
-  for (int i=0; i<MAXFRAME; i++) {
+  int i;
+  
+  if (!fn_frame) return 0;
+  
+  for (i=0; i<MAXFRAME; i++) {
     if (fn_frame[i].type == ARGT_REG) {
       pushreg++;
     }
@@ -201,11 +209,13 @@ int push_frame_regs(Arg* fn_frame) {
 }
 
 int pop_frame_regs(Arg* fn_frame) {
-  if (!fn_frame) return 0;
-  
   int pushreg=0;
   int pushstack=0;
-  for (int i=0; i<MAXFRAME; i++) {
+  int i;
+  
+  if (!fn_frame) return 0;
+  
+  for (i=0; i<MAXFRAME; i++) {
     if (fn_frame[i].type == ARGT_REG) {
       pushreg++;
     }
@@ -220,24 +230,24 @@ int pop_frame_regs(Arg* fn_frame) {
 static char* analyze_buffer[MAXFRAME];
 int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
   if (expr->tag == TAG_SYM) {
-    env_entry* op_env = lookup_global_symbol(expr->addr);
+    env_entry* op_env = lookup_global_symbol(expr->ar.addr);
     if (op_env) {
       Cell* op = op_env->cell;
       if (op->tag == TAG_BUILTIN) {
-        //printf("analyze_fn: found builtin: %s\n",expr->addr);
-        if (op->value == BUILTIN_LET) {
+        //printf("analyze_fn: found builtin: %s\n",expr->ar.addr);
+        if (op->ar.value == BUILTIN_LET) {
           Cell* sym = car(cdr(parent));
           if (sym) {
-            int existing = 0;
-            for (int i=0; i<num_lets; i++) {
-              if (!strcmp(analyze_buffer[i], sym->addr)) {
-                //printf("-- we already know local %s\r\n",sym->addr);
+            int existing = 0, i;
+            for (i=0; i<num_lets; i++) {
+              if (!strcmp(analyze_buffer[i], sym->ar.addr)) {
+                //printf("-- we already know local %s\r\n",sym->ar.addr);
                 existing = 1;
                 break;
               }
             }
             if (!existing) {
-              analyze_buffer[num_lets] = sym->addr;
+              analyze_buffer[num_lets] = sym->ar.addr;
               num_lets++;
             }
           } else {
@@ -259,29 +269,36 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
 }
 
 int compile_expr(Cell* expr, Frame* frame, int return_type) {
+  int compiled_type = TAG_ANY;
+  Arg* fn_frame = frame->f;
+  Cell* opsym, *args, *orig_args, *signature_args, *op;
+  env_entry* op_env;
+  
+  int is_let = 0;
+  int argi = 0;
+  Arg argdefs[MAXARGS];
+
   if (!expr) return 0;
   if (!frame) return 0;
   
-  int compiled_type = TAG_ANY;
-  Arg* fn_frame = frame->f;
-  
   if (expr->tag != TAG_CONS) {
     if (expr->tag == TAG_SYM) {
+      int arg_frame_idx = get_sym_frame_idx(expr->ar.addr, fn_frame, 0);
+      env_entry* env;
       
-      int arg_frame_idx = get_sym_frame_idx(expr->addr, fn_frame, 0);
       if (arg_frame_idx>=0) {
         load_cell(R0, fn_frame[arg_frame_idx], frame);
         return compiled_type;
       }
 
-      env_entry* env = lookup_global_symbol(expr->addr);
+      env = lookup_global_symbol(expr->ar.addr);
       if (env) {
         Cell* value = env->cell;
         jit_movi(R0,(jit_word_t)env);
         jit_ldr(R0);
         return value->tag; // FIXME TODO forbid later type change
       } else {
-        printf("undefined symbol %s\n",expr->addr);
+        printf("undefined symbol %s\n",expr->ar.addr);
         jit_movi(R0,0);
         return 0;
       }
@@ -295,38 +312,36 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
   cell_heap_start = get_cell_heap();
   
-  Cell* opsym = car(expr);
-  Cell* args = cdr(expr);
-  Cell* orig_args = args; // keep around for specials forms like DO
-  Cell* signature_args = NULL;
+  opsym = car(expr);
+  args = cdr(expr);
+  orig_args = args; // keep around for specials forms like DO
+  signature_args = NULL;
 
   if (!opsym || opsym->tag != TAG_SYM) {
     printf("[compile_expr] error: non-symbol in operator position.\n");
     return 0;
   }
 
-  env_entry* op_env = lookup_global_symbol(opsym->addr);
+  op_env = lookup_global_symbol(opsym->ar.addr);
 
   if (!op_env || !op_env->cell) {
-    printf("[compile_expr] error: undefined symbol %s in operator position.\n",opsym->addr);
+    printf("[compile_expr] error: undefined symbol %s in operator position.\n",opsym->ar.addr);
     return 0;
   }
-  Cell* op = op_env->cell;
-
-  int is_let = 0;
+  op = op_env->cell;
   
   //printf("op tag: %d\n",op->tag);
   if (op->tag == TAG_BUILTIN) {
-    signature_args = op->next;
+    signature_args = op->dr.next;
 
-    if (op->value == BUILTIN_LET) {
+    if (op->ar.value == BUILTIN_LET) {
       is_let = 1;
     }
     
   } else if (op->tag == TAG_LAMBDA) {
-    signature_args = car((Cell*)(op->addr));
+    signature_args = car((Cell*)(op->ar.addr));
   } else {
-    printf("[compile-expr] error: non-lambda symbol %s in operator position.\n",opsym->addr);
+    printf("[compile-expr] error: non-lambda symbol %s in operator position.\n",opsym->ar.addr);
     return 0;
   }
 
@@ -335,8 +350,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   //printf("[sig] %s\n",debug_buf);
 
   if (debug_mode) {
-    push_frame_regs(frame->f);
     char* debug_buf = malloc(256);
+    push_frame_regs(frame->f);
     lisp_write(expr, debug_buf, 256);
     jit_push(R0, ARGR1);
     jit_lea(ARGR0, debug_buf);
@@ -348,9 +363,6 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   
   // first, we need a signature
 
-  int argi = 0;
-  Arg argdefs[MAXARGS];
-
   do {
     Cell* arg = car(args);
     Cell* signature_arg = car(signature_args);
@@ -360,7 +372,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
     if (signature_arg && signature_arg->tag == TAG_CONS) {
       // named argument
-      snprintf(arg_name,sizeof(arg_name),car(signature_arg)->addr);
+      snprintf(arg_name,sizeof(arg_name),car(signature_arg)->ar.addr);
       signature_arg = cdr(signature_arg);
     }
 
@@ -370,20 +382,20 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       if (is_let && argi==1) {
         int type_hint = -1;
         // check the symbol to see if we already have type information
-        int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 1);
+        int fidx = get_sym_frame_idx(argdefs[0].cell->ar.addr, fn_frame, 1);
         if (fidx>=0) {
-          //printf("existing type information for %s: %d\r\n", argdefs[0].cell->addr,fn_frame[fidx].type);
+          //printf("existing type information for %s: %d\r\n", argdefs[0].cell->ar.addr,fn_frame[fidx].type);
           type_hint = fn_frame[fidx].type;
         }
       
         if (given_tag == TAG_INT || type_hint == ARGT_STACK_INT) {
           //printf("INT mode of let\r\n");
           // let prefers raw integers!
-          signature_arg->value = TAG_INT;
+          signature_arg->ar.value = TAG_INT;
         } else {
           //printf("ANY mode of let\r\n");
           // but cells are ok, too
-          signature_arg->value = TAG_ANY;
+          signature_arg->ar.value = TAG_ANY;
         }
       }
 
@@ -392,7 +404,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         argdefs[argi].cell = arg;
         argdefs[argi].type = ARGT_CELL;
       }
-      else if (signature_arg->value == TAG_LAMBDA) {
+      else if (signature_arg->ar.value == TAG_LAMBDA) {
         // lazy evaluation by form
         argdefs[argi].cell = arg;
         argdefs[argi].type = ARGT_LAMBDA;
@@ -407,7 +419,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           jit_push(R1,R1+argi-1);
           frame->sp+=(1+argi-1);
         }
-        given_tag = compile_expr(arg, frame, signature_arg->value);
+        given_tag = compile_expr(arg, frame, signature_arg->ar.value);
         if (given_tag<1) return given_tag; // failure
         
         argdefs[argi].cell = NULL; // cell is in R0 at runtime
@@ -426,31 +438,31 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           frame->sp-=(1+argi-1);
         }
       }
-      else if (given_tag == TAG_SYM && signature_arg->value != TAG_SYM) {
+      else if (given_tag == TAG_SYM && signature_arg->ar.value != TAG_SYM) {
         // symbol given, lookup (indirect)
-        //printf("indirect symbol lookup (name: %p)\n",arg->value);
+        //printf("indirect symbol lookup (name: %p)\n",arg->ar.value);
 
-        int arg_frame_idx = get_sym_frame_idx(arg->addr, fn_frame, 0);
+        int arg_frame_idx = get_sym_frame_idx(arg->ar.addr, fn_frame, 0);
 
         // argument passed to function in register
         if (arg_frame_idx>=0) {
           argdefs[argi] = fn_frame[arg_frame_idx];
 
-          //printf("argument %s from stack frame.\n", arg->addr);
+          //printf("argument %s from stack frame.\n", arg->ar.addr);
         } else {
-          argdefs[argi].env = lookup_global_symbol((char*)arg->addr);
+          argdefs[argi].env = lookup_global_symbol((char*)arg->ar.addr);
           argdefs[argi].type = ARGT_ENV;
           
-          //printf("argument %s from environment.\n", arg->addr);
+          //printf("argument %s from environment.\n", arg->ar.addr);
         }
         //printf("arg_frame_idx: %d\n",arg_frame_idx);
 
         if (!argdefs[argi].env && arg_frame_idx<0) {
-          printf("undefined symbol %s given for argument %s.\n",arg->addr,arg_name);
+          printf("undefined symbol %s given for argument %s.\n",arg->ar.addr,arg_name);
           return 0;
         }
       }
-      else if (given_tag == signature_arg->value || signature_arg->value==TAG_ANY) {
+      else if (given_tag == signature_arg->ar.value || signature_arg->ar.value==TAG_ANY) {
         argdefs[argi].cell = arg;
         argdefs[argi].slot = argi-1;
         argdefs[argi].type = ARGT_CELL;
@@ -463,7 +475,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         // check if we can typecast
         // else, fail with type error
 
-        printf("!! type mismatch for argument %s (given %s, expected %s)!\n",arg_name,tag_to_str(given_tag),tag_to_str(signature_arg->value));
+        printf("!! type mismatch for argument %s (given %s, expected %s)!\n",arg_name,tag_to_str(given_tag),tag_to_str(signature_arg->ar.value));
         return 0;
       }
     } else {
@@ -482,7 +494,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   } while (argi<MAXARGS && (args = cdr(args)) && (!signature_args || (signature_args = cdr(signature_args))));
 
   if (op->tag == TAG_BUILTIN) {
-    switch (op->value) {
+    switch (op->ar.value) {
     case BUILTIN_BITAND: {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
@@ -598,15 +610,16 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_LET: {
+      int is_int, offset, fidx, is_reg;
+      
       if (!frame->f) {
         printf("<error: let is not allowed on global level, only in fn>\r\n");
         return 0;
       }
       
-      int is_int = 0;
-
-      int offset = MAXARGS + frame->locals;
-      int fidx = get_sym_frame_idx(argdefs[0].cell->addr, fn_frame, 0);
+      is_int = 0;
+      offset = MAXARGS + frame->locals;
+      fidx = get_sym_frame_idx(argdefs[0].cell->ar.addr, fn_frame, 0);
 
       // el cheapo type inference
       if (1 &&
@@ -623,7 +636,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         compiled_type = TAG_ANY;
       }
 
-      int is_reg = 0;
+      is_reg = 0;
       
       if (fidx >= 0) {
         // existing stack entry
@@ -634,7 +647,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           is_reg = 1;
         }
       } else {
-        fn_frame[offset].name = argdefs[0].cell->addr;
+        fn_frame[offset].name = argdefs[0].cell->ar.addr;
         fn_frame[offset].cell = NULL;
         if (is_int) {
           fn_frame[offset].type = ARGT_STACK_INT;
@@ -664,32 +677,40 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_FN: {
+      Cell* fn_body, *fn_args, *lambda;
+      Arg fn_new_frame[MAXFRAME];
+      int num_lets, i, j, spo_count, fn_argc, tag;
+      char label_fn[64];
+      char label_fe[64];
+      
+      Frame* nframe_ptr;
+      Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
+      
       if (argi<2) {
         printf("error: trying to define fn without body.\n");
         return 0;
       }
       
       // body
-      Cell* fn_body = argdefs[argi-2].cell;
+      fn_body = argdefs[argi-2].cell;
 
       // estimate stack space for locals
-      int num_lets = analyze_fn(fn_body,NULL,0);
+      num_lets = analyze_fn(fn_body,NULL,0);
       
       // scan args (build signature)
-      Cell* fn_args = alloc_nil();
-      Arg fn_new_frame[MAXFRAME];
+      fn_args = alloc_nil();
       
-      for (int i=0; i<MAXFRAME; i++) {
+      for (i=0; i<MAXFRAME; i++) {
         fn_new_frame[i].type = 0;
         fn_new_frame[i].slot = -1;
         fn_new_frame[i].name = NULL;
       }
 
-      int spo_count = 0;
+      spo_count = 0;
 
-      int fn_argc = 0;
-      for (int j=argi-3; j>=0; j--) {
-        Cell* arg = alloc_cons(alloc_sym(argdefs[j].cell->addr),alloc_int(TAG_ANY));
+      fn_argc = 0;
+      for (j=argi-3; j>=0; j--) {
+        Cell* arg = alloc_cons(alloc_sym(argdefs[j].cell->ar.addr),alloc_int(TAG_ANY));
         fn_args = alloc_cons(arg,fn_args);
 
         if (j>=ARG_SPILLOVER) { // max args passed in registers
@@ -701,7 +722,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           fn_new_frame[j].type = ARGT_REG;
           fn_new_frame[j].slot = j;
         }
-        fn_new_frame[j].name = argdefs[j].cell->addr;
+        fn_new_frame[j].name = argdefs[j].cell->ar.addr;
         fn_argc++;
 
         //printf("arg j %d: %s\r\n",j,fn_new_frame[j].name);
@@ -713,11 +734,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
       //lisp_write(fn_body, sig_debug, sizeof(sig_debug));
       
-      Cell* lambda = alloc_lambda(alloc_cons(fn_args,fn_body));
-      lambda->next = 0;
+      lambda = alloc_lambda(alloc_cons(fn_args,fn_body));
+      lambda->dr.next = 0;
 
-      char label_fn[64];
-      char label_fe[64];
       sprintf(label_fn,"f0_%p",lambda);
       sprintf(label_fe,"f1_%p",lambda);
       
@@ -728,14 +747,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       jit_dec_stack(num_lets*PTRSZ);
 
-      Frame* nframe_ptr;
-      Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
-
       if (debug_mode) {
+        Arg* nargs_ptr;
+
         // in debug mode, we need a copy of the frame definition at runtime
         nframe_ptr = malloc(sizeof(Frame));
         memcpy(nframe_ptr, &nframe, sizeof(Frame));
-        Arg* nargs_ptr = malloc(sizeof(Arg)*MAXFRAME);
+        nargs_ptr = malloc(sizeof(Arg)*MAXFRAME);
         memcpy(nargs_ptr, nframe.f, sizeof(Arg)*MAXFRAME);
         nframe_ptr->f = nargs_ptr;
 
@@ -744,7 +762,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         nframe_ptr = &nframe;
       }
       
-      int tag = compile_expr(fn_body, nframe_ptr, TAG_ANY); // new frame, fresh sp
+      tag = compile_expr(fn_body, nframe_ptr, TAG_ANY); // new frame, fresh sp
       if (!tag) return 0;
 
       //printf(">> fn has %d args and %d locals. predicted locals: %d\r\n",fn_argc,nframe.locals,num_lets);
@@ -758,24 +776,25 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 #ifdef CPU_ARM
       Label* fn_lbl = find_label(label_fn);
       //printf("fn_lbl idx: %d code: %p\r\n",fn_lbl->idx,code);
-      lambda->next = code + fn_lbl->idx;
-      //printf("fn_lbl next: %p\r\n",lambda->next);
+      lambda->dr.next = code + fn_lbl->idx;
+      //printf("fn_lbl next: %p\r\n",lambda->dr.next);
 #endif
       
       break;
     }
     case BUILTIN_IF: {
-      // load the condition
-      load_int(R0, argdefs[0], frame);
-
+      int tag;
       char label_skip[64];
       sprintf(label_skip,"else_%d",++label_skip_count);
       
+      // load the condition
+      load_int(R0, argdefs[0], frame);
+
       // compare to zero
       jit_cmpi(R0,0);
       jit_je(label_skip);
 
-      int tag = compile_expr(argdefs[1].cell, frame, return_type);
+      tag = compile_expr(argdefs[1].cell, frame, return_type);
       if (!tag) return 0;
 
       // else?
@@ -796,17 +815,19 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_WHILE: {
-      // load the condition
+      int compiled_type;
+      
       char label_loop[64];
-      sprintf(label_loop,"loop_%d",++label_skip_count);
       char label_skip[64];
+      sprintf(label_loop,"loop_%d",++label_skip_count);
       sprintf(label_skip,"skip_%d",label_skip_count);
       
       jit_label(label_loop);
       
-      int compiled_type = compile_expr(argdefs[0].cell, frame, TAG_INT);
+      compiled_type = compile_expr(argdefs[0].cell, frame, TAG_INT);
       if (!compiled_type) return 0;
       
+      // load the condition
       if (compiled_type != TAG_INT) {
         jit_ldr(R0);
         jit_cmpi(R0,0);
@@ -817,8 +838,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // compare to zero
       jit_je(label_skip);
 
-      int tag = compile_expr(argdefs[1].cell, frame, return_type);
-      if (!tag) return 0;
+      compiled_type = compile_expr(argdefs[1].cell, frame, return_type);
+      if (!compiled_type) return 0;
 
       jit_jmp(label_loop);
       jit_label(label_skip);
@@ -826,8 +847,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_DO: {
-      args = orig_args;
       Cell* arg;
+      args = orig_args;
 
       if (!car(args)) {
         printf("<empty (do) not allowed>\r\n");
@@ -849,9 +870,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_LIST: {
-      args = orig_args;
       Cell* arg;
-      int n = 0;
+      int n = 0, i;
+      args = orig_args;
       while ((arg = car(args))) {
         int tag = compile_expr(arg, frame, TAG_ANY);
         if (!tag) return 0;
@@ -862,7 +883,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
       jit_call(alloc_nil, "list:alloc_nil");
       jit_movr(ARGR1,R0);
-      for (int i=0; i<n; i++) {
+      for (i=0; i<n; i++) {
         jit_pop(ARGR0,ARGR0);
         frame->sp--;
         jit_call2(alloc_cons, "list:alloc_cons");
@@ -871,6 +892,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break; // FIXME
     }
     case BUILTIN_QUOTE: {
+      Cell* arg;
       args = orig_args;
 
       if (!car(args)) {
@@ -878,7 +900,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         return 0;
       }
       
-      Cell* arg = car(args);
+      arg = car(args);
       jit_lea(R0,arg);
       break;
     }
@@ -939,13 +961,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_GET: {
+      char label_skip[64];
+      char label_ok[64];
+      sprintf(label_skip,"skip_%d",++label_skip_count);
+      sprintf(label_ok,"ok_%d",label_skip_count);
+      
       load_cell(R1,argdefs[0], frame);
       load_int(R2,argdefs[1], frame); // offset -> R2
-
-      char label_skip[64];
-      sprintf(label_skip,"skip_%d",++label_skip_count);
-      char label_ok[64];
-      sprintf(label_ok,"ok_%d",label_skip_count);
 
       // init r3
       jit_movi(R3, 0);
@@ -1166,6 +1188,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   } else {
     // λλλ lambda call λλλ
 
+    int spo_adjust = 0, j;
+    
     // save our args
 
     int pushed = push_frame_regs(frame->f);
@@ -1191,10 +1215,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_push(LBDREG, LBDREG+argi-2);
       frame->sp+=(1+argi-2);
     }*/
-
-    int spo_adjust = 0;
     
-    for (int j=0; j<argi-1; j++) {
+    for (j=0; j<argi-1; j++) {
       if (j>=ARG_SPILLOVER) {
         // pass arg on stack
           
@@ -1226,8 +1248,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     
     jit_lea(R0,op_env);
     jit_ldr(R0); // load cell
-    jit_addi(R0,PTRSZ); // &cell->next
-    jit_ldr(R0); // cell->next
+    jit_addi(R0,PTRSZ); // &cell->dr.next
+    jit_ldr(R0); // cell->dr.next
     jit_callr(R0);
     if (spo_adjust) {
       jit_inc_stack(spo_adjust*PTRSZ);
@@ -1256,16 +1278,12 @@ env_t* get_global_env() {
 }
 
 void init_compiler() {
-  
-  //memdump(0x6f460,0x200,0);
-  //uart_getc();
-  
-  //printf("malloc test: %p\r\n",malloc(1024));
+  Cell** signature = malloc(sizeof(Cell*)*3);
 
-  printf("[compiler] creating global env hash table…\r\n");
+  printf("[compiler] creating global env hash table\r\n");
   global_env = sm_new(1000);
 
-  printf("[compiler] init_allocator…\r\n");
+  printf("[compiler] init_allocator\r\n");
   init_allocator();
 
   reusable_nil = alloc_nil();
@@ -1275,85 +1293,103 @@ void init_compiler() {
   insert_symbol(alloc_sym("nil"), reusable_nil, &global_env);
   insert_symbol(alloc_sym("type_error"), consed_type_error, &global_env);
   
-  printf("[compiler] inserting symbols…\r\n");
-  
-  insert_symbol(alloc_sym("def"), alloc_builtin(BUILTIN_DEF, alloc_list((Cell*[]){alloc_int(TAG_SYM), alloc_int(TAG_ANY)}, 2)), &global_env);
-  insert_symbol(alloc_sym("let"), alloc_builtin(BUILTIN_LET, alloc_list((Cell*[]){alloc_int(TAG_SYM), alloc_int(TAG_ANY)}, 2)), &global_env);
+  printf("[compiler] inserting symbols\r\n");
 
-  insert_symbol(alloc_sym("+"), alloc_builtin(BUILTIN_ADD, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("-"), alloc_builtin(BUILTIN_SUB, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("*"), alloc_builtin(BUILTIN_MUL, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("/"), alloc_builtin(BUILTIN_DIV, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("%"), alloc_builtin(BUILTIN_MOD, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
+  signature[0]=alloc_int(TAG_SYM); signature[1]=alloc_int(TAG_ANY);
+  insert_symbol(alloc_sym("def"), alloc_builtin(BUILTIN_DEF, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("let"), alloc_builtin(BUILTIN_LET, alloc_list(signature, 2)), &global_env);
+
+  signature[0]=alloc_int(TAG_INT); signature[1]=alloc_int(TAG_INT);
+  insert_symbol(alloc_sym("+"), alloc_builtin(BUILTIN_ADD, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("-"), alloc_builtin(BUILTIN_SUB, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("*"), alloc_builtin(BUILTIN_MUL, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("/"), alloc_builtin(BUILTIN_DIV, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("%"), alloc_builtin(BUILTIN_MOD, alloc_list(signature, 2)), &global_env);
   
-  insert_symbol(alloc_sym("bitand"), alloc_builtin(BUILTIN_BITAND, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("bitor"), alloc_builtin(BUILTIN_BITOR, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("bitxor"), alloc_builtin(BUILTIN_BITOR, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("shl"), alloc_builtin(BUILTIN_SHL, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("shr"), alloc_builtin(BUILTIN_SHR, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
+  insert_symbol(alloc_sym("bitand"), alloc_builtin(BUILTIN_BITAND, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("bitor"), alloc_builtin(BUILTIN_BITOR, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("bitxor"), alloc_builtin(BUILTIN_BITOR, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("shl"), alloc_builtin(BUILTIN_SHL, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("shr"), alloc_builtin(BUILTIN_SHR, alloc_list(signature, 2)), &global_env);
   
-  printf("[compiler] arithmetic…\r\n");
+  printf("[compiler] arithmetic\r\n");
   
-  insert_symbol(alloc_sym("lt"), alloc_builtin(BUILTIN_LT, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("gt"), alloc_builtin(BUILTIN_GT, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_INT)}, 2)), &global_env);
+  insert_symbol(alloc_sym("lt"), alloc_builtin(BUILTIN_LT, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("gt"), alloc_builtin(BUILTIN_GT, alloc_list(signature, 2)), &global_env);
   
-  printf("[compiler] compare…\r\n");
+  printf("[compiler] compare\r\n");
   
-  insert_symbol(alloc_sym("if"), alloc_builtin(BUILTIN_IF, alloc_list((Cell*[]){alloc_int(TAG_INT), alloc_int(TAG_LAMBDA), alloc_int(TAG_LAMBDA)}, 3)), &global_env);
+  signature[0]=alloc_int(TAG_INT); signature[1]=alloc_int(TAG_INT); signature[2]=alloc_int(TAG_LAMBDA); 
+  insert_symbol(alloc_sym("if"), alloc_builtin(BUILTIN_IF, alloc_list(signature, 3)), &global_env);
   insert_symbol(alloc_sym("fn"), alloc_builtin(BUILTIN_FN, NULL), &global_env);
   insert_symbol(alloc_sym("while"), alloc_builtin(BUILTIN_WHILE, NULL), &global_env);
-  insert_symbol(alloc_sym("print"), alloc_builtin(BUILTIN_PRINT, alloc_list((Cell*[]){alloc_int(TAG_ANY)}, 1)), &global_env);
   insert_symbol(alloc_sym("do"), alloc_builtin(BUILTIN_DO, NULL), &global_env);
   
-  printf("[compiler] flow…\r\n");
+  signature[0]=alloc_int(TAG_ANY);
+  insert_symbol(alloc_sym("print"), alloc_builtin(BUILTIN_PRINT, alloc_list(signature, 1)), &global_env);
   
-  insert_symbol(alloc_sym("car"), alloc_builtin(BUILTIN_CAR, alloc_list((Cell*[]){alloc_int(TAG_CONS)}, 1)), &global_env);
-  insert_symbol(alloc_sym("cdr"), alloc_builtin(BUILTIN_CDR, alloc_list((Cell*[]){alloc_int(TAG_CONS)}, 1)), &global_env);
-  insert_symbol(alloc_sym("cons"), alloc_builtin(BUILTIN_CONS, alloc_list((Cell*[]){alloc_int(TAG_ANY), alloc_int(TAG_ANY)}, 2)), &global_env);
+  printf("[compiler] flow\r\n");
+  
+  signature[0]=alloc_int(TAG_CONS);
+  insert_symbol(alloc_sym("car"), alloc_builtin(BUILTIN_CAR, alloc_list(signature, 1)), &global_env);
+  insert_symbol(alloc_sym("cdr"), alloc_builtin(BUILTIN_CDR, alloc_list(signature, 1)), &global_env);
+  
+  signature[0]=alloc_int(TAG_ANY); signature[1]=alloc_int(TAG_ANY);
+  insert_symbol(alloc_sym("cons"), alloc_builtin(BUILTIN_CONS, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("list"), alloc_builtin(BUILTIN_LIST, NULL), &global_env);
   insert_symbol(alloc_sym("quote"), alloc_builtin(BUILTIN_QUOTE, NULL), &global_env);
   //insert_symbol(alloc_sym("map"), alloc_builtin(BUILTIN_MAP), &global_env);
 
-  printf("[compiler] lists…\r\n");
+  printf("[compiler] lists\r\n");
   
-  insert_symbol(alloc_sym("concat"), alloc_builtin(BUILTIN_CONCAT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_STR)}, 2)), &global_env);
-  insert_symbol(alloc_sym("substr"), alloc_builtin(BUILTIN_SUBSTR, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
-  insert_symbol(alloc_sym("get"), alloc_builtin(BUILTIN_GET, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("put"), alloc_builtin(BUILTIN_PUT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
-  insert_symbol(alloc_sym("get32"), alloc_builtin(BUILTIN_GET32, alloc_list((Cell*[]){alloc_int(TAG_BYTES), alloc_int(TAG_INT)}, 2)), &global_env);
-  insert_symbol(alloc_sym("put32"), alloc_builtin(BUILTIN_PUT32, alloc_list((Cell*[]){alloc_int(TAG_BYTES), alloc_int(TAG_INT), alloc_int(TAG_INT)}, 3)), &global_env);
-  insert_symbol(alloc_sym("size"), alloc_builtin(BUILTIN_SIZE, alloc_list((Cell*[]){alloc_int(TAG_STR)}, 1)), &global_env);
-  insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC, alloc_list((Cell*[]){alloc_int(TAG_INT)}, 1)), &global_env);
-  insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR, alloc_list((Cell*[]){alloc_int(TAG_INT)}, 1)), &global_env);
-
-  insert_symbol(alloc_sym("bytes->str"), alloc_builtin(BUILTIN_BYTES_TO_STR, alloc_list((Cell*[]){alloc_int(TAG_ANY)}, 1)), &global_env);
-
-  printf("[compiler] strings…\r\n");
+  signature[0]=alloc_int(TAG_STR);
+  signature[1]=alloc_int(TAG_STR);
+  insert_symbol(alloc_sym("concat"), alloc_builtin(BUILTIN_CONCAT, alloc_list(signature, 2)), &global_env);
   
-  /*insert_symbol(alloc_sym("uget"), alloc_builtin(BUILTIN_UGET), &global_env);
-  insert_symbol(alloc_sym("uput"), alloc_builtin(BUILTIN_UPUT), &global_env);
-  insert_symbol(alloc_sym("usize"), alloc_builtin(BUILTIN_USIZE), &global_env);
-
-  printf("[compiler] get/put…\r\n");*/
+  signature[0]=alloc_int(TAG_STR);
+  signature[1]=alloc_int(TAG_INT);
+  signature[2]=alloc_int(TAG_INT);
+  insert_symbol(alloc_sym("substr"), alloc_builtin(BUILTIN_SUBSTR, alloc_list(signature, 3)), &global_env);
+  insert_symbol(alloc_sym("put"), alloc_builtin(BUILTIN_PUT, alloc_list(signature, 3)), &global_env);
+  insert_symbol(alloc_sym("get"), alloc_builtin(BUILTIN_GET, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("get32"), alloc_builtin(BUILTIN_GET32, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("put32"), alloc_builtin(BUILTIN_PUT32, alloc_list(signature, 3)), &global_env);
+  insert_symbol(alloc_sym("size"), alloc_builtin(BUILTIN_SIZE, alloc_list(signature, 1)), &global_env);
   
-  insert_symbol(alloc_sym("write"), alloc_builtin(BUILTIN_WRITE, alloc_list((Cell*[]){alloc_int(TAG_ANY), alloc_int(TAG_STR)},2)), &global_env);
-  insert_symbol(alloc_sym("read"), alloc_builtin(BUILTIN_READ, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
-  insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL, alloc_list((Cell*[]){alloc_int(TAG_ANY)},1)), &global_env);
+  signature[0]=alloc_int(TAG_INT);
+  insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC, alloc_list(signature, 1)), &global_env);
+  insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR, alloc_list(signature, 1)), &global_env);
 
-  insert_symbol(alloc_sym("mount"), alloc_builtin(BUILTIN_MOUNT, alloc_list((Cell*[]){alloc_int(TAG_STR), alloc_int(TAG_CONS)},2)), &global_env);
-  insert_symbol(alloc_sym("open"), alloc_builtin(BUILTIN_OPEN, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
-  insert_symbol(alloc_sym("mmap"), alloc_builtin(BUILTIN_MMAP, alloc_list((Cell*[]){alloc_int(TAG_STR)},1)), &global_env);
-  insert_symbol(alloc_sym("recv"), alloc_builtin(BUILTIN_RECV, alloc_list((Cell*[]){alloc_int(TAG_STREAM)},1)), &global_env);
-  insert_symbol(alloc_sym("send"), alloc_builtin(BUILTIN_SEND, alloc_list((Cell*[]){alloc_int(TAG_STREAM),alloc_int(TAG_ANY)},2)), &global_env);
+  signature[0]=alloc_int(TAG_ANY);
+  insert_symbol(alloc_sym("bytes->str"), alloc_builtin(BUILTIN_BYTES_TO_STR, alloc_list(signature, 1)), &global_env);
+
+  printf("[compiler] strings\r\n");
+  
+  signature[0]=alloc_int(TAG_ANY);
+  signature[1]=alloc_int(TAG_STR);
+  insert_symbol(alloc_sym("write"), alloc_builtin(BUILTIN_WRITE, alloc_list(signature,2)), &global_env);
+  insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL, alloc_list(signature,1)), &global_env);
+  signature[0]=alloc_int(TAG_STR);
+  insert_symbol(alloc_sym("read"), alloc_builtin(BUILTIN_READ, alloc_list(signature,1)), &global_env);
+
+  signature[0]=alloc_int(TAG_STR);
+  signature[1]=alloc_int(TAG_CONS);
+  insert_symbol(alloc_sym("mount"), alloc_builtin(BUILTIN_MOUNT, alloc_list(signature,2)), &global_env);
+  insert_symbol(alloc_sym("open"), alloc_builtin(BUILTIN_OPEN, alloc_list(signature,1)), &global_env);
+  insert_symbol(alloc_sym("mmap"), alloc_builtin(BUILTIN_MMAP, alloc_list(signature,1)), &global_env);
+  
+  signature[0]=alloc_int(TAG_STREAM);
+  signature[1]=alloc_int(TAG_ANY);
+  insert_symbol(alloc_sym("recv"), alloc_builtin(BUILTIN_RECV, alloc_list(signature,1)), &global_env);
+  insert_symbol(alloc_sym("send"), alloc_builtin(BUILTIN_SEND, alloc_list(signature,2)), &global_env);
 
   
-  printf("[compiler] write/eval…\r\n");
+  printf("[compiler] write/eval\r\n");
   
   insert_symbol(alloc_sym("gc"), alloc_builtin(BUILTIN_GC, NULL), &global_env);
   insert_symbol(alloc_sym("symbols"), alloc_builtin(BUILTIN_SYMBOLS, NULL), &global_env);
 
   insert_symbol(alloc_sym("debug"), alloc_builtin(BUILTIN_DEBUG, NULL), &global_env);
   
-  int num_syms = sm_get_count(global_env);
-  printf("sledge knows %u symbols. enter (symbols) to see them.\r\n", num_syms);
+  printf("sledge knows %u symbols. enter (symbols) to see them.\r\n", sm_get_count(global_env));
 }

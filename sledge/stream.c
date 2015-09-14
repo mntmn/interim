@@ -16,35 +16,38 @@ Cell* get_fs_list() {
 }
 
 Cell* fs_open(Cell* path) {
+  Cell* fsl = fs_list;
+  Cell* fs_cell;
+  
   if (!path || path->tag!=TAG_STR) {
     printf("[open] error: string required.");
     return alloc_nil();
   }
   
-  Cell* fsl = fs_list;
-  Cell* fs_cell;
   while ((fs_cell = car(fsl))) {
-    Filesystem* fs = (Filesystem*)fs_cell->next;
-    //printf("compare %s : %s : %p\n",fs->mount_point->addr, path->addr, strstr(fs->mount_point->addr, path->addr));
-    if (path->addr && strstr(path->addr, fs->mount_point->addr) == path->addr) {
-      printf("[open] found matching fs: %s for path: %s\r\n", fs->mount_point->addr, path->addr);
+    Filesystem* fs = (Filesystem*)fs_cell->dr.next;
+    //printf("compare %s : %s : %p\n",fs->mount_point->ar.addr, path->ar.addr, strstr(fs->mount_point->ar.addr, path->ar.addr));
+    if (path->ar.addr && strstr(path->ar.addr, fs->mount_point->ar.addr) == path->ar.addr) {
       Stream* s = malloc(sizeof(Stream));
+      Cell* stream_cell;
+      
+      printf("[open] found matching fs: %s for path: %s\r\n", fs->mount_point->ar.addr, path->ar.addr);
       s->fs = fs;
       s->path = path;
       s->id = stream_id;
 
       // TODO: integrate in GC
 
-      Cell* stream_cell = alloc_int(stream_id);
+      stream_cell = alloc_int(stream_id);
       stream_cell->tag = TAG_STREAM;
-      stream_cell->addr = s;
+      stream_cell->ar.addr = s;
       stream_id++;
 
       // open the filesystem
-      if (s->fs->open_fn && s->fs->open_fn->next) {
-        printf("[open] open_fn: %p\r\n", s->fs->open_fn->next);
+      if (s->fs->open_fn && s->fs->open_fn->dr.next) {
         Cell* open_fn = s->fs->open_fn;
-        ((funcptr2)open_fn->next)(path, NULL);
+        printf("[open] open_fn: %p\r\n", s->fs->open_fn->dr.next);
+        ((funcptr2)open_fn->dr.next)(path, NULL);
       }
 
       return stream_cell;
@@ -55,21 +58,22 @@ Cell* fs_open(Cell* path) {
 }
 
 Cell* fs_mmap(Cell* path) {
+  Cell* fsl = fs_list;
+  Cell* fs_cell;
+  
   if (!path || path->tag!=TAG_STR) {
     printf("[mmap] error: string required.");
     return alloc_nil();
   }
   
-  Cell* fsl = fs_list;
-  Cell* fs_cell;
   while ((fs_cell = car(fsl))) {
-    Filesystem* fs = (Filesystem*)fs_cell->next;
-    if (path->addr && strstr(path->addr, fs->mount_point->addr) == path->addr) {
-      printf("[mmap] found matching fs: %s for path: %s\r\n", fs->mount_point->addr, path->addr);
+    Filesystem* fs = (Filesystem*)fs_cell->dr.next;
+    if (path->ar.addr && strstr(path->ar.addr, fs->mount_point->ar.addr) == path->ar.addr) {
+      printf("[mmap] found matching fs: %s for path: %s\r\n", fs->mount_point->ar.addr, path->ar.addr);
 
-      if (fs->mmap_fn && fs->mmap_fn->next) {
+      if (fs->mmap_fn && fs->mmap_fn->dr.next) {
         Cell* mmap_fn = fs->mmap_fn;
-        return (Cell*)((funcptr2)mmap_fn->next)(path, NULL);
+        return (Cell*)((funcptr2)mmap_fn->dr.next)(path, NULL);
       } else {
         printf("[mmap] error: fs has no mmap implementation.");
         return alloc_nil();
@@ -81,12 +85,15 @@ Cell* fs_mmap(Cell* path) {
 }
 
 Cell* fs_mount(Cell* path, Cell* handlers) {
+  Filesystem* fs;
+  Cell* fs_cell;
+  
   if (!path || path->tag!=TAG_STR) {
     printf("[mount] error: string required.");
     return alloc_nil();
   }
-  
-  Filesystem* fs = malloc(sizeof(Filesystem));
+
+  fs = malloc(sizeof(Filesystem));
   fs->open_fn = car(handlers);
   handlers = cdr(handlers);
   fs->read_fn = car(handlers);
@@ -100,11 +107,11 @@ Cell* fs_mount(Cell* path, Cell* handlers) {
   fs->mount_point = path;
   fs->close_fn = NULL;
 
-  Cell* fs_cell = alloc_int(num_fs++);
-  fs_cell->next = fs;
+  fs_cell = alloc_int(num_fs++);
+  fs_cell->dr.next = fs;
   fs_cell->tag = TAG_FS;
   
-  printf("[fs] mounted: %s\r\n",path->addr);
+  printf("[fs] mounted: %s\r\n",path->ar.addr);
   fs_list = alloc_cons(fs_cell, fs_list);
 
   return fs_cell;
@@ -112,47 +119,54 @@ Cell* fs_mount(Cell* path, Cell* handlers) {
 
 Cell* wrap_in_lambda(void* cfunc) {
   Cell* lbd = alloc_lambda(alloc_nil());
-  lbd->next = cfunc;
+  lbd->dr.next = cfunc;
   return lbd;
 }
 
 // TODO: pass stream (context) to handlers
 
 Cell* stream_read(Cell* stream) {
+  Stream* s;
+  Cell* read_fn;
+  
   if (!stream || stream->tag!=TAG_STREAM) {
     printf("[fs] error: non-stream passed to recv\r\n");
     return alloc_nil();
   }
-  Stream* s = (Stream*)stream->addr;
-  Cell* read_fn = s->fs->read_fn;
+  s = (Stream*)stream->ar.addr;
+  read_fn = s->fs->read_fn;
   //char debug_buf[256];
   //lisp_write(read_fn, debug_buf, 256);
-  //printf("[stream_read] fn: %s ptr: %p\n",debug_buf,read_fn->next);
-  return (Cell*)((funcptr2)read_fn->next)(stream,NULL);
+  //printf("[stream_read] fn: %s ptr: %p\n",debug_buf,read_fn->dr.next);
+  return (Cell*)((funcptr2)read_fn->dr.next)(stream,NULL);
 }
 
 Cell* stream_write(Cell* stream, Cell* arg) {
+  Stream* s;
+  Cell* write_fn;
+  
   if (!stream || stream->tag!=TAG_STREAM) {
     printf("[fs] error: non-stream passed to send\r\n");
     return alloc_nil();
   }
-  Stream* s = (Stream*)stream->addr;
-  Cell* write_fn = s->fs->write_fn;
+  s = (Stream*)stream->ar.addr;
+  write_fn = s->fs->write_fn;
   //char debug_buf[256];
   //lisp_write(arg, debug_buf, 256);
-  //printf("[stream_write] fn: %s ptr: %p\n",debug_buf,write_fn->next);
+  //printf("[stream_write] fn: %s ptr: %p\n",debug_buf,write_fn->dr.next);
   //printf("[stream_write] arg: %s\n",debug_buf);
-  return (Cell*)((funcptr2)write_fn->next)(stream,arg);
+  return (Cell*)((funcptr2)write_fn->dr.next)(stream,arg);
 }
 
 void fs_mount_builtin(char* path, void* open_handler, void* read_handler, void* write_handler, void* delete_handler, void* mmap_handler) {
-  Cell* handlers = alloc_list((Cell*[]){
-        wrap_in_lambda(open_handler),
-        wrap_in_lambda(read_handler),
-        wrap_in_lambda(write_handler),
-        wrap_in_lambda(delete_handler),
-        wrap_in_lambda(mmap_handler),
-        },5);
+  Cell* items[] = {
+    wrap_in_lambda(open_handler),
+    wrap_in_lambda(read_handler),
+    wrap_in_lambda(write_handler),
+    wrap_in_lambda(delete_handler),
+    wrap_in_lambda(mmap_handler),
+  };
+  Cell* handlers = alloc_list(items,5);
   fs_mount(alloc_string_copy(path), handlers);
 }
 

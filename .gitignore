@@ -12,3 +12,5 @@ newlib
 build/interim.bin
 interim386.iso
 build/386iso/boot/interim.386
+build/test
+build/interim.amiga

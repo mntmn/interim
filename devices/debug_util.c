@@ -2,13 +2,14 @@
 #include <stdio.h>
 
 void memdump(void* start,uint32_t len,int raw) {
-  for (uint32_t i=0; i<len;) {
+  uint32_t i,x;
+  for (i=0; i<len;) {
     if (!raw) printf("%08x | ",start+i);
-    for (uint32_t x=0; x<16; x++) {
+    for (x=0; x<16; x++) {
       printf("%02x ",*((uint8_t*)start+i+x));
     }
     if (!raw)
-      for (uint32_t x=0; x<16; x++) {
+      for (x=0; x<16; x++) {
         uint8_t c = *((uint8_t*)start+i+x);
         if (c>=32 && c<=128) {
           printf("%c",c);
@@ -24,8 +25,9 @@ void memdump(void* start,uint32_t len,int raw) {
   
 void printhex(uint32_t num) {
   char buf[9];
+  int i;
   buf[8] = 0;
-  for (int i=7; i>=0; i--) {
+  for (i=7; i>=0; i--) {
     int d = num&0xf;
     if (d<10) buf[i]='0'+d;
     else buf[i]='a'+d-10;
@@ -36,12 +38,13 @@ void printhex(uint32_t num) {
 
 void printhex_signed(int32_t num) {
   char buf[9];
+  int i;
   buf[8] = 0;
   if (num<0) {
     uart_putc('-');
     num=-num;
   }
-  for (int i=7; i>=0; i--) {
+  for (i=7; i>=0; i--) {
     int d = num&0xf;
     if (d<10) buf[i]='0'+d;
     else buf[i]='a'+d-10;
