@@ -10,7 +10,7 @@
 static env_t* global_env = NULL;
 
 //#define CHECK_BOUNDS    // enforce boundaries of array put/get
-#define ARG_SPILLOVER 3 // max 4 args (0-3) via regs, rest via stack
+#define ARG_SPILLOVER 3 // max 4 args via regs, rest via stack
 #define LBDREG R4       // register base used for passing args to functions
 
 static int debug_mode = 0;
@@ -722,7 +722,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
         if (j>=ARG_SPILLOVER) { // max args passed in registers
           fn_new_frame[j].type = ARGT_STACK;
-          fn_new_frame[j].slot = num_lets + 2 + ((argi-3)-j);
+          fn_new_frame[j].slot = num_lets + j - 1;
           spo_count++;
         }
         else {
@@ -1202,28 +1202,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     int pushed = push_frame_regs(frame->f);
     frame->sp+=pushed;
 
-    /*Cell* dbg1 = alloc_string_copy("---- debug stack save ----");
-    Cell* dbg2 = alloc_string_copy("---- end debug stack  ----");
-    
-    push_frame_regs(frame->f);
-    
-    jit_lea(ARGR0,dbg1);
-      jit_call(lisp_print,"debug stack");
-    
-    for (int i=0; i<pushed; i++) {
-      jit_ldr_stack(ARGR0, i*PTRSZ);
-      jit_call(lisp_print,"debug stack");
-    }
-    jit_lea(ARGR0,dbg2);
-    jit_call(lisp_print,"debug stack");
-    pop_frame_regs(frame->f);*/
-    
-    /*if (argi>1) {
-      jit_push(LBDREG, LBDREG+argi-2);
-      frame->sp+=(1+argi-2);
-    }*/
-    
-    for (j=0; j<argi-1; j++) {
+    for (j=argi-2; j>=0; j--) {
       if (j>=ARG_SPILLOVER) {
         // pass arg on stack
           
@@ -1265,11 +1244,6 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
     pop_frame_regs(frame->f);
     frame->sp-=pushed;
-    
-    /*if (argi>1) {
-      jit_pop(LBDREG, LBDREG+argi-2);
-      frame->sp-=(1+argi-2);
-    }*/
   }
 
 #ifdef CPU_X64

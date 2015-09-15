@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
       in_buffer[in_offset+i+1]=0;
     
       if (parens>0) {
-        printf("...\r\n");
+        //printf("...\r\n");
         in_offset+=i;
       } else {
         in_offset=0;
@@ -128,9 +128,12 @@ int main(int argc, char *argv[])
       }
     }
 
-    if (feof(in_file)) {
+    if (feof(in_file) || len==0) {
+      if (in_file!=stdin) fclose(in_file);
       in_file = stdin;
       in_offset=0;
+      clearerr(stdin);
+      printf("stdin status: %d\r\n",feof(stdin));
     }
     
     if (expr) {      

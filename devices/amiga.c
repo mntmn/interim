@@ -10,8 +10,8 @@
 #include "minilisp.h"
 #include "alloc.h"
 
-#define WIDTH 320
-#define HEIGHT 200
+#define WIDTH 512
+#define HEIGHT 250
 #define BPP 1
 #define DEPTH 8
 
@@ -55,7 +55,7 @@ Cell* amiga_fbfs_write(Cell* arg) {
   printf("bitplane: %p\r\n",dest1);*/
 
   dest1+=offset;
-  dest2+=offset;
+  //dest2+=offset;
 
   j=0;
   // 8 bytes become 1
@@ -72,7 +72,7 @@ Cell* amiga_fbfs_write(Cell* arg) {
       d|=((*src++)&1);
     
       *dest1++ = d;
-      *dest2++ = d;
+      //*dest2++ = d;
     }
     dest1+=pitch;
     dest2+=pitch;
@@ -90,22 +90,26 @@ Cell* amiga_fbfs_mmap(Cell* arg) {
   printf("[amiga_fbfs_mmap] buffer_cell->addr: %p\n",buffer_cell->ar.addr);
   
   window = OpenWindowTags(NULL, WA_Title, (ULONG) "interim/amiga",
-    WA_Left, 320,
-    WA_Top, 20,
+    WA_Left, 0,
+    WA_Top, 0,
     WA_Width, WIDTH,
     WA_Height, HEIGHT,
-    WA_Flags, WFLG_CLOSEGADGET | WFLG_ACTIVATE | WFLG_NOCAREREFRESH,
+    WA_Flags, WFLG_NOCAREREFRESH,
     WA_IDCMP, IDCMP_CLOSEWINDOW | IDCMP_GADGETUP,
                           TAG_DONE);
   
   return buffer_cell;
 }
 
+void mount_posixfs();
+
 void mount_amiga_fbfs() {
   fs_mount_builtin("/framebuffer", amiga_fbfs_open, amiga_fbfs_read, amiga_fbfs_write, 0, amiga_fbfs_mmap);
-  insert_global_symbol(alloc_sym("screen-width"),alloc_int(320));
-  insert_global_symbol(alloc_sym("screen-height"),alloc_int(200));
+  insert_global_symbol(alloc_sym("screen-width"),alloc_int(512));
+  insert_global_symbol(alloc_sym("screen-height"),alloc_int(250));
   insert_global_symbol(alloc_sym("screen-bpp"),alloc_int(1));
+  
+  mount_posixfs();
 }
 
 void uart_puts(char* str) {

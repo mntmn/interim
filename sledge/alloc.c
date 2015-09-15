@@ -5,12 +5,12 @@
 void* byte_heap;
 Cell* cell_heap;
 
-uint16_t cells_used;
-uint16_t byte_heap_used;
+size_t cells_used;
+size_t byte_heap_used;
 
 Cell** free_list;
-uint16_t free_list_avail;
-uint16_t free_list_consumed;
+size_t free_list_avail;
+size_t free_list_consumed;
 
 Cell oom_cell;
 
@@ -53,6 +53,7 @@ Cell* get_cell_heap() {
 env_t* get_global_env();
 
 Cell* cell_alloc() {
+  //printf("alloc %d\r\n",cells_used);
 
   /*if (free_list_avail<free_list_consumed) {
     // try gc
@@ -313,7 +314,7 @@ Cell* alloc_list(Cell** items, int num) {
 }
 
 //extern void uart_puts(char* str);
-extern void memdump(jit_word_t start,uint16_t len,int raw);
+extern void memdump(jit_word_t start, size_t len,int raw);
 
 Cell* alloc_sym(char* str) {
   Cell* sym = cell_alloc();

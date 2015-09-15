@@ -117,9 +117,9 @@
   (line (pt (+ ox 208) (- oy 102)) (pt (+ ox 272) (- oy 102)))
 )))
 
-(draw-logo 824 550)
-(draw-logo 825 550)
-(draw-logo 824 551)
+(draw-logo 50 (/ screen-height 2))
+(draw-logo 51 (/ screen-height 2))
+;(draw-logo 824 551)
 
 (def f (open "/sd/unifont.bin"))
 (def unifont (recv f))
@@ -211,6 +211,41 @@
   ))
   0
 )))
+
+(def blit-char8 (fn rune x y (do
+  (let sx 0)
+  (let sy 0)
+  (let so 0)
+  (let do 0)
+  (let iy 0)
+  (let rune-ww 0)
+  (let c 0)
+  (let d 0)
+  
+  (let sx (* rune-w (% rune rune-mod)))
+  (let sy (* rune-h (/ rune rune-mod)))
+  (let so (+ sx (* sy font-pitch)))
+  (let do (+ x (*  y screen-pitch)))
+
+  (let rune-ww rune-spacing)
+  
+  (while (lt iy rune-h) (do
+    (let ix 0)
+    (let dx 0)
+    (while (lt ix rune-ww) (do
+      (let c (get font (+ so ix)))
+      (let dx (+ do ix))
+      (put fb dx c)
+      (let ix (+ ix 1))
+    ))
+    (let so (+ so font-pitch))
+    (let do (+ do screen-pitch))
+    (let iy (+ iy 1))
+  ))
+  0
+)))
+
+(if (eq screen-bpp 1) (def blit-char blit-char8) 0)
 
 (def grab-from fb)
 (def grab-pitch screen-pitch)
@@ -332,6 +367,7 @@
 0)))
 
 (blit-str "Welcome to Interim OS." 32 32)
+(send scr 0)
 
 (def evbuf (alloc-str 4096))
 (def p (fn xp x y (do
