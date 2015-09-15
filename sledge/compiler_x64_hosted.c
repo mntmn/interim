@@ -1,4 +1,4 @@
-//#define DEBUG
+#define DEBUG
 
 #include <sys/mman.h> // mprotect
 
