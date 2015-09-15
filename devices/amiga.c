@@ -102,7 +102,10 @@ Cell* amiga_fbfs_mmap(Cell* arg) {
 }
 
 void mount_amiga_fbfs() {
-  fs_mount_builtin("/fb", amiga_fbfs_open, amiga_fbfs_read, amiga_fbfs_write, 0, amiga_fbfs_mmap);
+  fs_mount_builtin("/framebuffer", amiga_fbfs_open, amiga_fbfs_read, amiga_fbfs_write, 0, amiga_fbfs_mmap);
+  insert_global_symbol(alloc_sym("screen-width"),alloc_int(320));
+  insert_global_symbol(alloc_sym("screen-height"),alloc_int(200));
+  insert_global_symbol(alloc_sym("screen-bpp"),alloc_int(1));
 }
 
 void uart_puts(char* str) {

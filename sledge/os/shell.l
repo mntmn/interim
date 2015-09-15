@@ -59,16 +59,25 @@
 
 (def scr (open "/framebuffer"))
 (def fb (mmap "/framebuffer"))
-(def screen-pitch  3840) ; // TODO read from framebuffer
+(def screen-pitch (* screen-width screen-bpp)) ; // TODO read from framebuffer
 
 (def stroke-color 0x0000)
 
+(if (eq screen-bpp 2)
+; 16 bit
 (def set-pixel (fn x y c (do
   (let ofs (+ (* y screen-pitch) (shl x 1)))
   (put fb ofs (shr c 8))
   (put fb (+ 1 ofs) c)
   c
 )))
+; 8 bit
+(def set-pixel (fn x y c (do
+  (let ofs (+ (* y screen-pitch) x))
+  (put fb ofs c)
+  c
+)))
+)
 
 (def pt list)
 
