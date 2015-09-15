@@ -37,6 +37,7 @@ int main(int argc, char *argv[])
   char* in_line = malloc(BUFSZ);
   char* in_buffer = malloc(20*BUFSZ);
   char* out_buf = malloc(BUFSZ);
+  char* res;
   int in_offset = 0;
   int parens = 0;
   size_t len = 0;
@@ -82,18 +83,17 @@ int main(int argc, char *argv[])
   
   if (argc==2) {
     in_file = fopen(argv[1],"r");
+    if (!in_file) in_file = stdin;
   }
 
   while (1) {
-    expr = NULL;
-    
     printf("sledge> ");
+    expr = NULL;
+    len = 0;
 
-    in_line = fgets(in_line, BUFSZ, in_file);
-    if (in_line) {
+    res = fgets(in_line, BUFSZ, in_file);
+    if (res) {
       len = strlen(in_line);
-    } else {
-      len = 0;
     }
 
     //printf("line: (%d) |%s|\r\n",len,in_line);
@@ -116,24 +116,19 @@ int main(int argc, char *argv[])
       in_buffer[in_offset+i+1]=0;
     
       if (parens>0) {
-        printf("...\n");
-        if (len>0) {
-          //in_buffer[in_offset+i] = '\n';
-        }
+        printf("...\r\n");
         in_offset+=i;
       } else {
+        in_offset=0;
         if (len>1) {
-          //printf("reading: |%s|\r\n",in_buffer);
           expr = (Cell*)read_string(in_buffer);
-          in_offset=0;
-
-          printf("compiling: %p\r\n",expr);
+        } else {
+          printf("\r\n");
         }
       }
     }
-      
+
     if (feof(in_file)) {
-      //exit(0);
       in_file = stdin;
       in_offset=0;
     }
@@ -145,10 +140,10 @@ int main(int argc, char *argv[])
       if (success) {
         // OK
         if (!res) {
-          printf("invalid cell (%p)\n",res);
+          printf("invalid cell (%p)\r\n",res);
         } else {
           lisp_write(res, out_buf, 1024);
-          printf("\n%s\n\n",out_buf);
+          printf("\r\n%s\r\n",out_buf);
         }
       } else {
         printf("<compilation failed>\n");
