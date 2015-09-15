@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
         }
       }
 
-      printf("in_offset: %d, i: %d\r\n");
+      //printf("in_offset: %d, i: %d\r\n");
 
       strncpy(in_buffer+in_offset, in_line, i);
       in_buffer[in_offset+i]='\n';
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
 }
 
 Cell* platform_eval(Cell* expr) {
-  char buf[BUFSZ];
+  char* buf=malloc(BUFSZ);
   int i = 0;
   Cell* res = (Cell*)alloc_nil();
   Cell* c;
@@ -175,9 +175,9 @@ Cell* platform_eval(Cell* expr) {
     tag = compile_for_platform(c, &res); 
   
     if (tag) {
-      printf("~~ expr %d res: %p\r\n",i,res);
+      /*printf("~~ expr %d res: %p\r\n",i,res);
       lisp_write(res, buf, 512);
-      printf("~> %s\r\n",buf);
+      printf("~> %s\r\n",buf);*/
     } else {
       lisp_write(c, buf, BUFSZ);
       printf("[platform_eval] stopped at expression %d: %s\r\n",i,buf);
@@ -188,6 +188,7 @@ Cell* platform_eval(Cell* expr) {
     i++;
     expr = cdr(expr);
   }
+  free(buf);
   
   return res;
 }
