@@ -41,17 +41,19 @@ Cell* amiga_fbfs_write(Cell* arg) {
   uint32_t pitch;
   uint32_t offset;
   int bitplanes;
+  int bpr;
 
   bitplanes=window->RPort->BitMap->Depth;
-  offset=window->LeftEdge/8 + (((window->TopEdge)*screenw)/8)*bitplanes;
-  pitch=(screenw - window->Width)/8 + ((bitplanes-1)*screenw/8);
+  bpr=window->RPort->BitMap->BytesPerRow;
+  offset=window->LeftEdge/8 + ((window->TopEdge)*bpr);
+  pitch=bpr - window->Width/8;
 
-  printf("topedge: %d barheight: %d\r\n",window->TopEdge,window->WScreen->BarLayer->Height);
+  /*printf("topedge: %d barheight: %d\r\n",window->TopEdge,window->WScreen->BarLayer->Height);
   printf("screenw: %d winw: %d\r\n",screenw,window->Width);
   printf("pitch: %d\r\n",pitch);
   printf("offset: %d\r\n",offset);
   printf("src: %p\r\n",src);
-  printf("bitplane: %p\r\n",dest1);
+  printf("bitplane: %p\r\n",dest1);*/
 
   dest1+=offset;
   dest2+=offset;
@@ -97,14 +99,6 @@ Cell* amiga_fbfs_mmap(Cell* arg) {
     WA_IDCMP, IDCMP_CLOSEWINDOW | IDCMP_GADGETUP,
                           TAG_DONE);
   
-  /*dest = (uint8_t*)window->RPort->BitMap->Planes[0];
-  for (y=0; y<HEIGHT; y+=4) {
-    for (x=0; x<WIDTH/2; x++) {
-      ((uint8_t*)buffer_cell->ar.addr)[x+y*WIDTH]=0xff;
-    }
-  }
-  amiga_fbfs_write(NULL);*/
-  
   return buffer_cell;
 }
 
@@ -129,6 +123,8 @@ void cleanup_amiga() {
 }
 
 void mount_amiga() {
+  // TODO: exit if stack too small
+  
   atexit(cleanup_amiga);
   intuition_base = OpenLibrary("intuition.library", 37);
   
@@ -138,5 +134,5 @@ void mount_amiga() {
   }
 
   mount_amiga_fbfs();
-  amiga_fbfs_mmap(NULL);
+  //amiga_fbfs_mmap(NULL);
 }

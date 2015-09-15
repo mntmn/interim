@@ -18,7 +18,7 @@ Cell oom_cell;
 //#define DEBUG_GC
 
 // TODO define in machine specs
-#define MAX_CELLS 1000
+#define MAX_CELLS 100000
 #define MAX_BYTE_HEAP 8*1024
 
 static struct MemStats mem_stats;

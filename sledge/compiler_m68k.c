@@ -22,7 +22,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
   if (success) {
     printf("<assembled at: %p>\r\n",code);
 
-    memdump(code,64,0);
+    //memdump(code,64,0);
 
     /*if (bytes_read>codesz) {
       printf("<error: max assembly size of %d exhausted. aborting>\n",codesz);
@@ -30,7 +30,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
       }*/
 
     *res = execute_jitted(code);
-    printf("res: %p\r\n",*res);
+    //printf("res: %p\r\n",*res);
     success = 1;
     
   }

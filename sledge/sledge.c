@@ -90,18 +90,22 @@ int main(int argc, char *argv[])
     expr = NULL;
     
     printf("sledge> ");
-    len = 0;
     
-    len = 0;
     in_line = fgets(in_line, BUFSZ, in_file);
-    len = strlen(in_line);
-    
-    //if (r<1 || !in_line) exit(0);
+    if (in_line) {
+      len = strlen(in_line);
+    } else {
+      len = 0;
+    }
 
-    // recognize parens
-    l = strlen(in_line);
+    //printf("line: (%d) |%s|\r\n",len,in_line);
     
-    for (i=0; i<l; i++) {
+    if (!in_line || feof(in_file)) {
+      exit(0);
+    }
+    
+    // recognize parens
+    for (i=0; i<len; i++) {
       if (in_line[i] == ';') break;
       if (in_line[i] == '(') {
         parens++;
@@ -110,17 +114,23 @@ int main(int argc, char *argv[])
       }
     }
 
-    strcpy(in_buffer+in_offset, in_line);
+    strncpy(in_buffer+in_offset, in_line, i);
+    in_buffer[in_offset+i]=0;
     
     if (parens>0) {
-      printf("…\n");
-      if (l>0) {
-        in_buffer[in_offset+l-1] = '\n';
+      printf("...\n");
+      if (len>0) {
+        //in_buffer[in_offset+len-1] = '\n';
       }
-      in_offset+=l;
+      in_offset+=i;
     } else {
-      expr = (Cell*)read_string(in_buffer);
-      in_offset=0;
+      if (len>1) {
+        //printf("reading: |%s|\r\n",in_buffer);
+        expr = (Cell*)read_string(in_buffer);
+        in_offset=0;
+
+        printf("compiling: %p\r\n",expr);
+      }
     }
     
     if (expr) {      
@@ -166,7 +176,7 @@ Cell* platform_eval(Cell* expr) {
       //printf("~> %s\r\n",buf);
     } else {
       lisp_write(expr, buf, 512);
-      printf("[platform_eval] stopped at expression %d: %s…\r\n",i,buf);
+      printf("[platform_eval] stopped at expression %d: %s...\r\n",i,buf);
       break;
     }
     // when to free the code? -> when no bound lambdas involved

@@ -578,21 +578,19 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_GT: {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
-      jit_subr(R2,ARGR0);
-      jit_movi(ARGR0,0);
-      jit_movi(R2,1);
-      jit_movneg(ARGR0,R2);
+      jit_movi(R3,0);
+      jit_subr(ARGR0,R2);
+      jit_movneg(ARGR0,R3);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else compiled_type = TAG_INT;
       break;
     }
     case BUILTIN_LT: {
-      load_int(ARGR0,argdefs[0], frame);
-      load_int(R2,argdefs[1], frame);
+      load_int(R2,argdefs[0], frame);
+      load_int(ARGR0,argdefs[1], frame);
+      jit_movi(R3,0);
       jit_subr(ARGR0,R2);
-      jit_movi(ARGR0,0);
-      jit_movi(R2,1);
-      jit_movneg(ARGR0,R2);
+      jit_movneg(ARGR0,R3);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else compiled_type = TAG_INT;
       break;
@@ -685,6 +683,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       Frame* nframe_ptr;
       Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
+      Label* fn_lbl;
       
       if (argi<2) {
         printf("error: trying to define fn without body.\n");
@@ -773,8 +772,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_label(label_fe);
       jit_lea(R0,lambda);
       
-#ifdef CPU_ARM
-      Label* fn_lbl = find_label(label_fn);
+#if CPU_ARM||__AMIGA
+      fn_lbl = find_label(label_fn);
       //printf("fn_lbl idx: %d code: %p\r\n",fn_lbl->idx,code);
       lambda->dr.next = code + fn_lbl->idx;
       //printf("fn_lbl next: %p\r\n",lambda->dr.next);
