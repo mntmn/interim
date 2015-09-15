@@ -9,7 +9,6 @@
 
 #include "minilisp.h"
 #include "alloc.h"
-#include <stdint.h>
 
 #define WIDTH 320
 #define HEIGHT 200

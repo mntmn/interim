@@ -12,7 +12,7 @@ Cell* fatfs_open(Cell* cpath) {
     return alloc_nil();
   }
 
-  char* path = cpath->addr;
+  char* path = cpath->ar.addr;
   if (!strncmp(path,"/sd/",4)) {
     char* filename = NULL;
     if (strlen(path)>4) {
@@ -51,8 +51,8 @@ Cell* fatfs_open(Cell* cpath) {
 }
 
 Cell* fatfs_read(Cell* stream) {
-  Stream* s = (Stream*)stream->addr;
-  char* path = ((char*)s->path->addr);
+  Stream* s = (Stream*)stream->ar.addr;
+  char* path = ((char*)s->path->ar.addr);
 
   if (!strncmp(path,"/sd/",4)) {
     char* filename = NULL;
@@ -83,7 +83,7 @@ Cell* fatfs_read(Cell* stream) {
       Cell* result = alloc_num_bytes(buf_sz+1);
       UINT bytes_read;
 
-      rc = f_read(&fp, result->addr, buf_sz, &bytes_read);
+      rc = f_read(&fp, result->ar.addr, buf_sz, &bytes_read);
       if (rc) printf("Read failed: %u\r\n", rc);
       
       rc = f_close(&fp);
@@ -93,7 +93,7 @@ Cell* fatfs_read(Cell* stream) {
       // directory
       
       Cell* res = alloc_num_string(4096);
-      char* ptr = (char*)res->addr;
+      char* ptr = (char*)res->ar.addr;
 
       FRESULT rc;
       DIR dj;			/* Pointer to the open directory object */
@@ -119,14 +119,14 @@ Cell* fatfs_read(Cell* stream) {
 
 Cell* fatfs_write(Cell* stream, Cell* packet) {
   FIL fp;
-  Stream* s = (Stream*)stream->addr;
-  char* path = ((char*)s->path->addr)+3;
+  Stream* s = (Stream*)stream->ar.addr;
+  char* path = ((char*)s->path->ar.addr)+3;
   printf("writing to stream with path %s\r\n",path);
   FRESULT rc = f_open(&fp, path, FA_WRITE|FA_CREATE_ALWAYS);
   UINT bytes_written = 0;
   if (!rc) {
     printf("opened for writing!\r\n");
-    rc = f_write(&fp, packet->addr, packet->size, &bytes_written);
+    rc = f_write(&fp, packet->ar.addr, packet->dr.size, &bytes_written);
     printf("rc: %d bytes_written: %d\r\n",rc,bytes_written);
     rc = f_close(&fp);
   } else {

@@ -1,9 +1,8 @@
 #include "minilisp.h"
 #include "stream.h"
 #include <stdio.h>
-#include <stdint.h>
 
-#define TMP_BUF_SIZE 128
+#define TMP_BUF_SIZE 256
 #define INTFORMAT "%d"
 
 char* tag_to_str(int tag) {
@@ -43,8 +42,8 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
         snprintf(buffer, bufsize, "nil");
       }
     } else {
-      char tmpl[TMP_BUF_SIZE];
-      char tmpr[TMP_BUF_SIZE];
+      char* tmpl=malloc(TMP_BUF_SIZE);
+      char* tmpr=malloc(TMP_BUF_SIZE);
       write_((Cell*)cell->ar.addr, tmpl, 0, TMP_BUF_SIZE);
 
       if (cell->dr.next && ((Cell*)cell->dr.next)->tag==TAG_CONS) {
@@ -64,6 +63,8 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
         // improper list
         snprintf(buffer, bufsize, "(%s.%s)", tmpl, tmpr);
       }
+      free(tmpl);
+      free(tmpr);
     }
   } else if (cell->tag == TAG_SYM) {
     snprintf(buffer, bufsize, "%s", (char*)cell->ar.addr);

@@ -376,8 +376,16 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       signature_arg = cdr(signature_arg);
     }
 
+    /*if (signature_args) {
+      char dbg[256];
+      lisp_write(signature_args,dbg,256);
+      printf("!! %s sig: %s\r\n",opsym->ar.addr,dbg);
+    }*/
+
     if (arg && (!signature_args || signature_arg)) {
       int given_tag = arg->tag;
+      int sig_tag = 0;
+      if (signature_arg) sig_tag = signature_arg->ar.value;
 
       if (is_let && argi==1) {
         int type_hint = -1;
@@ -391,11 +399,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         if (given_tag == TAG_INT || type_hint == ARGT_STACK_INT) {
           //printf("INT mode of let\r\n");
           // let prefers raw integers!
-          signature_arg->ar.value = TAG_INT;
+          sig_tag = TAG_INT;
         } else {
           //printf("ANY mode of let\r\n");
           // but cells are ok, too
-          signature_arg->ar.value = TAG_ANY;
+          sig_tag = TAG_ANY;
         }
       }
 
@@ -404,7 +412,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         argdefs[argi].cell = arg;
         argdefs[argi].type = ARGT_CELL;
       }
-      else if (signature_arg->ar.value == TAG_LAMBDA) {
+      else if (sig_tag == TAG_LAMBDA) {
         // lazy evaluation by form
         argdefs[argi].cell = arg;
         argdefs[argi].type = ARGT_LAMBDA;
@@ -419,7 +427,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           jit_push(R1,R1+argi-1);
           frame->sp+=(1+argi-1);
         }
-        given_tag = compile_expr(arg, frame, signature_arg->ar.value);
+        given_tag = compile_expr(arg, frame, sig_tag);
         if (given_tag<1) return given_tag; // failure
         
         argdefs[argi].cell = NULL; // cell is in R0 at runtime
@@ -438,7 +446,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           frame->sp-=(1+argi-1);
         }
       }
-      else if (given_tag == TAG_SYM && signature_arg->ar.value != TAG_SYM) {
+      else if (given_tag == TAG_SYM && sig_tag != TAG_SYM) {
         // symbol given, lookup (indirect)
         //printf("indirect symbol lookup (name: %p)\n",arg->ar.value);
 
@@ -462,7 +470,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           return 0;
         }
       }
-      else if (given_tag == signature_arg->ar.value || signature_arg->ar.value==TAG_ANY) {
+      else if (given_tag == sig_tag || sig_tag==TAG_ANY) {
         argdefs[argi].cell = arg;
         argdefs[argi].slot = argi-1;
         argdefs[argi].type = ARGT_CELL;
@@ -475,7 +483,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         // check if we can typecast
         // else, fail with type error
 
-        printf("!! type mismatch for argument %s (given %s, expected %s)!\n",arg_name,tag_to_str(given_tag),tag_to_str(signature_arg->ar.value));
+        printf("!! type mismatch for argument %s (given %s, expected %s)!\n",arg_name,tag_to_str(given_tag),tag_to_str(sig_tag));
         return 0;
       }
     } else {
@@ -1304,12 +1312,11 @@ void init_compiler() {
   insert_symbol(alloc_sym("*"), alloc_builtin(BUILTIN_MUL, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("/"), alloc_builtin(BUILTIN_DIV, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("%"), alloc_builtin(BUILTIN_MOD, alloc_list(signature, 2)), &global_env);
-  
   insert_symbol(alloc_sym("bitand"), alloc_builtin(BUILTIN_BITAND, alloc_list(signature, 2)), &global_env);
-  insert_symbol(alloc_sym("bitor"), alloc_builtin(BUILTIN_BITOR, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("bitor"),  alloc_builtin(BUILTIN_BITOR, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("bitxor"), alloc_builtin(BUILTIN_BITOR, alloc_list(signature, 2)), &global_env);
-  insert_symbol(alloc_sym("shl"), alloc_builtin(BUILTIN_SHL, alloc_list(signature, 2)), &global_env);
-  insert_symbol(alloc_sym("shr"), alloc_builtin(BUILTIN_SHR, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("shl"),    alloc_builtin(BUILTIN_SHL, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("shr"),    alloc_builtin(BUILTIN_SHR, alloc_list(signature, 2)), &global_env);
   
   printf("[compiler] arithmetic\r\n");
   
@@ -1318,7 +1325,7 @@ void init_compiler() {
   
   printf("[compiler] compare\r\n");
   
-  signature[0]=alloc_int(TAG_INT); signature[1]=alloc_int(TAG_INT); signature[2]=alloc_int(TAG_LAMBDA); 
+  signature[0]=alloc_int(TAG_INT); signature[1]=alloc_int(TAG_LAMBDA); signature[2]=alloc_int(TAG_LAMBDA); 
   insert_symbol(alloc_sym("if"), alloc_builtin(BUILTIN_IF, alloc_list(signature, 3)), &global_env);
   insert_symbol(alloc_sym("fn"), alloc_builtin(BUILTIN_FN, NULL), &global_env);
   insert_symbol(alloc_sym("while"), alloc_builtin(BUILTIN_WHILE, NULL), &global_env);

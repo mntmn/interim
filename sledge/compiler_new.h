@@ -6,7 +6,7 @@
 #define MAXARGS 8
 #define MAXFRAME 24 // maximum MAXFRAME-MAXARGS local vars
 
-typedef uint32_t (*funcptr)();
+typedef void* (*funcptr)();
 
 typedef enum arg_t {
   ARGT_CONST,
@@ -33,6 +33,11 @@ typedef struct Frame {
   int locals;
   void* stack_end;
 } Frame;
+
+typedef struct Label {
+  char* name;
+  int idx;
+} Label;
 
 typedef enum builtin_t {
   BUILTIN_ADD = 1,

@@ -1,5 +1,10 @@
-#include <stdint.h>
+#include "minilisp.h"
 #include <stdio.h>
+
+void uart_putc(char c);
+void uart_puts(char* s);
+
+#define int32_t long
 
 void memdump(void* start,uint32_t len,int raw) {
   uint32_t i,x;

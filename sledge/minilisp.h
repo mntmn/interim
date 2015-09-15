@@ -1,6 +1,10 @@
 #ifndef MINILISP_H
 #define MINILISP_H
 
+#define uint8_t unsigned char
+#define uint16_t unsigned short
+#define uint32_t unsigned long
+#define uint64_t unsigned long long
 #define jit_word_t unsigned long // FIXME: works only on linux
 
 #include "strmap.h"

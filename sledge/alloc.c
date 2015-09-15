@@ -1,6 +1,5 @@
 #include "alloc.h"
 #include <string.h>
-#include <stdint.h>
 #include "stream.h"
 
 void* byte_heap;
@@ -246,7 +245,7 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
       printf(".");
 #endif
       if (c->tag == TAG_BYTES || c->tag == TAG_STR) {
-        free(c->ar.addr);
+        //free(c->ar.addr);
       }
       c->tag = TAG_FREED;
       

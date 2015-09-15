@@ -1,4 +1,6 @@
-//#define DEBUG
+#define DEBUG
+
+#include <sys/mman.h> // mprotect
 
 Cell* execute_jitted(void* binary) {
   return (Cell*)((funcptr)binary)(0);
@@ -16,6 +18,10 @@ int compile_for_platform(Cell* expr, Cell** res) {
   Frame empty_frame = {NULL, 0, 0, sp};
   int success = compile_expr(expr, &empty_frame, TAG_ANY);
   jit_ret();
+
+  if (!success) {
+    printf("<compile_expr failed: %d>\r\n",success);
+  }
 
   if (success) {
     fclose(jit_out);
@@ -62,8 +68,8 @@ int compile_for_platform(Cell* expr, Cell** res) {
     system("nm /tmp/jit_out.o > /tmp/jit_out.syms");
     FILE* link_f = fopen("/tmp/jit_out.syms","r");
     if (link_f) {
-      char link_line[128];
-      while(fgets(link_line, sizeof(link_line), link_f)) {
+      char* link_line=malloc(128);
+      while(fgets(link_line, 128, link_f)) {
 
         if (strlen(link_line)>22) {
           char ida=link_line[19];
@@ -81,7 +87,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
               //printf("function %p entrypoint: %p (+%ld)\n",lambda,binary,offset);
 
               if (lambda->tag == TAG_LAMBDA) {
-                lambda->next = binary;
+                lambda->dr.next = binary;
               } else {
                 printf("fatal error: no lambda found at %p!\n",lambda);
               }
@@ -94,6 +100,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
           }
         }
       }
+      free(link_line);
     }
       
     int mp_res = mprotect(jit_binary, codesz, PROT_EXEC|PROT_READ);

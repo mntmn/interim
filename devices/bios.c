@@ -146,6 +146,36 @@ char uart_getc() {
   return bios_getc();
 }
 
+
+int open() {
+  uart_puts("-- clib open called. stubbed.\r\n");
+  return 1;
+}
+int close() {
+  uart_puts("-- clib close called. stubbed.\r\n");
+  return 1;
+}
+int fstat() {
+  //uart_puts("-- clib fstat called. stubbed.\n");
+  return 0;
+}
+int lseek() {
+  //uart_puts("-- clib lseek called. stubbed.\n");
+  return 0;
+}
+int read() {
+  //uart_puts("-- clib read called. stubbed.\n");
+  return 0;
+}
+size_t write(int fildes, const void *buf, size_t nbytes) {
+  uart_puts("-- clib write called:\n");
+  for (int i=0; i<nbytes; i++) {
+    uart_putc(((char*)buf)[i]);
+  }
+  return nbytes;
+}
+
+
 #define GETLINE_MAX 256
 static char getline_buf[GETLINE_MAX];
 

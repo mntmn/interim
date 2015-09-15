@@ -170,6 +170,9 @@ void jit_call(void* func, char* note) {
   fprintf(jit_out, "callq *%%rax # %s\n", note);
 }
 
+#define jit_call2 jit_call
+#define jit_call3 jit_call
+
 void jit_callr(int reg) {
   fprintf(jit_out, "callq *%s\n", regnames[reg]);
 }

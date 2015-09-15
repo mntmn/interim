@@ -29,10 +29,10 @@ Cell* fbfs_mmap(Cell* arg) {
 
   if (_fb>0) {
     Cell* buffer_cell = alloc_int(0);
-    buffer_cell->addr = _fb;
-    buffer_cell->size = sz;
+    buffer_cell->ar.addr = _fb;
+    buffer_cell->dr.size = sz;
     buffer_cell->tag = TAG_BYTES;
-    printf("[fbfs_mmap] buffer_cell->addr: %p\r\n",buffer_cell->addr);
+    printf("[fbfs_mmap] buffer_cell->ar.addr: %p\r\n",buffer_cell->ar.addr);
   
     return buffer_cell;
   } else {

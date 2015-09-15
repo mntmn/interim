@@ -56,7 +56,7 @@ Cell* usbkeys_read(Cell* stream) {
   }
   
   Cell* res = alloc_string_copy(" ");
-  ((uint8_t*)res->addr)[0] = c;
+  ((uint8_t*)res->ar.addr)[0] = c;
   
   return res;
 }

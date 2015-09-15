@@ -1,7 +1,6 @@
 #include "reader.h"
 #include "alloc.h"
 #include <string.h>
-#include <stdint.h>
 
 Cell* reader_next_list_cell(Cell* cell, ReaderState* rs) {
   cell->dr.next = alloc_nil();

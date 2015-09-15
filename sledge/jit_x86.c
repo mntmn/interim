@@ -40,11 +40,6 @@ uint8_t regi[] = {
 static uint8_t* code;
 static uint32_t code_idx;
 
-typedef struct Label {
-  char* name;
-  uint32_t idx;
-} Label;
-
 #define JIT_MAX_LABELS 32
 static int label_idx = 0;
 static Label jit_labels[JIT_MAX_LABELS];
@@ -226,7 +221,7 @@ void jit_call3(void* func, char* note) {
 void jit_callr(int dreg) {
 }
 
-int32_t inline_mod(int a, int b) {
+int inline_mod(int a, int b) {
   return a%b;
 }
 void jit_modr(int dreg, int sreg) {

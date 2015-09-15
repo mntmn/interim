@@ -46,22 +46,7 @@ int _close() {
   return 1;
 }
 
-int open() {
-  uart_puts("-- clib open called. stubbed.\r\n");
-  return 1;
-}
-
-int close() {
-  uart_puts("-- clib close called. stubbed.\r\n");
-  return 1;
-}
-
 int _fstat() {
-  //uart_puts("-- clib fstat called. stubbed.\n");
-  return 0;
-}
-
-int fstat() {
   //uart_puts("-- clib fstat called. stubbed.\n");
   return 0;
 }
@@ -76,11 +61,6 @@ int _lseek() {
   return 0;
 }
 
-int lseek() {
-  //uart_puts("-- clib lseek called. stubbed.\n");
-  return 0;
-}
-
 int __sseek64() {
   //uart_puts("-- clib lseek called. stubbed.\n");
   return 0;
@@ -91,21 +71,9 @@ int _read() {
   return 0;
 }
 
-int read() {
-  //uart_puts("-- clib read called. stubbed.\n");
-  return 0;
-}
 
 size_t _write(int fildes, const void *buf, size_t nbytes) {
   uart_puts("-- clib _write called:\n");
-  for (int i=0; i<nbytes; i++) {
-    uart_putc(((char*)buf)[i]);
-  }
-  return nbytes;
-}
-
-size_t write(int fildes, const void *buf, size_t nbytes) {
-  uart_puts("-- clib write called:\n");
   for (int i=0; i<nbytes; i++) {
     uart_putc(((char*)buf)[i]);
   }

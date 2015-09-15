@@ -67,11 +67,6 @@ uint8_t regi[] = {
 static uint8_t* code;
 static uint32_t code_idx;
 
-typedef struct Label {
-  char* name;
-  uint32_t idx;
-} Label;
-
 #define JIT_MAX_LABELS 32
 static int label_idx = 0;
 static Label jit_labels[JIT_MAX_LABELS];

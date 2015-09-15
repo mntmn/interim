@@ -241,7 +241,7 @@ Cell* eth_task() {
         printf("> %s\r\n",&u->data);
 
         Cell* packet = alloc_num_bytes(size);
-        memcpy(packet->addr, &u->data, size);
+        memcpy(packet->ar.addr, &u->data, size);
         return packet;
       }
       else if (i4->proto == PROTO_IP_ICMP) {
@@ -288,8 +288,8 @@ Cell* eth_task() {
           printf("got data, copying payload size %d\r\n",payload_size);
           
           Cell* packet = alloc_num_bytes(payload_size+1);
-          memcpy(packet->addr, &rxt->data, payload_size);
-          *((uint8_t*)packet->addr+payload_size) = 0;
+          memcpy(packet->ar.addr, &rxt->data, payload_size);
+          *((uint8_t*)packet->ar.addr+payload_size) = 0;
 
           if (old_seqnum != their_seqnum) {
             /*if (my_tcp_data_callback) {
@@ -373,8 +373,8 @@ uint16_t transport_cksum(void* packet, uint16_t protocol, ipv4_packet* i4, uint1
 Cell* machine_send_udp(Cell* data_cell) {
   if (!data_cell || (data_cell->tag!=TAG_BYTES && data_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
 
-  int len = data_cell->size;
-  uint8_t* data = (uint8_t*)data_cell->addr;
+  int len = data_cell->dr.size;
+  uint8_t* data = (uint8_t*)data_cell->ar.addr;
   
   eth_header* te = (eth_header*)tx_packet;
   memcpy(te->dest_mac, their_mac, 6);
@@ -501,8 +501,8 @@ int connect_tcp(char* host_ip, int port) {
 Cell* send_tcp(Cell* data_cell) {
   if (!data_cell || (data_cell->tag!=TAG_BYTES && data_cell->tag!=TAG_STR)) return alloc_error(ERR_INVALID_PARAM_TYPE);
 
-  send_tcp_packet(my_tcp_port,their_tcp_port,TCP_PSH|TCP_ACK,my_seqnum,their_seqnum,data_cell->addr,data_cell->size);
-  my_seqnum+=data_cell->size;
+  send_tcp_packet(my_tcp_port,their_tcp_port,TCP_PSH|TCP_ACK,my_seqnum,their_seqnum,data_cell->ar.addr,data_cell->dr.size);
+  my_seqnum+=data_cell->dr.size;
   
   return alloc_int(1);
 }

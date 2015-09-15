@@ -18,7 +18,7 @@ Cell* posixfs_open(Cell* cpath) {
     return _file_cell;
   }
 
-  char* path = cpath->addr;
+  char* path = cpath->ar.addr;
   
   if (!strncmp(path,"/sd/",4)) {
     char* name = NULL;
@@ -55,7 +55,8 @@ Cell* posixfs_open(Cell* cpath) {
         
         printf("[posixfs] trying to read file of len %d…\r\n",len);
         Cell* res = alloc_num_bytes(len);
-        int read_len = fread(res->addr, len, 1, f);
+        int read_len = fread(res->ar.addr, 1, len, f);
+        printf("[posixfs] %d bytes read to %p\r\n",read_len,res->ar.addr);
         // TODO: close?
         _file_cell = res;
         return res;

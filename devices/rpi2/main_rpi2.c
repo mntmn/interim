@@ -102,8 +102,6 @@ void main()
 
 #include "devices/libc_glue.c"
 
-typedef jit_word_t (*funcptr)();
-
 Cell* platform_eval(Cell* expr); // FIXME
 
 #include "compiler_new.c"
