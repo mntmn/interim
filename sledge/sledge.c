@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
     expr = NULL;
     
     printf("sledge> ");
-    
+
     in_line = fgets(in_line, BUFSZ, in_file);
     if (in_line) {
       len = strlen(in_line);
@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
       len = 0;
     }
 
-    printf("line: (%d) |%s|\r\n",len,in_line);
+    //printf("line: (%d) |%s|\r\n",len,in_line);
     
     if (len>0) {
       // recognize parens

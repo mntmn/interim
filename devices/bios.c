@@ -163,9 +163,21 @@ int lseek() {
   //uart_puts("-- clib lseek called. stubbed.\n");
   return 0;
 }
-int read() {
+
+ssize_t read(int fildes, void *buf, size_t nbyte) {
   //uart_puts("-- clib read called. stubbed.\n");
-  return 0;
+  printf("\r\n");
+  int i = 0;
+  int k = 0;
+  while (k!=10 && i<nbyte) {
+    k = uart_getc();
+    if (k>0) {
+      uart_putc(k);
+      ((char*)buf)[i] = k;
+      i++;
+    }
+  }
+  return i;
 }
 size_t write(int fildes, const void *buf, size_t nbytes) {
   uart_puts("-- clib write called:\n");
