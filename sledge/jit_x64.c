@@ -85,10 +85,12 @@ void jit_str_stack(int sreg, int offset) {
 }
 
 void jit_inc_stack(int offset) {
+  if (offset == 0) return;
   fprintf(jit_out, "addq $%d, %%rsp\n", offset);
 }
 
 void jit_dec_stack(int offset) {
+  if (offset == 0) return;
   fprintf(jit_out, "subq $%d, %%rsp\n", offset);
 }
 
