@@ -226,6 +226,11 @@ void jit_andr(int dreg, int sreg) {
   code[code_idx++] = 0x80|regi[sreg];
 }
 
+void jit_notr(int dreg) {
+  code[code_idx++] = 0x46;
+  code[code_idx++] = 0x80|regi[dreg];
+}
+
 void jit_orr(int dreg, int sreg) {
   code[code_idx++] = 0x80|regi[dreg]<<1;
   code[code_idx++] = 0x80|regi[sreg];

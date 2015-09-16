@@ -117,9 +117,9 @@
   (line (pt (+ ox 208) (- oy 102)) (pt (+ ox 272) (- oy 102)))
 )))
 
-(draw-logo (- (/ screen-width 2) 100) (/ screen-height 2))
-(draw-logo (- (/ screen-width 2) 99) (/ screen-height 2))
-(send scr 0)
+(draw-logo (- (/ screen-width 2) 140) (/ screen-height 2))
+(draw-logo (- (/ screen-width 2) 139) (/ screen-height 2))
+(draw-logo (- (/ screen-width 2) 140) (+ 1 (/ screen-height 2)))
 
 (def f (open "/sd/unifont.bin"))
 (def unifont (recv f))

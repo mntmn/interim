@@ -40,6 +40,9 @@ add.l d0, d1
 add.l d2, d3
 and.l d0, d1
 or.l d0, d1
+not.l d0
+not.l d1
+not.l d2
 eor.l d0, d0
 eor.l d0, d1
 eor.l d0, d2
