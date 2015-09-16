@@ -44,8 +44,8 @@ void mount_fbfs(uint32_t* fb) {
   _fb = fb;
   fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, fbfs_delete, fbfs_mmap);
   
-  insert_global_symbol("screen-width",alloc_int(WIDTH));
-  insert_global_symbol("screen-height",alloc_int(HEIGHT));
-  insert_global_symbol("screen-bpp",alloc_int(BPP));
+  insert_global_symbol(alloc_sym("screen-width"),alloc_int(WIDTH));
+  insert_global_symbol(alloc_sym("screen-height"),alloc_int(HEIGHT));
+  insert_global_symbol(alloc_sym("screen-bpp"),alloc_int(BPP));
 }
 

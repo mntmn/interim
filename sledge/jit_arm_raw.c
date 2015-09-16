@@ -226,6 +226,13 @@ void jit_andr(int dreg, int sreg) {
   code[code_idx++] = op;
 }
 
+void jit_notr(int dreg) {
+  uint32_t op = 0xe1e00000;
+  op |= (dreg<<0);
+  op |= (dreg<<12);
+  code[code_idx++] = op;
+}
+
 void jit_orr(int dreg, int sreg) {
   uint32_t op = 0xe1800000;
   op |= (sreg<<0);
