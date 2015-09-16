@@ -1,3 +1,7 @@
+#if defined(__APPLE__) && defined(__MACH__)
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
 //#define DEBUG
 
 Cell* execute_jitted(void* binary) {
@@ -34,7 +38,11 @@ int compile_for_platform(Cell* expr, Cell** res) {
     // prefix with arm-none-eabi- on ARM  -mlittle-endian
     
     system("as /tmp/jit_out.s -o /tmp/jit_out.o");
+#if defined(__APPLE__) && defined(__MACH__)
+    system("gobjcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
+#else
     system("objcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
+#endif
 
     FILE* binary_f = fopen("/tmp/jit_out.bin","r");
 
