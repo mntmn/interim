@@ -167,7 +167,13 @@ void jit_divr(int dreg, int sreg) {
 
 void jit_call(void* func, char* note) {
   fprintf(jit_out, "mov $%p, %%rax\n", func);
+#if defined(__APPLE__) && defined(__MACH__)
+  fprintf(jit_out, "subq $8, %%rsp\n");
+#endif
   fprintf(jit_out, "callq *%%rax # %s\n", note);
+#if defined(__APPLE__) && defined(__MACH__)
+  fprintf(jit_out, "addq $8, %%rsp\n");
+#endif
 }
 
 void jit_callr(int reg) {
