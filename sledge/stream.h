@@ -15,8 +15,8 @@ typedef struct Filesystem {
 typedef struct Stream {
   int id;
   Cell* path;
-  long long pos;
-  long long size;
+  long pos;
+  long size;
   int mode; // read, write…
   // we could put here pointers to event handlers
 

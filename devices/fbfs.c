@@ -29,10 +29,10 @@ Cell* fbfs_mmap(Cell* arg) {
 
   if (_fb>0) {
     Cell* buffer_cell = alloc_int(0);
-    buffer_cell->addr = _fb;
-    buffer_cell->size = sz;
+    buffer_cell->ar.addr = _fb;
+    buffer_cell->dr.size = sz;
     buffer_cell->tag = TAG_BYTES;
-    printf("[fbfs_mmap] buffer_cell->addr: %p\r\n",buffer_cell->addr);
+    printf("[fbfs_mmap] buffer_cell->ar.addr: %p\r\n",buffer_cell->ar.addr);
   
     return buffer_cell;
   } else {
@@ -43,5 +43,9 @@ Cell* fbfs_mmap(Cell* arg) {
 void mount_fbfs(uint32_t* fb) {
   _fb = fb;
   fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, fbfs_delete, fbfs_mmap);
+  
+  insert_global_symbol(alloc_sym("screen-width"),alloc_int(WIDTH));
+  insert_global_symbol(alloc_sym("screen-height"),alloc_int(HEIGHT));
+  insert_global_symbol(alloc_sym("screen-bpp"),alloc_int(BPP));
 }
 

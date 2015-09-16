@@ -134,6 +134,10 @@ void jit_andr(int dreg, int sreg) {
   fprintf(jit_out, "andq %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
+void jit_notr(int dreg) {
+  fprintf(jit_out, "notq %s\n", regnames[dreg]);
+}
+
 void jit_orr(int dreg, int sreg) {
   fprintf(jit_out, "orq %s, %s\n", regnames[sreg], regnames[dreg]);
 }
@@ -170,13 +174,20 @@ void jit_divr(int dreg, int sreg) {
 void jit_call(void* func, char* note) {
   fprintf(jit_out, "mov $%p, %%rax\n", func);
 #if defined(__APPLE__) && defined(__MACH__)
-  fprintf(jit_out, "subq $8, %%rsp\n");
+  fprintf(jit_out, "push %%r12\n");
+  fprintf(jit_out, "mov %%rsp, %%r12\n");
+  fprintf(jit_out, "subq $32, %%rsp\n");
+  fprintf(jit_out, "andq $0xfffffffffffffff0, %%rsp\n");
 #endif
   fprintf(jit_out, "callq *%%rax # %s\n", note);
 #if defined(__APPLE__) && defined(__MACH__)
-  fprintf(jit_out, "addq $8, %%rsp\n");
+  fprintf(jit_out, "mov %%r12, %%rsp\n");
+  fprintf(jit_out, "pop %%r12\n");
 #endif
 }
+
+#define jit_call2 jit_call
+#define jit_call3 jit_call
 
 void jit_callr(int reg) {
   fprintf(jit_out, "callq *%s\n", regnames[reg]);

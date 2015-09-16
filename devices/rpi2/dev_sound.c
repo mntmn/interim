@@ -28,7 +28,7 @@ Cell* soundfs_read() {
 }
 
 Cell* soundfs_write(Cell* stream, Cell* packet) {
-  //ethernet_tx(packet->addr,packet->size);
+  //ethernet_tx(packet->ar.addr,packet->dr.size);
   uint32_t PBASE = PERIPHERAL_BASE;
 
   // enable phone jack (GPIO 40+45) PWM0/PWM1
@@ -42,8 +42,8 @@ Cell* soundfs_write(Cell* stream, Cell* packet) {
   dma_cb.next_block = (uint32_t)&dma_cb;
 
   // test
-  dma_cb.source = (uint32_t)packet->addr;
-  dma_cb.len =  (uint32_t)packet->size;
+  dma_cb.source = (uint32_t)packet->ar.addr;
+  dma_cb.len =  (uint32_t)packet->dr.size;
   printf("DMA block source changed to %p\r\n",dma_cb.source);
 
   printf("[soundfs] dma_cb created\r\n");

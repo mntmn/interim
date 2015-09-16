@@ -1,25 +1,25 @@
 #include "reader.h"
 #include "alloc.h"
 #include <string.h>
-#include <stdint.h>
 
 Cell* reader_next_list_cell(Cell* cell, ReaderState* rs) {
-  cell->next = alloc_nil();
-  cell = cell->next;
+  cell->dr.next = alloc_nil();
+  cell = cell->dr.next;
   rs->state = PST_ATOM;
   return cell;
 }
 
 Cell* reader_end_list(Cell* cell, ReaderState* rs) {
+  Cell* tmpc;
   if (rs->level<1) {
     rs->state = PST_ERR_UNEXP_CLOSING_BRACE;
     return cell;
   }
   rs->level--;
   rs->stack--;
-  if (cell->addr) cell->next = alloc_nil();
+  if (cell->ar.addr) cell->dr.next = alloc_nil();
   cell = *rs->stack;
-  Cell* tmpc = cell;
+  tmpc = cell;
 
   cell = reader_next_list_cell(cell, rs);
   rs->state = PST_ATOM;
@@ -33,7 +33,7 @@ ReaderState* read_char(char c, ReaderState* rs) {
   if (!cell) {
     // make a root
     cell = alloc_nil();
-    cell->next = alloc_nil();
+    cell->dr.next = alloc_nil();
     *rs->stack = cell;
   }
 
@@ -47,13 +47,13 @@ ReaderState* read_char(char c, ReaderState* rs) {
       rs->state = PST_NUM;
       rs->valuestate = VST_DEFAULT;
       new_cell = alloc_int(0);
-      new_cell->value = c-'0';
-      cell->addr = new_cell;
+      new_cell->ar.value = c-'0';
+      cell->ar.addr = new_cell;
 
     } else if (c=='(') {
       // start list
       new_cell = alloc_nil();
-      cell->addr = new_cell;
+      cell->ar.addr = new_cell;
       *rs->stack = cell;
 
       cell = new_cell;
@@ -68,23 +68,23 @@ ReaderState* read_char(char c, ReaderState* rs) {
       rs->state = PST_BYTES;
       rs->sym_len = 0;
       new_cell = alloc_bytes();
-      cell->addr = new_cell;
+      cell->ar.addr = new_cell;
     } else if (c=='"') {
       // string
       rs->state = PST_STR;
       rs->sym_len = 0;
       new_cell = alloc_string();
-      cell->addr = new_cell;
+      cell->ar.addr = new_cell;
     } else {
       // symbol
       rs->state = PST_SYM;
       rs->sym_len = 1;
       new_cell = alloc_num_bytes(SYM_INIT_BUFFER_SIZE);
       new_cell->tag = TAG_SYM;
-      memset(new_cell->addr, 0, SYM_INIT_BUFFER_SIZE);
-      ((char*)new_cell->addr)[0] = c;
-      new_cell->size = SYM_INIT_BUFFER_SIZE; // buffer space
-      cell->addr = new_cell;
+      memset(new_cell->ar.addr, 0, SYM_INIT_BUFFER_SIZE);
+      ((char*)new_cell->ar.addr)[0] = c;
+      new_cell->dr.size = SYM_INIT_BUFFER_SIZE; // buffer space
+      cell->ar.addr = new_cell;
     }
 
   } else if (rs->state == PST_COMMENT) {
@@ -94,10 +94,9 @@ ReaderState* read_char(char c, ReaderState* rs) {
   } else if (rs->state == PST_NUM || rs->state == PST_NUM_NEG) {
     if ((c>='0' && c<='9') || ((rs->valuestate == VST_HEX && c>='a' && c<='f'))) {
       // build number
-      Cell* vcell = (Cell*)cell->addr;
-      int mul = 10;
+      Cell* vcell = (Cell*)cell->ar.addr;
+      int mul = 10, d = 0;
       if (rs->valuestate == VST_HEX) mul = 16;
-      int d = 0;
       if (c>='a') {
         d = 10+(c-'a');
       } else {
@@ -105,9 +104,9 @@ ReaderState* read_char(char c, ReaderState* rs) {
       }
       
       if (rs->state == PST_NUM_NEG) {
-        vcell->value = vcell->value*mul - d;
+        vcell->ar.value = vcell->ar.value*mul - d;
       } else {
-        vcell->value = vcell->value*mul + d;
+        vcell->ar.value = vcell->ar.value*mul + d;
       }
     } else if (c==' ' || c==13 || c==10) {
       cell = reader_next_list_cell(cell, rs);
@@ -125,8 +124,8 @@ ReaderState* read_char(char c, ReaderState* rs) {
     if (rs->state == PST_STR) {
       if (c=='"') {
         // string is over
-        Cell* vcell = (Cell*)cell->addr;
-        vcell->size = (rs->sym_len);
+        Cell* vcell = (Cell*)cell->ar.addr;
+        vcell->dr.size = (rs->sym_len);
         cell = reader_next_list_cell(cell, rs);
       } else {
         append = 1;
@@ -138,13 +137,13 @@ ReaderState* read_char(char c, ReaderState* rs) {
       } else if (c==' ' || c==13 || c==10) {
         cell = reader_next_list_cell(cell, rs);
       } else if (rs->state == PST_SYM && (c>='0' && c<='9')) {
-        Cell* vcell = (Cell*)cell->addr;
+        Cell* vcell = (Cell*)cell->ar.addr;
         // detect negative number
-        if (((char*)vcell->addr)[0] == '-') {
+        if (((char*)vcell->ar.addr)[0] == '-') {
           // we're actually not a symbol, correct the cell.
           rs->state = PST_NUM_NEG;
           vcell->tag = TAG_INT;
-          vcell->value = -(c-'0');
+          vcell->ar.value = -(c-'0');
         } else {
           append = 1;
         }
@@ -155,42 +154,44 @@ ReaderState* read_char(char c, ReaderState* rs) {
 
     if (append) {
       // build symbol/string
-      Cell* vcell = (Cell*)cell->addr;
+      Cell* vcell = (Cell*)cell->ar.addr;
       int idx = rs->sym_len;
       rs->sym_len++;
-      if (rs->sym_len>=vcell->size-1) {
+      if (rs->sym_len>=vcell->dr.size-1) {
         // grow buffer
-        vcell->addr = cell_realloc(vcell->addr, vcell->size, 2*vcell->size);
-        memset(vcell->addr+vcell->size, 0, vcell->size);
-        vcell->size = 2*vcell->size;
+        vcell->ar.addr = cell_realloc(vcell->ar.addr, vcell->dr.size, 2*vcell->dr.size);
+        memset((char*)vcell->ar.addr+vcell->dr.size, 0, vcell->dr.size);
+        vcell->dr.size = 2*vcell->dr.size;
       }
-      ((char*)vcell->addr)[idx] = c;
+      ((char*)vcell->ar.addr)[idx] = c;
     }
 
   } else if (rs->state == PST_BYTES) {
     if (c==']') {
-      Cell* vcell = (Cell*)cell->addr;
-      vcell->size = (rs->sym_len)/2;
+      Cell* vcell = (Cell*)cell->ar.addr;
+      vcell->dr.size = (rs->sym_len)/2;
       cell = reader_next_list_cell(cell, rs);
     } else if ((c>='0' && c<='9') || (c>='a' && c<='f') || (c>='A' && c<='F')) {
-      int n = c;
+      int n = c, idx;
+      Cell* vcell;
+      
       if (n>='a') n-=('a'-'9'-1); // hex 'a' to 10 offset
       if (n>='A') n-=('A'-'9'-1); // hex 'a' to 10 offset
       n-='0'; // char to value
 
-      Cell* vcell = (Cell*)cell->addr;
-      int idx = rs->sym_len;
+      vcell = (Cell*)cell->ar.addr;
+      idx = rs->sym_len;
       rs->sym_len++;
-      if (rs->sym_len>=(vcell->size/2)-1) {
+      if (rs->sym_len>=(vcell->dr.size/2)-1) {
         // grow buffer
-        vcell->addr = cell_realloc(vcell->addr, vcell->size, 2*vcell->size); // TODO: check the math
-        memset(vcell->addr+vcell->size, 0, vcell->size);
-        vcell->size = 2*vcell->size;
+        vcell->ar.addr = cell_realloc(vcell->ar.addr, vcell->dr.size, 2*vcell->dr.size); // TODO: check the math
+        memset((char*)vcell->ar.addr+vcell->dr.size, 0, vcell->dr.size);
+        vcell->dr.size = 2*vcell->dr.size;
       }
       if (idx%2==0) { // even digit
-        ((uint8_t*)vcell->addr)[idx/2] = n<<4; // high nybble
+        ((uint8_t*)vcell->ar.addr)[idx/2] = n<<4; // high nybble
       } else { // odd digit
-        ((uint8_t*)vcell->addr)[idx/2] |= n;
+        ((uint8_t*)vcell->ar.addr)[idx/2] |= n;
       }
       
     } else if (c==' ' || c==13 || c==10) {
@@ -205,15 +206,18 @@ ReaderState* read_char(char c, ReaderState* rs) {
 
 Cell* read_string(char* in) {
   ReaderState rs;
-  Cell stack_root[100];
+  int i, len;
+  Cell stack_root[32];
+  Cell* root;
+  Cell* ret_cell;
 
   rs.state = PST_ATOM;
   rs.cell = 0;
   rs.level = 0;
   rs.stack = (void*)&stack_root;
 
-  int i=0;
-  int len = strlen(in);
+  i=0;
+  len = strlen(in);
   for (i=0; i<len; i++) {
     read_char(in[i], &rs);
     if (rs.state>=10) {
@@ -231,22 +235,24 @@ Cell* read_string(char* in) {
     //return alloc_error(ERR_SYNTAX);
   }
 
-  Cell* root = *rs.stack;
+  root = *rs.stack;
   
   if (root) {
-    Cell* ret = car(root);
-    //if (root->next) free(root->next);
+    ret_cell = car(root);
+    //if (root->dr.next) free(root->dr.next);
     //free(root);
-    return ret;
+    return ret_cell;
   }
   return alloc_error(ERR_SYNTAX);
 }
 
 Cell* read_string_cell(Cell* in) {
+  char* str;
+  
   if (!in) return alloc_nil();
-  if (!in->size) return alloc_nil();
-  char* str = (char*)in->addr;
-  str[in->size]=0;
+  if (!in->dr.size) return alloc_nil();
+  str = (char*)in->ar.addr;
+  str[in->dr.size]=0;
   //printf("read[%s]\r\n",str);
   return read_string(str);
 }

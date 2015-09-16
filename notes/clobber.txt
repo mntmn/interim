@@ -1,0 +1,39 @@
+(def demo (fn (do
+  (let d 1)
+  (let y 0)
+  (while (lt d 100) (do
+    (print d)
+    ;(let y (/ d 2))
+    (box d y d)
+    (let d (+ d 4))
+    (send scr 0)
+  ))
+)))
+(demo)
+
+
+(def foo (fn a b c d e f (do
+  (print a)
+  (print b)
+  (print c)
+  (print d)
+  (print e)
+  (print f)
+)))
+(foo (- 10 3) (- 10 4) (- 10 5) (- 10 6) (- 10 7) (- 10 8))
+
+(foo (/ 10 4) (+ 10 4) (* 10 4) (- 10 4))
+
+
+
+
+
+
+------------
+
+rdi = arg1
+rsi = arg2
+rdx = arg3
+r12 = arg4
+
+12,13,14

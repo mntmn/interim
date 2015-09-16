@@ -53,7 +53,7 @@ Cell* uartkeys_read(Cell* stream) {
   }*/
   
   Cell* res = alloc_string_copy(" ");
-  ((uint8_t*)res->addr)[0] = k;
+  ((uint8_t*)res->ar.addr)[0] = k;
   
   return res;
 }

@@ -2,13 +2,14 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include "minilisp.h"
-#include <stdint.h>
 #include <stdlib.h>
-#include <sys/mman.h> // mprotect
+#include "alloc.h"
 
 Cell* platform_eval(Cell* expr); // FIXME
 
 #include "compiler_new.c"
+
+#define BUFSZ 2048
 
 #ifdef CPU_X64
 #include "compiler_x64_hosted.c"
@@ -18,16 +19,36 @@ Cell* platform_eval(Cell* expr); // FIXME
 #include "compiler_arm_hosted.c"
 #endif
 
-ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+#ifdef CPU_X86
+#include "compiler_x86.c"
+#endif
+
+#ifdef __AMIGA
+#include "compiler_m68k.c"
+#endif
+
+#ifdef __APPLE__
+#include "../devices/macosx.c"
+#endif
+
+//ssize_t getline(char **lineptr, size_t *n, FILE *stream);
+
+void terminal_writestring(const char* data);
 
 int main(int argc, char *argv[])
 {
+  //create_shared_application();
+
   Cell* expr = NULL;
-  char* in_line = NULL;
-  char* in_buffer = malloc(100*1024);
+  char* in_line = malloc(BUFSZ);
+  char* in_buffer = malloc(64*BUFSZ);
+  char* out_buf = malloc(BUFSZ);
+  char* res;
   int in_offset = 0;
   int parens = 0;
   size_t len = 0;
+  int i;
+  FILE* in_file = stdin;
 
   init_compiler();
   filesystems_init();
@@ -51,64 +72,87 @@ int main(int argc, char *argv[])
   void mount_posixfs();
   mount_posixfs();
 #endif
+
+#ifdef DEV_BIOS
+  void mount_bios();
+  mount_bios();
+#endif
   
 #ifdef DEV_CONSOLEKEYS
   void mount_consolekeys();
   mount_consolekeys();
 #endif
-
-  FILE* in_file = stdin;  
-
+  
+#ifdef __AMIGA
+  mount_amiga();
+#endif
+  
   if (argc==2) {
     in_file = fopen(argv[1],"r");
+    if (!in_file) in_file = stdin;
   }
 
   while (1) {
+    printf("sledge> ");
     expr = NULL;
-    
-    printf(KWHT "sledge> ");
     len = 0;
-    int r = getline(&in_line, &len, in_file);
 
-    if (r<1 || !in_line) exit(0);
+    res = fgets(in_line, BUFSZ, in_file);
+    if (res) {
+      len = strlen(in_line);
+    }
 
-    // recognize parens
-    int l = strlen(in_line);
+    //printf("line: (%d) |%s|\r\n",len,in_line);
     
-    for (int i=0; i<l; i++) {
-      if (in_line[i] == ';') break;
-      if (in_line[i] == '(') {
-        parens++;
-      } else if (in_line[i] == ')') {
-        parens--;
+    if (len>0) {
+      // recognize parens
+      for (i=0; i<len; i++) {
+        if (in_line[i] == ';') break;
+        if (in_line[i] == '(') {
+          parens++;
+        } else if (in_line[i] == ')') {
+          parens--;
+        }
+      }
+
+      //printf("in_offset: %d, i: %d\r\n");
+
+      strncpy(in_buffer+in_offset, in_line, i);
+      in_buffer[in_offset+i]='\n';
+      in_buffer[in_offset+i+1]=0;
+    
+      if (parens>0) {
+        //printf("...\r\n");
+        in_offset+=i;
+      } else {
+        in_offset=0;
+        if (len>1) {
+          expr = (Cell*)read_string(in_buffer);
+        } else {
+          printf("\r\n");
+        }
       }
     }
-    
-    strcpy(in_buffer+in_offset, in_line);
-    
-    if (parens>0) {
-      printf("…\n");
-      if (l>0) {
-        in_buffer[in_offset+l-1] = '\n';
-      }
-      in_offset+=l;
-    } else {
-      expr = read_string(in_buffer);
+
+    if (feof(in_file) || len==0) {
+      if (in_file!=stdin) fclose(in_file);
+      in_file = stdin;
       in_offset=0;
+      clearerr(stdin);
+      printf("stdin status: %d\r\n",feof(stdin));
     }
     
     if (expr) {      
       Cell* res;
-      int success = compile_for_platform(expr, &res); 
-
+      int success = compile_for_platform(expr, &res);
+      
       if (success) {
         // OK
-        if (res<cell_heap_start) {
-          printf("invalid cell (%p)\n",res);
+        if (!res) {
+          printf("invalid cell (%p)\r\n",res);
         } else {
-          char out_buf[1024*10];
-          lisp_write(res, out_buf, 1024*10);
-          printf(KCYN "\n%s\n\n" KWHT,out_buf);
+          lisp_write(res, out_buf, 1024);
+          printf("\r\n%s\r\n",out_buf);
         }
       } else {
         printf("<compilation failed>\n");
@@ -120,38 +164,35 @@ int main(int argc, char *argv[])
 }
 
 Cell* platform_eval(Cell* expr) {
+  char* buf=malloc(BUFSZ);
+  int i = 0;
+  Cell* res = (Cell*)alloc_nil();
+  Cell* c;
+  int tag;
+  
   if (!expr || expr->tag!=TAG_CONS) {
     printf("[platform_eval] error: no expr given.\r\n");
     return NULL;
   }
 
-  char buf[512];
-
-  int i = 0;
-  Cell* res = alloc_nil();
-  Cell* c;
-  while (expr>=cell_heap_start && (c = car(expr))) {
-    if (c<cell_heap_start) {
-      printf("[platform_eval] aborting.\r\n");
-      return res;
-    }
-    
-    i++;
-    int tag = compile_for_platform(c, &res); 
+  while (expr && (c = car(expr))) {
+    tag = compile_for_platform(c, &res); 
   
     if (tag) {
-      //printf("~~ expr %d res: %p\r\n",i,res);
-      //lisp_write(res, buf, 512);
-      //printf("~> %s\r\n",buf);
+      /*printf("~~ expr %d res: %p\r\n",i,res);
+      lisp_write(res, buf, 512);
+      printf("~> %s\r\n",buf);*/
     } else {
-      lisp_write(expr, buf, 512);
-      printf("[platform_eval] stopped at expression %d: %s…\r\n",i,buf);
+      lisp_write(c, buf, BUFSZ);
+      printf("[platform_eval] stopped at expression %d: %s\r\n",i,buf);
       break;
     }
     // when to free the code? -> when no bound lambdas involved
     
+    i++;
     expr = cdr(expr);
   }
+  free(buf);
   
   return res;
 }

@@ -30,7 +30,7 @@ void ethernet_tx(uint8_t* packet, int len) {
 
 Cell* ethfs_open(Cell* path_cell) {
   // TODO typecheck
-  char* path = path_cell->addr;
+  char* path = path_cell->ar.addr;
   
   if (!strncmp((char*)(path+4),"/tcp/",5)) {
     printf("[tcp] %s",path+4);
@@ -66,7 +66,7 @@ Cell* ethfs_open(Cell* path_cell) {
 Cell* ethfs_read() {
   /*int len = ethernet_rx(eth_rx_buffer);
   Cell* packet = alloc_num_bytes(len);
-  memcpy(packet->addr, eth_rx_buffer, len);*/
+  memcpy(packet->ar.addr, eth_rx_buffer, len);*/
 
   return eth_task();
   
@@ -75,7 +75,7 @@ Cell* ethfs_read() {
 
 // FIXME differntiate connections, protocols
 Cell* ethfs_write(Cell* stream, Cell* packet) {
-  //ethernet_tx(packet->addr,packet->size);
+  //ethernet_tx(packet->ar.addr,packet->size);
   return send_tcp(packet);
 }
 

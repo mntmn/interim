@@ -30,11 +30,6 @@ static uint32_t* code;
 static uint32_t code_idx;
 static uint32_t cpool_idx; // constant pool
 
-typedef struct Label {
-  char* name;
-  uint32_t idx;
-} Label;
-
 #define JIT_MAX_LABELS 32
 static int label_idx = 0;
 static Label jit_labels[JIT_MAX_LABELS];
@@ -231,6 +226,13 @@ void jit_andr(int dreg, int sreg) {
   code[code_idx++] = op;
 }
 
+void jit_notr(int dreg) {
+  uint32_t op = 0xe1e00000;
+  op |= (dreg<<0);
+  op |= (dreg<<12);
+  code[code_idx++] = op;
+}
+
 void jit_orr(int dreg, int sreg) {
   uint32_t op = 0xe1800000;
   op |= (sreg<<0);
@@ -269,6 +271,9 @@ void jit_call(void* func, char* note) {
   jit_lea(15,func);
   code[code_idx++] = 0xe8bd4000; // ldmfd	sp!, {lr}
 }
+
+#define jit_call2 jit_call
+#define jit_call3 jit_call
 
 void jit_callr(int reg) {
   code[code_idx++] = 0xe92d4000; // stmfd	sp!, {lr}

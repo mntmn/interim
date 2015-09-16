@@ -4,14 +4,16 @@
 
 //#define DEBUG
 
+#include <sys/mman.h> // mprotect
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 Cell* execute_jitted(void* binary) {
   return (Cell*)((funcptr)binary)(0);
 }
 
 int compile_for_platform(Cell* expr, Cell** res) {
-
-  int codesz = 8192;
-  
   jit_out = fopen("/tmp/jit_out.s","w");
   
   jit_init();
@@ -21,13 +23,22 @@ int compile_for_platform(Cell* expr, Cell** res) {
   int success = compile_expr(expr, &empty_frame, TAG_ANY);
   jit_ret();
 
+  if (!success) {
+    printf("<compile_expr failed: %d>\r\n",success);
+  }
+
   if (success) {
+    int codesz = 1024;
     fclose(jit_out);
 
+    struct stat src_stat;
+    stat("/tmp/jit_out.s", &src_stat);
+    off_t generated_sz = src_stat.st_size;
+
     FILE* asm_f = fopen("/tmp/jit_out.s","r");
-    uint32_t* jit_asm = malloc(64000);
-    memset(jit_asm, 0, 64000);
-    fread(jit_asm,1,63999,asm_f);
+    uint32_t* jit_asm = malloc(generated_sz);
+    memset(jit_asm,0,generated_sz);
+    fread(jit_asm,1,generated_sz,asm_f);
     fclose(asm_f);
         
 #ifdef DEBUG
@@ -44,8 +55,16 @@ int compile_for_platform(Cell* expr, Cell** res) {
     system("objcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
 #endif
 
+    stat("/tmp/jit_out.bin", &src_stat);
+    
+    generated_sz = src_stat.st_size;
+    while (generated_sz>codesz) {
+      codesz*=2;
+      printf ("<compiler: doubling code block size to %d>\r\n",codesz);
+    }
+    
     FILE* binary_f = fopen("/tmp/jit_out.bin","r");
-
+    
     uint32_t* jit_binary = mmap(0, codesz, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
         
     int bytes_read = fread(jit_binary,1,codesz,binary_f);
@@ -68,14 +87,14 @@ int compile_for_platform(Cell* expr, Cell** res) {
 
     // read symbols for linking lambdas
 #if defined(__APPLE__) && defined(__MACH__)
-    system("gnm /tmp/jit_out.o > /tmp/jit_out.syms");
+    system("gnm /tmp/jit_out.o > /tmp/jit_out.syms 2> /dev/null");
 #else
     system("nm /tmp/jit_out.o > /tmp/jit_out.syms");
 #endif
     FILE* link_f = fopen("/tmp/jit_out.syms","r");
     if (link_f) {
-      char link_line[128];
-      while(fgets(link_line, sizeof(link_line), link_f)) {
+      char* link_line=malloc(128);
+      while(fgets(link_line, 128, link_f)) {
 
         if (strlen(link_line)>22) {
           char ida=link_line[19];
@@ -93,7 +112,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
               //printf("function %p entrypoint: %p (+%ld)\n",lambda,binary,offset);
 
               if (lambda->tag == TAG_LAMBDA) {
-                lambda->next = binary;
+                lambda->dr.next = binary;
               } else {
                 printf("fatal error: no lambda found at %p!\n",lambda);
               }
@@ -106,6 +125,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
           }
         }
       }
+      free(link_line);
     }
       
     int mp_res = mprotect(jit_binary, codesz, PROT_EXEC|PROT_READ);

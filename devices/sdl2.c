@@ -86,8 +86,8 @@ Cell* fbfs_write(Cell* arg) {
 Cell* fbfs_mmap(Cell* arg) {
   sdl_init(0);
   Cell* fbtest = alloc_num_bytes(0);
-  fbtest->addr = sdl_get_fb();
-  fbtest->size = sdl_get_fbsize();
+  fbtest->ar.addr = sdl_get_fb();
+  fbtest->dr.size = sdl_get_fbsize();
   //printf("fbtest->addr: %p\n",fbtest->addr);
   //printf("fbtest->size: %lx\n",fbtest->size);
 
@@ -96,6 +96,10 @@ Cell* fbfs_mmap(Cell* arg) {
 
 void sdl_mount_fbfs() {
   fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0, fbfs_mmap);
+  
+  insert_global_symbol(alloc_sym("screen-width"),alloc_int(WIDTH));
+  insert_global_symbol(alloc_sym("screen-height"),alloc_int(HEIGHT));
+  insert_global_symbol(alloc_sym("screen-bpp"),alloc_int(BPP));
 }
 
 
@@ -110,7 +114,7 @@ Cell* keyfs_read() {
   sdl_key = 0;
   SDL_Event event;
 
-  usleep(20000);
+  usleep(10000);
   
   if (SDL_PollEvent(&event))
   {
@@ -179,7 +183,7 @@ Cell* keyfs_read() {
   }
   
   Cell* res = alloc_string_copy(" ");
-  ((uint8_t*)res->addr)[0] = sdl_key;
+  ((uint8_t*)res->ar.addr)[0] = sdl_key;
   sdl_key = 0;
   return res;
 }
