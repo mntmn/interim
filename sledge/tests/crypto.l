@@ -1,0 +1,197 @@
+
+(def md5-f  (fn x y z (bitxor z (bitand x (bitxor y z)))))
+(def md5-g  (fn x y z (bitxor y (bitand z (bitxor x y)))))
+(def md5-h  (fn x y z (bitxor z (bitxor x y))))
+(def md5-h2 (fn x y z (bitxor x (bitxor y z))))
+(def md5-i  (fn x y z (bitxor y (bitor x (bitnot z)))))
+
+(def md5 (fn data (do
+  (let a 0x67452301)
+  (let b 0xefcdab89)
+  (let c 0x98badcfe)
+  (let d 0x10325476)
+
+  (let saved-a a)
+  (let saved-b b)
+  (let saved-c c)
+  (let saved-d d)
+
+  ; round 1
+  (let a (+ a (+ 0xd76aa478 (+ (get32 data 0) (md5-f b c d)))))
+  (let a (+ b (bitor (shl a 7)  (shr (bitand a 0xffffffff) (- 32 7)))))
+  (let d (+ d (+ 0xe8c7b756 (+ (get32 data 1) (md5-f a b c)))))
+  (let d (+ a (bitor (shl d 12) (shr (bitand d 0xffffffff) (- 32 12)))))
+  (let c (+ c (+ 0x242070db (+ (get32 data 2) (md5-f d a b)))))
+  (let c (+ d (bitor (shl c 17) (shr (bitand c 0xffffffff) (- 32 17)))))
+  (let b (+ b (+ 0xc1bdceee (+ (get32 data 3) (md5-f c d a)))))
+  (let b (+ c (bitor (shl b 22) (shr (bitand b 0xffffffff) (- 32 22)))))
+  
+  (let a (+ a (+ 0xf57c0faf (+ (get32 data 4) (md5-f b c d)))))
+  (let a (+ b (bitor (shl a 7)  (shr (bitand a 0xffffffff) (- 32 7)))))
+  (let d (+ d (+ 0x4787c62a (+ (get32 data 5) (md5-f a b c)))))
+  (let d (+ a (bitor (shl d 12) (shr (bitand d 0xffffffff) (- 32 12)))))
+  (let c (+ c (+ 0xa8304613 (+ (get32 data 6) (md5-f d a b)))))
+  (let c (+ d (bitor (shl c 17) (shr (bitand c 0xffffffff) (- 32 17)))))
+  (let b (+ b (+ 0xfd469501 (+ (get32 data 7) (md5-f c d a)))))
+  (let b (+ c (bitor (shl b 22) (shr (bitand b 0xffffffff) (- 32 22)))))
+  
+  (let a (+ a (+ 0x698098d8 (+ (get32 data 8) (md5-f b c d)))))
+  (let a (+ b (bitor (shl a 7)  (shr (bitand a 0xffffffff) (- 32 7)))))
+  (let d (+ d (+ 0x8b44f7af (+ (get32 data 9) (md5-f a b c)))))
+  (let d (+ a (bitor (shl d 12) (shr (bitand d 0xffffffff) (- 32 12)))))
+  (let c (+ c (+ 0xffff5bb1 (+ (get32 data 10) (md5-f d a b)))))
+  (let c (+ d (bitor (shl c 17) (shr (bitand c 0xffffffff) (- 32 17)))))
+  (let b (+ b (+ 0x895cd7be (+ (get32 data 11) (md5-f c d a)))))
+  (let b (+ c (bitor (shl b 22) (shr (bitand b 0xffffffff) (- 32 22)))))
+  
+  (let a (+ a (+ 0x6b901122 (+ (get32 data 12) (md5-f b c d)))))
+  (let a (+ b (bitor (shl a 7)  (shr (bitand a 0xffffffff) (- 32 7)))))
+  (let d (+ d (+ 0xfd987193 (+ (get32 data 13) (md5-f a b c)))))
+  (let d (+ a (bitor (shl d 12) (shr (bitand d 0xffffffff) (- 32 12)))))
+  (let c (+ c (+ 0xa679438e (+ (get32 data 14) (md5-f d a b)))))
+  (let c (+ d (bitor (shl c 17) (shr (bitand c 0xffffffff) (- 32 17)))))
+  (let b (+ b (+ 0x49b40821 (+ (get32 data 15) (md5-f c d a)))))
+  (let b (+ c (bitor (shl b 22) (shr (bitand b 0xffffffff) (- 32 22)))))
+
+  ; round 2
+  
+  (let a (+ a (+ 0xf61e2562 (+ (get32 data 1) (md5-g b c d)))))
+  (let a (+ b (bitor (shl a 5)  (shr (bitand a 0xffffffff) (- 32 5)))))
+  (let d (+ d (+ 0xc040b340 (+ (get32 data 6) (md5-g a b c)))))
+  (let d (+ a (bitor (shl d 9) (shr (bitand d 0xffffffff) (- 32 9)))))
+  (let c (+ c (+ 0x265e5a51 (+ (get32 data 11) (md5-g d a b)))))
+  (let c (+ d (bitor (shl c 14) (shr (bitand c 0xffffffff) (- 32 14)))))
+  (let b (+ b (+ 0xe9b6c7aa (+ (get32 data 0) (md5-g c d a)))))
+  (let b (+ c (bitor (shl b 20) (shr (bitand b 0xffffffff) (- 32 20)))))
+  
+  (let a (+ a (+ 0xd62f105d (+ (get32 data 5) (md5-g b c d)))))
+  (let a (+ b (bitor (shl a 5)  (shr (bitand a 0xffffffff) (- 32 5)))))
+  (let d (+ d (+ 0x02441453 (+ (get32 data 10) (md5-g a b c)))))
+  (let d (+ a (bitor (shl d 9) (shr (bitand d 0xffffffff) (- 32 9)))))
+  (let c (+ c (+ 0xd8a1e681 (+ (get32 data 15) (md5-g d a b)))))
+  (let c (+ d (bitor (shl c 14) (shr (bitand c 0xffffffff) (- 32 14)))))
+  (let b (+ b (+ 0xe7d3fbc8 (+ (get32 data 4) (md5-g c d a)))))
+  (let b (+ c (bitor (shl b 20) (shr (bitand b 0xffffffff) (- 32 20)))))
+  
+  (let a (+ a (+ 0x21e1cde6 (+ (get32 data 9) (md5-g b c d)))))
+  (let a (+ b (bitor (shl a 5)  (shr (bitand a 0xffffffff) (- 32 5)))))
+  (let d (+ d (+ 0xc33707d6 (+ (get32 data 14) (md5-g a b c)))))
+  (let d (+ a (bitor (shl d 9) (shr (bitand d 0xffffffff) (- 32 9)))))
+  (let c (+ c (+ 0xf4d50d87 (+ (get32 data 3) (md5-g d a b)))))
+  (let c (+ d (bitor (shl c 14) (shr (bitand c 0xffffffff) (- 32 14)))))
+  (let b (+ b (+ 0x455a14ed (+ (get32 data 8) (md5-g c d a)))))
+  (let b (+ c (bitor (shl b 20) (shr (bitand b 0xffffffff) (- 32 20)))))
+  
+  (let a (+ a (+ 0xa9e3e905 (+ (get32 data 13) (md5-g b c d)))))
+  (let a (+ b (bitor (shl a 5)  (shr (bitand a 0xffffffff) (- 32 5)))))
+  (let d (+ d (+ 0xfcefa3f8 (+ (get32 data 2) (md5-g a b c)))))
+  (let d (+ a (bitor (shl d 9) (shr (bitand d 0xffffffff) (- 32 9)))))
+  (let c (+ c (+ 0x676f02d9 (+ (get32 data 7) (md5-g d a b)))))
+  (let c (+ d (bitor (shl c 14) (shr (bitand c 0xffffffff) (- 32 14)))))
+  (let b (+ b (+ 0x8d2a4c8a (+ (get32 data 12) (md5-g c d a)))))
+  (let b (+ c (bitor (shl b 20) (shr (bitand b 0xffffffff) (- 32 20)))))
+  
+  ; round 3
+  
+  (let a (+ a (+ 0xfffa3942 (+ (get32 data 5)  (md5-h b c d)))))
+  (let a (+ b (bitor (shl a 4)  (shr (bitand a 0xffffffff) (- 32 4)))))
+  (let d (+ d (+ 0x8771f681 (+ (get32 data 8)  (md5-h2 a b c)))))
+  (let d (+ a (bitor (shl d 11) (shr (bitand d 0xffffffff) (- 32 11)))))
+  (let c (+ c (+ 0x6d9d6122 (+ (get32 data 11) (md5-h d a b)))))
+  (let c (+ d (bitor (shl c 16) (shr (bitand c 0xffffffff) (- 32 16)))))
+  (let b (+ b (+ 0xfde5380c (+ (get32 data 14) (md5-h2 c d a)))))
+  (let b (+ c (bitor (shl b 23) (shr (bitand b 0xffffffff) (- 32 23)))))
+  
+  (let a (+ a (+ 0xa4beea44 (+ (get32 data 1)  (md5-h b c d)))))
+  (let a (+ b (bitor (shl a 4)  (shr (bitand a 0xffffffff) (- 32 4)))))
+  (let d (+ d (+ 0x4bdecfa9 (+ (get32 data 4)  (md5-h2 a b c)))))
+  (let d (+ a (bitor (shl d 11) (shr (bitand d 0xffffffff) (- 32 11)))))
+  (let c (+ c (+ 0xf6bb4b60 (+ (get32 data 7)  (md5-h d a b)))))
+  (let c (+ d (bitor (shl c 16) (shr (bitand c 0xffffffff) (- 32 16)))))
+  (let b (+ b (+ 0xbebfbc70 (+ (get32 data 10) (md5-h2 c d a)))))
+  (let b (+ c (bitor (shl b 23) (shr (bitand b 0xffffffff) (- 32 23)))))
+  
+  (let a (+ a (+ 0x289b7ec6 (+ (get32 data 13) (md5-h b c d)))))
+  (let a (+ b (bitor (shl a 4)  (shr (bitand a 0xffffffff) (- 32 4)))))
+  (let d (+ d (+ 0xeaa127fa (+ (get32 data 0)  (md5-h2 a b c)))))
+  (let d (+ a (bitor (shl d 11) (shr (bitand d 0xffffffff) (- 32 11)))))
+  (let c (+ c (+ 0xd4ef3085 (+ (get32 data 3)  (md5-h d a b)))))
+  (let c (+ d (bitor (shl c 16) (shr (bitand c 0xffffffff) (- 32 16)))))
+  (let b (+ b (+ 0x04881d05 (+ (get32 data 6)  (md5-h2 c d a)))))
+  (let b (+ c (bitor (shl b 23) (shr (bitand b 0xffffffff) (- 32 23)))))
+  
+  (let a (+ a (+ 0xd9d4d039 (+ (get32 data 9)  (md5-h b c d)))))
+  (let a (+ b (bitor (shl a 4)  (shr (bitand a 0xffffffff) (- 32 4)))))
+  (let d (+ d (+ 0xe6db99e5 (+ (get32 data 12) (md5-h2 a b c)))))
+  (let d (+ a (bitor (shl d 11) (shr (bitand d 0xffffffff) (- 32 11)))))
+  (let c (+ c (+ 0x1fa27cf8 (+ (get32 data 15) (md5-h d a b)))))
+  (let c (+ d (bitor (shl c 16) (shr (bitand c 0xffffffff) (- 32 16)))))
+  (let b (+ b (+ 0xc4ac5665 (+ (get32 data 2)  (md5-h2 c d a)))))
+  (let b (+ c (bitor (shl b 23) (shr (bitand b 0xffffffff) (- 32 23)))))
+  
+  ; round 4
+  
+  (let a (+ a (+ 0xf4292244 (+ (get32 data 0)  (md5-i b c d)))))
+  (let a (+ b (bitor (shl a 6)  (shr (bitand a 0xffffffff) (- 32 6)))))
+  (let d (+ d (+ 0x432aff97 (+ (get32 data 7)  (md5-i a b c)))))
+  (let d (+ a (bitor (shl d 10) (shr (bitand d 0xffffffff) (- 32 10)))))
+  (let c (+ c (+ 0xab9423a7 (+ (get32 data 14) (md5-i d a b)))))
+  (let c (+ d (bitor (shl c 15) (shr (bitand c 0xffffffff) (- 32 15)))))
+  (let b (+ b (+ 0xfc93a039 (+ (get32 data 5) (md5-i c d a)))))
+  (let b (+ c (bitor (shl b 21) (shr (bitand b 0xffffffff) (- 32 21)))))
+  
+  (let a (+ a (+ 0x655b59c3 (+ (get32 data 12)  (md5-i b c d)))))
+  (let a (+ b (bitor (shl a 6)  (shr (bitand a 0xffffffff) (- 32 6)))))
+  (let d (+ d (+ 0x8f0ccc92 (+ (get32 data 3)  (md5-i a b c)))))
+  (let d (+ a (bitor (shl d 10) (shr (bitand d 0xffffffff) (- 32 10)))))
+  (let c (+ c (+ 0xffeff47d (+ (get32 data 10)  (md5-i d a b)))))
+  (let c (+ d (bitor (shl c 15) (shr (bitand c 0xffffffff) (- 32 15)))))
+  (let b (+ b (+ 0x85845dd1 (+ (get32 data 1) (md5-i c d a)))))
+  (let b (+ c (bitor (shl b 21) (shr (bitand b 0xffffffff) (- 32 21)))))
+  
+  (let a (+ a (+ 0x6fa87e4f (+ (get32 data 8)  (md5-i b c d)))))
+  (let a (+ b (bitor (shl a 6)  (shr (bitand a 0xffffffff) (- 32 6)))))
+  (let d (+ d (+ 0xfe2ce6e0 (+ (get32 data 15) (md5-i a b c)))))
+  (let d (+ a (bitor (shl d 10) (shr (bitand d 0xffffffff) (- 32 10)))))
+  (let c (+ c (+ 0xa3014314 (+ (get32 data 6)  (md5-i d a b)))))
+  (let c (+ d (bitor (shl c 15) (shr (bitand c 0xffffffff) (- 32 15)))))
+  (let b (+ b (+ 0x4e0811a1 (+ (get32 data 13) (md5-i c d a)))))
+  (let b (+ c (bitor (shl b 21) (shr (bitand b 0xffffffff) (- 32 21)))))
+  
+  (let a (+ a (+ 0xf7537e82 (+ (get32 data 4)  (md5-i b c d)))))
+  (let a (+ b (bitor (shl a 6)  (shr (bitand a 0xffffffff) (- 32 6)))))
+  (let d (+ d (+ 0xbd3af235 (+ (get32 data 11) (md5-i a b c)))))
+  (let d (+ a (bitor (shl d 10) (shr (bitand d 0xffffffff) (- 32 10)))))
+  (let c (+ c (+ 0x2ad7d2bb (+ (get32 data 2) (md5-i d a b)))))
+  (let c (+ d (bitor (shl c 15) (shr (bitand c 0xffffffff) (- 32 15)))))
+  (let b (+ b (+ 0xeb86d391 (+ (get32 data 9)  (md5-i c d a)))))
+  (let b (+ c (bitor (shl b 21) (shr (bitand b 0xffffffff) (- 32 21)))))
+
+  (let a (+ saved-a a))
+  (let b (+ saved-b b))
+  (let c (+ saved-c c))
+  (let d (+ saved-d d))
+
+  (let result (alloc 16))
+  (put32 result 0 a)
+  (put32 result 4 b)
+  ;(put32 result 8 c)
+  ;(put32 result 12 d)
+  
+  result
+)))
+
+(def md5-digest (fn data (do
+  ""
+)))
+
+(def hmac-blocksize 64)
+
+(def hmac-md5 (fn key msg (do
+  (let key (concat key (alloc (- hmac-blocksize (size key)))))
+  (let opad "")
+  (let ipad "")
+  (md5 (concat opad (md5-digest (concat ipad msg))))
+)))
+
+(md5 "this is just an md5 hashing test. what will come from it? 123456")
