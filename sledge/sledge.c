@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 {
   Cell* expr = NULL;
   char* in_line = malloc(BUFSZ);
-  char* in_buffer = malloc(20*BUFSZ);
+  char* in_buffer = malloc(64*BUFSZ);
   char* out_buf = malloc(BUFSZ);
   char* res;
   int in_offset = 0;

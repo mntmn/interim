@@ -511,6 +511,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       else compiled_type = TAG_INT;
       break;
     }
+    case BUILTIN_BITNOT: {
+      load_int(ARGR0,argdefs[0], frame);
+      jit_notr(ARGR0);
+      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      else compiled_type = TAG_INT;
+      break;
+    }
     case BUILTIN_BITOR: {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
@@ -1049,6 +1056,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_cell(R3,argdefs[0], frame);
       load_int(R2,argdefs[1], frame); // offset -> R2
       jit_ldr(R3); // string address
+      jit_movi(R1,2); // offset * 4
+      jit_shlr(R2,R1);
       jit_addr(R3,R2);
       jit_ldrw(R3); // load to r3
       
@@ -1288,7 +1297,8 @@ void init_compiler() {
   insert_symbol(alloc_sym("%"), alloc_builtin(BUILTIN_MOD, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("bitand"), alloc_builtin(BUILTIN_BITAND, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("bitor"),  alloc_builtin(BUILTIN_BITOR, alloc_list(signature, 2)), &global_env);
-  insert_symbol(alloc_sym("bitxor"), alloc_builtin(BUILTIN_BITOR, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("bitnot"), alloc_builtin(BUILTIN_BITNOT, alloc_list(signature, 1)), &global_env);
+  insert_symbol(alloc_sym("bitxor"), alloc_builtin(BUILTIN_BITXOR, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("shl"),    alloc_builtin(BUILTIN_SHL, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("shr"),    alloc_builtin(BUILTIN_SHR, alloc_list(signature, 2)), &global_env);
   

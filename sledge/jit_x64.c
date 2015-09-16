@@ -132,6 +132,10 @@ void jit_andr(int dreg, int sreg) {
   fprintf(jit_out, "andq %s, %s\n", regnames[sreg], regnames[dreg]);
 }
 
+void jit_notr(int dreg) {
+  fprintf(jit_out, "notq %s\n", regnames[dreg]);
+}
+
 void jit_orr(int dreg, int sreg) {
   fprintf(jit_out, "orq %s, %s\n", regnames[sreg], regnames[dreg]);
 }

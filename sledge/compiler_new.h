@@ -47,6 +47,7 @@ typedef enum builtin_t {
   BUILTIN_MOD,
   
   BUILTIN_BITAND,
+  BUILTIN_BITNOT,
   BUILTIN_BITOR,
   BUILTIN_BITXOR,
   BUILTIN_SHL,
