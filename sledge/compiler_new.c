@@ -350,12 +350,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     Cell* arg = car(args);
     Cell* signature_arg = car(signature_args);
     char arg_name[32];
-    snprintf(arg_name,sizeof(arg_name),"a%d",argi+1,arg_name,10);
+    snprintf(arg_name,sizeof(arg_name),"a%d",argi+1);
     // 1. is the arg the required type? i.e. a pointer or a number?
 
     if (signature_arg && signature_arg->tag == TAG_CONS) {
       // named argument
-      snprintf(arg_name,sizeof(arg_name),car(signature_arg)->addr);
+      snprintf(arg_name,sizeof(arg_name),"%s",(char*)(car(signature_arg)->addr));
       signature_arg = cdr(signature_arg);
     }
 
@@ -713,8 +713,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
       char label_fn[64];
       char label_fe[64];
-      sprintf(label_fn,"f0_%p",lambda);
-      sprintf(label_fe,"f1_%p",lambda);
+      sprintf(label_fn,"L0_%p",lambda);
+      sprintf(label_fe,"L1_%p",lambda);
       
       jit_jmp(label_fe);
       jit_label(label_fn);

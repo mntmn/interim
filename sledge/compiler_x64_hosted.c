@@ -37,7 +37,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
         
     // prefix with arm-none-eabi- on ARM  -mlittle-endian
     
-    system("as /tmp/jit_out.s -o /tmp/jit_out.o");
+    system("as -L /tmp/jit_out.s -o /tmp/jit_out.o");
 #if defined(__APPLE__) && defined(__MACH__)
     system("gobjcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
 #else
@@ -67,7 +67,11 @@ int compile_for_platform(Cell* expr, Cell** res) {
     }
 
     // read symbols for linking lambdas
+#if defined(__APPLE__) && defined(__MACH__)
+    system("gnm /tmp/jit_out.o > /tmp/jit_out.syms");
+#else
     system("nm /tmp/jit_out.o > /tmp/jit_out.syms");
+#endif
     FILE* link_f = fopen("/tmp/jit_out.syms","r");
     if (link_f) {
       char link_line[128];
@@ -79,7 +83,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
           char idc=link_line[21];
           //printf("link_line: %s %c %c %c\n",link_line,ida,idb,idc);
 
-          if (ida=='f' && idc=='_') {
+          if (ida=='L' && idc=='_') {
             Cell* lambda = (Cell*)strtoul(&link_line[24], NULL, 16);
             if (idb=='0') {
               // function entrypoint

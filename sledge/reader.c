@@ -92,7 +92,7 @@ ReaderState* read_char(char c, ReaderState* rs) {
       rs->state = PST_ATOM;
     }
   } else if (rs->state == PST_NUM || rs->state == PST_NUM_NEG) {
-    if (c>='0' && c<='9' || ((rs->valuestate == VST_HEX && c>='a' && c<='f'))) {
+    if ((c>='0' && c<='9') || ((rs->valuestate == VST_HEX && c>='a' && c<='f'))) {
       // build number
       Cell* vcell = (Cell*)cell->addr;
       int mul = 10;

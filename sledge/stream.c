@@ -158,4 +158,5 @@ void fs_mount_builtin(char* path, void* open_handler, void* read_handler, void* 
 
 Cell* filesystems_init() {
   fs_list = alloc_nil();
+  return fs_list;
 }

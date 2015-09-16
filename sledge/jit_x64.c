@@ -45,7 +45,7 @@ void jit_init() {
 }
 
 void jit_movi(int reg, uint64_t imm) {
-  fprintf(jit_out, "movq $%p, %s\n", imm, regnames[reg]);
+  fprintf(jit_out, "movq $%llu, %s\n", imm, regnames[reg]);
 }
 
 void jit_movr(int dreg, int sreg) {
@@ -97,7 +97,7 @@ void jit_dec_stack(int offset) {
 // clobbers rdx!
 void jit_ldrb(int reg) {
   fprintf(jit_out, "movb (%s), %%dl\n", regnames[reg]);
-  fprintf(jit_out, "andq $0xff, %rdx\n", regnames[reg]);
+  fprintf(jit_out, "andq $0xff, %%rdx\n");
   if (reg!=3) {
     fprintf(jit_out, "movq %%rdx, %s\n", regnames[reg]);
   }

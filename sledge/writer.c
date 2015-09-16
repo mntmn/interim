@@ -111,7 +111,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
     Stream* s = (Stream*)cell->addr;
     snprintf(buffer, bufsize, "<stream:%d:%s:%s>", s->id, s->path->addr, s->fs->mount_point->addr);
   } else {
-    snprintf(buffer, bufsize, "<tag:%i>", cell->tag);
+    snprintf(buffer, bufsize, "<tag:%ld>", cell->tag);
   }
   return buffer;
 }
