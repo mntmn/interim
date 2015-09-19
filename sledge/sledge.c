@@ -136,7 +136,9 @@ int main(int argc, char *argv[])
       in_f = stdin;
       in_fd = 0;
       in_offset=0;
-      printf("stdin status: %d\r\n",feof(stdin));
+      if (feof(stdin)) {
+        exit(0);
+      }
     }
     
     if (expr) {      

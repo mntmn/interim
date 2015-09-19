@@ -35,14 +35,12 @@ void init_allocator() {
   byte_heap = NULL;
 
   cell_heap = malloc(cell_mem_reserved);
-  printf("\r\n++ cell heap at %p, %d bytes reserved\r\n",cell_heap,cell_mem_reserved);
+  printf("\r\n[alloc] cell heap at %p, %d bytes reserved\r\n",cell_heap,cell_mem_reserved);
   memset(cell_heap,0,cell_mem_reserved);
 
   free_list = malloc(MAX_CELLS*sizeof(Cell*));
 
-  printf("[allocator] initialized.\r\n");
-  
-  //byte_heap = malloc(MAX_BYTE_HEAP);
+  //printf("[alloc] initialized.\r\n");
 }
 
 Cell* get_cell_heap() {

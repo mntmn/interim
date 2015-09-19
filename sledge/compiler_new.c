@@ -508,14 +508,20 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_andr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_BITNOT: {
       load_int(ARGR0,argdefs[0], frame);
       jit_notr(ARGR0);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_BITOR: {
@@ -523,7 +529,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_orr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_BITXOR: {
@@ -531,7 +540,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_xorr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_SHL: {
@@ -539,7 +551,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_shlr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_SHR: {
@@ -547,7 +562,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_shrr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_ADD: {
@@ -555,7 +573,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_addr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_SUB: {
@@ -563,7 +584,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_subr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_MUL: {
@@ -571,7 +595,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_mulr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_DIV: {
@@ -579,7 +606,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_divr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_MOD: {
@@ -587,7 +617,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(R2,argdefs[1], frame);
       jit_modr(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_GT: {
@@ -597,7 +630,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_subr(ARGR0,R2);
       jit_movneg(ARGR0,R3);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_LT: {
@@ -607,7 +643,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_subr(ARGR0,R2);
       jit_movneg(ARGR0,R3);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_DEF: {
@@ -833,30 +872,40 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       char label_loop[64];
       char label_skip[64];
-      sprintf(label_loop,"Lloop_%d",++label_skip_count);
-      sprintf(label_skip,"Lskip_%d",label_skip_count);
+      char label_skip2[64];
+      sprintf(label_loop, "Lloop_%d",++label_skip_count);
+      sprintf(label_skip, "Lskip_%d",label_skip_count);
+      sprintf(label_skip2,"Lskip2_%d",label_skip_count);
       
       jit_label(label_loop);
       
       compiled_type = compile_expr(argdefs[0].cell, frame, TAG_INT);
       if (!compiled_type) return 0;
-      
+
       // load the condition
       if (compiled_type != TAG_INT) {
         jit_ldr(R0);
-        jit_cmpi(R0,0);
-      } else {
-        jit_cmpi(ARGR0,0);
       }
-      //load_int(R1,argdefs[0]);
+
       // compare to zero
+      jit_cmpi(R0,0);
       jit_je(label_skip);
 
+      // while body
       compiled_type = compile_expr(argdefs[1].cell, frame, return_type);
       if (!compiled_type) return 0;
 
       jit_jmp(label_loop);
       jit_label(label_skip);
+
+      if (return_type == TAG_ANY) {
+        // if the while never executed, we have to create a zero int cell
+        // from r0
+        jit_cmpi(R0,0);
+        jit_jne(label_skip2);
+        jit_call(alloc_int,"alloc_int");
+        jit_label(label_skip2);
+      }
       
       break;
     }
@@ -1022,7 +1071,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_movr(ARGR0, R3);
       
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
-      else compiled_type = TAG_INT;
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
       break;
     }
     case BUILTIN_PUT: {
@@ -1270,10 +1322,10 @@ env_t* get_global_env() {
 void init_compiler() {
   Cell** signature = malloc(sizeof(Cell*)*3);
 
-  printf("[compiler] creating global env hash table\r\n");
+  //printf("[compiler] creating global env hash table\r\n");
   global_env = sm_new(1000);
 
-  printf("[compiler] init_allocator\r\n");
+  //printf("[compiler] init_allocator\r\n");
   init_allocator();
 
   reusable_nil = alloc_nil();
@@ -1283,7 +1335,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("nil"), reusable_nil, &global_env);
   insert_symbol(alloc_sym("type_error"), consed_type_error, &global_env);
   
-  printf("[compiler] inserting symbols\r\n");
+  //printf("[compiler] inserting symbols\r\n");
 
   signature[0]=alloc_int(TAG_SYM); signature[1]=alloc_int(TAG_ANY);
   insert_symbol(alloc_sym("def"), alloc_builtin(BUILTIN_DEF, alloc_list(signature, 2)), &global_env);
@@ -1302,12 +1354,12 @@ void init_compiler() {
   insert_symbol(alloc_sym("shl"),    alloc_builtin(BUILTIN_SHL, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("shr"),    alloc_builtin(BUILTIN_SHR, alloc_list(signature, 2)), &global_env);
   
-  printf("[compiler] arithmetic\r\n");
+  //printf("[compiler] arithmetic\r\n");
   
   insert_symbol(alloc_sym("lt"), alloc_builtin(BUILTIN_LT, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("gt"), alloc_builtin(BUILTIN_GT, alloc_list(signature, 2)), &global_env);
   
-  printf("[compiler] compare\r\n");
+  //printf("[compiler] compare\r\n");
   
   signature[0]=alloc_int(TAG_INT); signature[1]=alloc_int(TAG_LAMBDA); signature[2]=alloc_int(TAG_LAMBDA); 
   insert_symbol(alloc_sym("if"), alloc_builtin(BUILTIN_IF, alloc_list(signature, 3)), &global_env);
@@ -1318,7 +1370,7 @@ void init_compiler() {
   signature[0]=alloc_int(TAG_ANY);
   insert_symbol(alloc_sym("print"), alloc_builtin(BUILTIN_PRINT, alloc_list(signature, 1)), &global_env);
   
-  printf("[compiler] flow\r\n");
+  //printf("[compiler] flow\r\n");
   
   signature[0]=alloc_int(TAG_CONS);
   insert_symbol(alloc_sym("car"), alloc_builtin(BUILTIN_CAR, alloc_list(signature, 1)), &global_env);
@@ -1330,7 +1382,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("quote"), alloc_builtin(BUILTIN_QUOTE, NULL), &global_env);
   //insert_symbol(alloc_sym("map"), alloc_builtin(BUILTIN_MAP), &global_env);
 
-  printf("[compiler] lists\r\n");
+  //printf("[compiler] lists\r\n");
   
   signature[0]=alloc_int(TAG_STR);
   signature[1]=alloc_int(TAG_STR);
@@ -1353,7 +1405,7 @@ void init_compiler() {
   signature[0]=alloc_int(TAG_ANY);
   insert_symbol(alloc_sym("bytes->str"), alloc_builtin(BUILTIN_BYTES_TO_STR, alloc_list(signature, 1)), &global_env);
 
-  printf("[compiler] strings\r\n");
+  //printf("[compiler] strings\r\n");
   
   signature[0]=alloc_int(TAG_ANY);
   signature[1]=alloc_int(TAG_STR);
@@ -1374,12 +1426,12 @@ void init_compiler() {
   insert_symbol(alloc_sym("send"), alloc_builtin(BUILTIN_SEND, alloc_list(signature,2)), &global_env);
 
   
-  printf("[compiler] write/eval\r\n");
+  //printf("[compiler] write/eval\r\n");
   
   insert_symbol(alloc_sym("gc"), alloc_builtin(BUILTIN_GC, NULL), &global_env);
   insert_symbol(alloc_sym("symbols"), alloc_builtin(BUILTIN_SYMBOLS, NULL), &global_env);
 
   insert_symbol(alloc_sym("debug"), alloc_builtin(BUILTIN_DEBUG, NULL), &global_env);
   
-  printf("sledge knows %u symbols. enter (symbols) to see them.\r\n", sm_get_count(global_env));
+  printf("[compiler] sledge knows %u symbols. enter (symbols) to see them.\r\n", sm_get_count(global_env));
 }

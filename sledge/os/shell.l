@@ -574,11 +574,12 @@
 
 (def zz (fn (import "/sd/tests/gtn.l")))
 
+(def shell-running 1)
+
 (def main (fn (do
   (let blink 0)
-  (let running 1)
 
-  (while running (do
+  (while shell-running (do
     (let str (recv keyboard))
     (let c (get str 0))
 

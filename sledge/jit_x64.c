@@ -215,6 +215,10 @@ void jit_je(char* label) {
   fprintf(jit_out, "je %s\n", label);
 }
 
+void jit_jne(char* label) {
+  fprintf(jit_out, "jne %s\n", label);
+}
+
 void jit_jge(char* label) {
   fprintf(jit_out, "jge %s\n", label);
 }
