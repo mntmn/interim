@@ -1,6 +1,13 @@
 #!/bin/sh
 
+# stop on errors
 set -e
+
+# rebuild uspi USB lib
+WD=$(pwd)
+cd devices/rpi2/uspi/lib
+make
+cd $WD
 
 NEWLIB="/usr/lib/arm-none-eabi/newlib"
 GCC_OPTS=" -g -O2 -nostartfiles -nostdlib -mhard-float -ffreestanding -mno-unaligned-access -fno-toplevel-reorder -mcpu=cortex-a7 -mfpu=neon-vfpv4 -std=gnu11 -L$NEWLIB/fpu -I./sledge -I. -I/usr/include/newlib -Idevices/rpi2 -Idevices/rpi2/uspi/env/include/ -DCPU_ARM "
@@ -64,4 +71,5 @@ $COMPILE -o build/interim-arm.elf -T devices/rpi2/arm.ld devices/rpi2/arm_start.
          obj/uspi_glue.o\
          -lc -lgcc -lm
 
+# extract binary image from ELF executable
 arm-none-eabi-objcopy build/interim-arm.elf -O binary build/kernel7.img
