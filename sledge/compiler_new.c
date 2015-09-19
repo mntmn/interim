@@ -79,6 +79,11 @@ static Cell* reusable_nil;
 #define PTRSZ 4
 #endif
 
+void debug_break(Cell* arg) {
+  printf("argr0: %p\r\n",arg);
+  exit(0);
+}
+
 Cell* lisp_print(Cell* arg) {
   lisp_write(arg, temp_print_buffer, TMP_PRINT_BUFSZ);
   printf("%s\r\n",temp_print_buffer);
@@ -163,7 +168,12 @@ void load_cell(int dreg, Arg arg, Frame* f) {
     if (dreg!=R0) jit_pop(R0,R0);
     if (dreg!=ARGR0) jit_pop(ARGR0,ARGR0);
   }
+  else if (arg.type == ARGT_INT) {
+    jit_call(alloc_int, "alloc_int");
+    jit_movr(dreg,R0);
+  }
   else {
+    printf("arg.type: %d\r\n",arg.type);
     jit_movi(dreg, 0xdeadcafe);
   }
 }
