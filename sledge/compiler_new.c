@@ -278,6 +278,13 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
   return num_lets;
 }
 
+int compatible_type(int given, int required) {
+  if (given == required) return 1;
+  if ((given == TAG_STR || given == TAG_BYTES) &&
+      (required == TAG_STR || required == TAG_BYTES)) return 1;
+  return 0;
+}
+
 int compile_expr(Cell* expr, Frame* frame, int return_type) {
   int compiled_type = TAG_ANY;
   Arg* fn_frame = frame->f;
@@ -480,7 +487,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           return 0;
         }
       }
-      else if (given_tag == sig_tag || sig_tag==TAG_ANY) {
+      else if (compatible_type(given_tag, sig_tag) || sig_tag==TAG_ANY) {
         argdefs[argi].cell = arg;
         argdefs[argi].slot = argi-1;
         argdefs[argi].type = ARGT_CELL;
@@ -652,6 +659,22 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_movi(R3,0);
       jit_subr(ARGR0,R2);
       jit_movneg(ARGR0,R3);
+      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      else {
+        compiled_type = TAG_INT;
+        jit_movr(R0,ARGR0);
+      }
+      break;
+    }
+    case BUILTIN_EQ: {
+      load_int(ARGR0, argdefs[0], frame);
+      load_int(R2, argdefs[1], frame);
+      jit_movi(R3,1);
+      jit_subr(ARGR0,R2);
+      jit_movi(R2,0);
+      jit_cmpi(ARGR0,0);
+      jit_moveq(ARGR0,R3);
+      jit_movne(ARGR0,R2);
       if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
         compiled_type = TAG_INT;
@@ -1041,9 +1064,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       load_cell(R1,argdefs[0], frame);
       load_int(R2,argdefs[1], frame); // offset -> R2
-
-      // init r3
-      jit_movi(R3, 0);
+      jit_movr(R0,R1); // save original cell in r0
 
       // todo: compile-time checking would be much more awesome
       // type check
@@ -1055,11 +1076,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_je(label_ok);
 
       // wrong type
+      jit_movi(R3, 0);
       jit_jmp(label_skip);
 
       // good type
       jit_label(label_ok);
-      load_cell(R0,argdefs[0], frame);
+      jit_movr(R1,R0); // get original cell from r3
 
 #ifdef CHECK_BOUNDS
       // bounds check -----
@@ -1074,6 +1096,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_movr(R1,R0);
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
+      jit_movi(R3, 0);
       jit_ldrb(R1); // data in r3
 
       jit_label(label_skip);
@@ -1091,9 +1114,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       char label_skip[64];
       sprintf(label_skip,"Lskip_%d",++label_skip_count);
       
-      load_int(R3,argdefs[2], frame); // byte to store -> R3
-      load_int(R2,argdefs[1], frame); // offset -> R2
       load_cell(R0,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame); // offset -> R2
+      load_int(R3,argdefs[2], frame); // byte to store -> R3
 
 #ifdef CHECK_BOUNDS
       // bounds check -----
@@ -1115,8 +1138,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_GET32: {
-      load_cell(R3,argdefs[0], frame);
       load_int(R2,argdefs[1], frame); // offset -> R2
+      load_cell(R3,argdefs[0], frame);
       jit_ldr(R3); // string address
       jit_movi(R1,2); // offset * 4
       jit_shlr(R2,R1);
@@ -1132,9 +1155,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       char label_skip[64];
       sprintf(label_skip,"Lskip_%d",++label_skip_count);
     
-      load_int(R3,argdefs[2], frame); // word to store -> R3
-      load_int(R2,argdefs[1], frame); // offset -> R2
       load_cell(R1,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame); // offset -> R2
+      load_int(R3,argdefs[2], frame); // word to store -> R3
 
 #ifdef CHECK_BOUNDS
       // bounds check -----
@@ -1368,6 +1391,7 @@ void init_compiler() {
   
   insert_symbol(alloc_sym("lt"), alloc_builtin(BUILTIN_LT, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("gt"), alloc_builtin(BUILTIN_GT, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("eq"), alloc_builtin(BUILTIN_EQ, alloc_list(signature, 2)), &global_env);
   
   //printf("[compiler] compare\r\n");
   

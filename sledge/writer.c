@@ -73,15 +73,18 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   } else if (cell->tag == TAG_BIGNUM) {
     snprintf(buffer, bufsize, "%s", (char*)cell->ar.addr);
   } else if (cell->tag == TAG_LAMBDA) {
+    char tmp_args[TMP_BUF_SIZE];
     char tmp_body[TMP_BUF_SIZE*2];
+    tmp_args[0]=0;
+    tmp_body[0]=0;
     Cell* args = car(cell->ar.addr);
     int ai = 0;
-    /*while (args && args->addr && args->next) {
-      ai += snprintf(tmp_args+ai, TMP_BUF_SIZE-ai, "%s ", (char*)(car(car(args)))->addr);
+    while (args && car(car(args))) {
+      ai += snprintf(tmp_args+ai, TMP_BUF_SIZE-ai, "%s ", (char*)(car(car(args)))->ar.addr);
       args = cdr(args);
-    }*/
+    }
     write_(cdr(cell->ar.addr), tmp_body, 0, TMP_BUF_SIZE);
-    snprintf(buffer, bufsize, "(fn %s %s)", "", tmp_body);
+    snprintf(buffer, bufsize, "(fn %s %s)", tmp_args, tmp_body);
   } else if (cell->tag == TAG_BUILTIN) {
     snprintf(buffer, bufsize, "(op "INTFORMAT")", cell->ar.value);
   } else if (cell->tag == TAG_ERROR) {

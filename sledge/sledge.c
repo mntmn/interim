@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
   }
 
   while (1) {
-    printf("sledge> ");
+    if (in_f == stdin) printf("sledge> ");
     expr = NULL;
     len = 0;
 
@@ -119,14 +119,14 @@ int main(int argc, char *argv[])
       in_buffer[in_offset+i+1]=0;
     
       if (parens>0) {
-        //printf("...\r\n");
+        if (in_f == stdin) printf("...\r\n");
         in_offset+=i;
       } else {
         in_offset=0;
         if (len>1) {
           expr = (Cell*)read_string(in_buffer);
         } else {
-          printf("\r\n");
+          //printf("\r\n");
         }
       }
     }
@@ -146,11 +146,13 @@ int main(int argc, char *argv[])
       int success = compile_for_platform(expr, &res);
       
       if (success) {
-        if (!res) {
-          printf("invalid cell (%p)\r\n",res);
-        } else {
-          lisp_write(res, out_buf, 1024);
-          printf("\r\n%s\r\n",out_buf);
+        if (in_f == stdin) {
+          if (!res) {
+            printf("invalid cell (%p)\r\n",res);
+          } else {
+            lisp_write(res, out_buf, 1024);
+            printf("%s\r\n",out_buf);
+          }
         }
       } else {
         printf("<compilation failed>\n");

@@ -31,53 +31,6 @@
   (+ p 0)
 )))
 
-(def copy (fn buf from to num (do
-  (let i 0)
-  (let c 0)
-
-  ;(print (list "copy: " buf from to num))
-  
-  (if (lt from to)
-    (do 
-      (let i (- num 1)) 
-      (while (gt i -1) (do
-        (let c (get buf (+ from i)))
-        (put buf (+ to i) c)
-        (let i (- i 1))
-      )) 0)
-    (do
-      (let i 0)
-      (while (lt i num) (do
-        (let c (get buf (+ from i)))
-        (put buf (+ to i) c)
-        (let i (+ i 1))
-      )) 0)
-  )
-  num
-)))
-
-; fixme clobbered reg loading broken on x64?
-; fixme use substr instead of mutation
-
-(def remove (fn buf pos (do
-  (let p (+ pos 0))
-  (let from (+ pos 1))
-  (let num (- (size buf) pos))
-  (copy buf from p num)
-  (put buf (- (size buf) 1) 0)
-  buf
-)))
-
-(def insert (fn buf pos k (do
-  (let p (+ pos 0))
-  (let to (+ pos 1))
-  (let c (+ k 0))
-  (let num (- (size buf) (+ pos 1)))
-  (copy buf p to num)
-  (put buf p c)
-  buf
-)))
-
 (def buf-render-x 32)
 (def buf-render-y 32)
 (def cursor-char 32)
@@ -96,6 +49,8 @@
   (let nextpos 0)
   (let y buf-render-y)
   (let render-all 0)
+
+  (print (list "buf-render" cursor b lines last-num-lines))
   
   ; number of lines changed? then rerender
   (if (or scroll-dirty (not (eq last-num-lines (list-size lines)))) (do
@@ -232,11 +187,6 @@
     ) 0)
   
   ))))))
-
-  (if buf-dirty (do
-    (buf-render cursor buf)
-    (def buf-dirty 0)
-  ) 0)
   0
 )))
 
@@ -260,10 +210,15 @@
     (let k (get str 0))
 
     (handle-editor-key k)
-
+    
     (if (lt cursor 0) (def cursor 0) 0)
     (if (gt cursor (size buf)) (def cursor (size buf)) 0)
 
+    (if buf-dirty (do
+      (buf-render cursor buf)
+      (def buf-dirty 0)
+    ) 0)
+    
     ; (print (list "term-x/y" term-x term-y))
     (if (gt blink 9)
       (blit-char 0x2588 term-x term-y)
