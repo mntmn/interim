@@ -631,11 +631,11 @@
 
     (if (lt term-x 32) (def term-x minx) 0)
     
-    (if (eq blink 9)
+    (if (eq blink 3)
         (blit-char 0x2588 term-x term-y) 0)
     (if (eq blink 0)
         (blit-char 32 term-x term-y) 0)
-    (let blink (% (+ blink 1) 20))
+    (let blink (% (+ blink 1) 5))
 
     (run-tasks)
     (send scr 0)

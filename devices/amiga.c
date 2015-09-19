@@ -1,11 +1,17 @@
 #include <stdio.h>
 #include <exec/types.h>
+#include <exec/io.h>
+#include <exec/ports.h>
+#include <exec/memory.h>
 #include <intuition/intuition.h>
 #include <intuition/intuitionbase.h>
 #include <intuition/screens.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/intuition.h>
+
+#include <devices/inputevent.h>
+#include <devices/keyboard.h>
 
 #include "minilisp.h"
 #include "alloc.h"
@@ -14,6 +20,9 @@
 #define HEIGHT 250
 #define BPP 1
 #define DEPTH 8
+
+// http://cahirwpz.users.sourceforge.net/libnix/swapstack.html#swapstack
+unsigned long __stack=128000; // stack requirements (bytes) for swapstack.o from libnix
 
 struct Library *intuition_base;
 struct Library *gfx_base;
@@ -101,6 +110,50 @@ Cell* amiga_fbfs_mmap(Cell* arg) {
   return buffer_cell;
 }
 
+Cell* amiga_keyfs_open() {
+  return alloc_int(1);
+}
+
+char key_to_rune[] = {
+  0,
+  0,
+  '1','2','3','4','5','6','7','8','9','0','/','"',9,9,
+  '\t','q','w','e','r','t','z','u','i','o','p','-','+',9,0,0,
+  0,'a','s','d','f','g','h','j','k','l','(',')',0,0,'*',0,0,'<',
+  'y','x','c','v','b','n','m',',','.','-',0,0,0,0,
+  0,' ',9,0,0,10,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0,
+  0,0,0,0,0,0,0,0,0,0
+};
+
+Cell* amiga_keyfs_read() {
+  
+  Cell* key = alloc_string_copy(" ");
+  uint8_t* magic = (void*)0xbfec01;
+  uint8_t k = *magic;
+  ((char*)key->ar.addr)[0] = 0;
+  if (!(k&1)) {
+    // keyup
+    return key;
+  }
+  k>>=1;
+  k=128-k;
+  printf("keyin: %d\r\n",k);
+  ((char*)key->ar.addr)[0] = key_to_rune[k];
+  return key;
+}
+
+void mount_amiga_keyfs() {
+  fs_mount_builtin("/keyboard", amiga_keyfs_open, amiga_keyfs_read, 0, 0, 0);
+}
+
 void mount_posixfs();
 
 void mount_amiga_fbfs() {
@@ -108,7 +161,8 @@ void mount_amiga_fbfs() {
   insert_global_symbol(alloc_sym("screen-width"),alloc_int(512));
   insert_global_symbol(alloc_sym("screen-height"),alloc_int(250));
   insert_global_symbol(alloc_sym("screen-bpp"),alloc_int(1));
-  
+
+  mount_amiga_keyfs();
   mount_posixfs();
 }
 

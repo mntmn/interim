@@ -4,6 +4,7 @@
 #include "stream.h"
 #include "compiler_new.h"
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
@@ -34,8 +35,17 @@ Cell* posixfs_open(Cell* cpath) {
     printf("filename: %s\r\n",filename);
     
     if (filename) {
+      struct stat src_stat;
       DIR* dirp;
-      FILE* f;
+      int f;
+      off_t len;
+      
+      if (stat(filename, &src_stat)) {
+        _file_cell = alloc_string_copy("<file not found>");
+        return _file_cell;
+      }
+      len = src_stat.st_size;
+
       if ((dirp = opendir(filename))) {
         struct dirent *dp;
         Cell* nl = alloc_string_copy("\n");
@@ -49,17 +59,15 @@ Cell* posixfs_open(Cell* cpath) {
         return _file_cell;
       }
 
-      f = fopen(filename, "rb");
-      if (f) {
+      f = open(filename, O_RDONLY);
+      if (f>-1) {
         Cell* res;
-        int len, read_len;
-        fseek(f, 0L, SEEK_END);
-        len = ftell(f);
-        fseek(f, 0L, SEEK_SET);
+        int read_len;
         
         printf("[posixfs] trying to read file of len %d…\r\n",len);
         res = alloc_num_bytes(len);
-        read_len = fread(res->ar.addr, 1, len, f);
+        read_len = read(f, res->ar.addr, len);
+        close(f);
         // TODO: close?
         _file_cell = res;
         return res;

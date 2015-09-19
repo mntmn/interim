@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-
 Cell* consolefs_open() {
   system("stty raw -echo");
   return alloc_int(1);
@@ -17,12 +16,12 @@ Cell* consolefs_read() {
   int c = fgetc(stdin);
   if (c==13) c=10; // CR/LF
   Cell* str = alloc_string_copy(" ");
-  ((char*)str->addr)[0] = c;
+  ((char*)str->ar.addr)[0] = c;
   return str;
 }
 
 Cell* consolefs_write(Cell* a1,Cell* arg) {
-  fputc(arg->value, stdout);
+  fputc(arg->ar.value, stdout);
   return arg;
 }
 

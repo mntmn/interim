@@ -128,5 +128,6 @@ Cell* insert_global_symbol(Cell* symbol, Cell* cell);
 env_entry* lookup_global_symbol(char* name);
 
 extern Cell* platform_debug();
+Cell* platform_eval(Cell* expr);
 
 #endif

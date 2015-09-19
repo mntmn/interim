@@ -32,10 +32,10 @@ Cell* linux_fbfs_mmap(Cell* arg) {
 
   if (fd>-1) {
     Cell* buffer_cell = alloc_int(0);
-    buffer_cell->addr = mmap(NULL, sz, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
-    buffer_cell->size = sz;
+    buffer_cell->ar.addr = mmap(NULL, sz, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
+    buffer_cell->dr.size = sz;
     buffer_cell->tag = TAG_BYTES;
-    printf("[linux_fbfs_mmap] buffer_cell->addr: %p\n",buffer_cell->addr);
+    printf("[linux_fbfs_mmap] buffer_cell->addr: %p\n",buffer_cell->ar.addr);
   
     return buffer_cell;
   } else {

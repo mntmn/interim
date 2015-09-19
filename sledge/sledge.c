@@ -1,11 +1,10 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include "minilisp.h"
 #include <stdlib.h>
 #include "alloc.h"
-
-Cell* platform_eval(Cell* expr); // FIXME
 
 #include "compiler_new.c"
 
@@ -31,14 +30,10 @@ Cell* platform_eval(Cell* expr); // FIXME
 #include "../devices/macosx.c"
 #endif
 
-//ssize_t getline(char **lineptr, size_t *n, FILE *stream);
-
 void terminal_writestring(const char* data);
 
 int main(int argc, char *argv[])
 {
-  //create_shared_application();
-
   Cell* expr = NULL;
   char* in_line = malloc(BUFSZ);
   char* in_buffer = malloc(64*BUFSZ);
@@ -48,7 +43,8 @@ int main(int argc, char *argv[])
   int parens = 0;
   size_t len = 0;
   int i;
-  FILE* in_file = stdin;
+  int in_fd = 0;
+  FILE* in_f;
 
   init_compiler();
   filesystems_init();
@@ -88,8 +84,11 @@ int main(int argc, char *argv[])
 #endif
   
   if (argc==2) {
-    in_file = fopen(argv[1],"r");
-    if (!in_file) in_file = stdin;
+    in_fd = open(argv[1],O_RDONLY);
+    in_f = fdopen(in_fd,"r");
+    if (!in_f) in_f = stdin;
+  } else {
+    in_f = stdin;
   }
 
   while (1) {
@@ -97,7 +96,7 @@ int main(int argc, char *argv[])
     expr = NULL;
     len = 0;
 
-    res = fgets(in_line, BUFSZ, in_file);
+    res = fgets(in_line, BUFSZ, in_f);
     if (res) {
       len = strlen(in_line);
     }
@@ -114,8 +113,6 @@ int main(int argc, char *argv[])
           parens--;
         }
       }
-
-      //printf("in_offset: %d, i: %d\r\n");
 
       strncpy(in_buffer+in_offset, in_line, i);
       in_buffer[in_offset+i]='\n';
@@ -134,11 +131,11 @@ int main(int argc, char *argv[])
       }
     }
 
-    if (feof(in_file) || len==0) {
-      if (in_file!=stdin) fclose(in_file);
-      in_file = stdin;
+    if (feof(in_f) || len==0) {
+      if (in_f!=stdin) close(in_fd);
+      in_f = stdin;
+      in_fd = 0;
       in_offset=0;
-      clearerr(stdin);
       printf("stdin status: %d\r\n",feof(stdin));
     }
     
@@ -147,7 +144,6 @@ int main(int argc, char *argv[])
       int success = compile_for_platform(expr, &res);
       
       if (success) {
-        // OK
         if (!res) {
           printf("invalid cell (%p)\r\n",res);
         } else {
@@ -187,7 +183,7 @@ Cell* platform_eval(Cell* expr) {
       printf("[platform_eval] stopped at expression %d: %s\r\n",i,buf);
       break;
     }
-    // when to free the code? -> when no bound lambdas involved
+    // TOOD: when to free the code blocks? -> when no bound lambdas involved
     
     i++;
     expr = cdr(expr);
