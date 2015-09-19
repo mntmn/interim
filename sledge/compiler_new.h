@@ -10,11 +10,10 @@ typedef void* (*funcptr)();
 
 typedef enum arg_t {
   ARGT_CONST,
-  ARGT_CELL,
   ARGT_ENV,
   ARGT_LAMBDA,
   ARGT_REG,
-  ARGT_INT,
+  ARGT_REG_INT,
   ARGT_STACK,
   ARGT_STACK_INT
 } arg_t;

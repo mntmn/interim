@@ -434,6 +434,12 @@ void jit_je(char* label) {
   jit_emit_branch(label);
 }
 
+void jit_jne(char* label) {
+  code[code_idx++] = 0x66; // bne
+  code[code_idx++] = 0x00;
+  jit_emit_branch(label);
+}
+
 void jit_jneg(char* label) {
   code[code_idx++] = 0x6b; // bmi
   code[code_idx++] = 0x00;

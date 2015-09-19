@@ -27,8 +27,6 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_t** env) {
   env_entry* e;
   int found = sm_get(*env, symbol->ar.addr, (void**)&e);
   
-  //printf("sm_get res: %d\r\n",found);
-  
   if (found) {
     e->cell = cell;
     //printf("[insert_symbol] update %s entry at %p (cell: %p value: %d)\r\n",symbol->ar.addr,e,e->cell,e->cell->ar.value);
@@ -95,20 +93,6 @@ void load_int(int dreg, Arg arg, Frame* f) {
     // argument is a constant like 123, "foo"
     jit_movi(dreg, (jit_word_t)arg.cell->ar.value);
   }
-  else if (arg.type == ARGT_CELL) {
-    if (arg.cell == NULL) {
-      // not sure what this is
-      //if (dreg!=R0) jit_movr(dreg, R0);
-      if (dreg!=R1+arg.slot) {
-        jit_movr(dreg, R1+arg.slot); // FIXME: really true?
-      }
-      jit_ldr(dreg);
-    } else {
-      // argument is a cell pointer
-      jit_lea(dreg, arg.cell);
-      jit_ldr(dreg);
-    }
-  }
   else if (arg.type == ARGT_ENV) {
     // argument is an environment table entry, load e->cell->ar.value
     jit_lea(dreg, arg.env);
@@ -117,20 +101,22 @@ void load_int(int dreg, Arg arg, Frame* f) {
   }
   else if (arg.type == ARGT_REG) {
     // argument comes from a register
-    jit_movr(dreg, LBDREG+arg.slot);
+    jit_movr(dreg, arg.slot);
     jit_ldr(dreg);
   }
-  else if (arg.type == ARGT_INT) {
-    if (dreg!=R1+arg.slot) {
-      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
+  else if (arg.type == ARGT_REG_INT) {
+    if (dreg!=arg.slot) {
+      jit_movr(dreg, arg.slot);
     }
   }
   else if (arg.type == ARGT_STACK) {
-    jit_ldr_stack(dreg, PTRSZ*(arg.slot+f->sp));
+    //printf("loading int from stack slot %d + sp %d to reg %d\n",arg.slot,f->sp,dreg);
+    jit_ldr_stack(dreg, PTRSZ*(f->sp-arg.slot));
     jit_ldr(dreg);
   }
   else if (arg.type == ARGT_STACK_INT) {
-    jit_ldr_stack(dreg, PTRSZ*(arg.slot+f->sp));
+    //printf("loading int from stack_int sp %d - slot %d to reg %d\n",f->sp,arg.slot,dreg);
+    jit_ldr_stack(dreg, PTRSZ*(f->sp-arg.slot));
   }
   else {
     jit_movi(dreg, 0xdeadbeef);
@@ -138,39 +124,35 @@ void load_int(int dreg, Arg arg, Frame* f) {
 }
 
 void load_cell(int dreg, Arg arg, Frame* f) {
-  if (arg.type == ARGT_CELL || arg.type == ARGT_CONST) {
-    if (arg.cell == NULL) {
-      // not sure what this is
-      jit_movr(dreg, R1+arg.slot); // FIXME: really true?
-    } else {
-      // argument is a cell pointer
-      jit_lea(dreg, arg.cell);
-    }
+  if (arg.type == ARGT_CONST) {
+    // argument is a constant like 123, "foo"
+    jit_movi(dreg, (jit_word_t)arg.cell);
   }
   else if (arg.type == ARGT_ENV) {
     jit_lea(dreg, arg.env);
     jit_ldr(dreg);
   }
   else if (arg.type == ARGT_REG) {
-    jit_movr(dreg, LBDREG+arg.slot);
+    jit_movr(dreg, arg.slot);
+  }
+  else if (arg.type == ARGT_REG_INT) {
+    jit_call(alloc_int, "alloc_int");
+    jit_movr(dreg,R0);
   }
   else if (arg.type == ARGT_STACK) {
-    jit_ldr_stack(dreg, PTRSZ*(arg.slot+f->sp));
+    //printf("loading cell from stack slot %d + sp %d to reg %d\n",arg.slot,f->sp,dreg);
+    jit_ldr_stack(dreg, PTRSZ*(f->sp-arg.slot));
   }
   else if (arg.type == ARGT_STACK_INT) {
-    // FIXME possible ARGR0 clobbering
     int adjust = 0;
+    //printf("loading cell from stack_int sp %d - slot %d + adjust %d = %d to reg %d\n",f->sp,arg.slot,adjust,f->sp-arg.slot+adjust,dreg);
     if (dreg!=ARGR0) {jit_push(ARGR0,ARGR0); adjust++;}
     if (dreg!=R0) {jit_push(R0,R0); adjust++;}
-    jit_ldr_stack(ARGR0, PTRSZ*(arg.slot+f->sp+adjust));
+    jit_ldr_stack(ARGR0, PTRSZ*(f->sp-arg.slot+adjust));
     jit_call(alloc_int, "alloc_int");
     jit_movr(dreg,R0);
     if (dreg!=R0) jit_pop(R0,R0);
     if (dreg!=ARGR0) jit_pop(ARGR0,ARGR0);
-  }
-  else if (arg.type == ARGT_INT) {
-    jit_call(alloc_int, "alloc_int");
-    jit_movr(dreg,R0);
   }
   else {
     printf("arg.type: %d\r\n",arg.type);
@@ -285,6 +267,15 @@ int compatible_type(int given, int required) {
   return 0;
 }
 
+int clean_return(int args_pushed, Frame* frame, int compiled_type) {
+  if (args_pushed) {
+    jit_inc_stack(args_pushed*PTRSZ);
+    frame->sp-=args_pushed;
+  }
+
+  return compiled_type;
+}
+
 int compile_expr(Cell* expr, Frame* frame, int return_type) {
   int compiled_type = TAG_ANY;
   Arg* fn_frame = frame->f;
@@ -293,6 +284,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   
   int is_let = 0;
   int argi = 0;
+  int args_pushed = 0;
   Arg argdefs[MAXARGS];
 
   if (!expr) return 0;
@@ -427,7 +419,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       if (!signature_args) {
         // any number of arguments allowed
         argdefs[argi].cell = arg;
-        argdefs[argi].type = ARGT_CELL;
+        argdefs[argi].type = ARGT_STACK;
       }
       else if (sig_tag == TAG_LAMBDA) {
         // lazy evaluation by form
@@ -435,32 +427,40 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         argdefs[argi].type = ARGT_LAMBDA;
       }
       else if (arg->tag == TAG_CONS) {
+        int k;
         // eager evaluation
         // nested expression
         if (argi>0) {
           // save registers
           // FIXME RETHINK
 
-          jit_push(R1,R1+argi-1);
-          frame->sp+=(1+argi-1);
+          //jit_push(R1,R1+argi-1);
+          //frame->sp+=(1+argi-1);
         }
         given_tag = compile_expr(arg, frame, sig_tag);
         if (given_tag<1) return given_tag; // failure
         
         argdefs[argi].cell = NULL; // cell is in R0 at runtime
-        argdefs[argi].slot = argi;
+        argdefs[argi].slot = ++frame->sp; // record sp at this point
+
+        /*for (k=0; k<argi; k++) {
+          if (argdefs[k].type == ARGT_STACK || argdefs[k].type == ARGT_STACK_INT) {
+            argdefs[k].slot++;
+          }
+        }*/
 
         if (given_tag == TAG_INT) {
-          argdefs[argi].type = ARGT_INT;
-          jit_movr(R1+argi,ARGR0);
+          argdefs[argi].type = ARGT_STACK_INT;
         } else {
-          argdefs[argi].type = ARGT_CELL;
-          jit_movr(R1+argi,R0);
+          argdefs[argi].type = ARGT_STACK;
         }
+        jit_push(R0,R0);
+        //frame->sp++;
+        args_pushed++;
         
         if (argi>0) {
-          jit_pop(R1,R1+argi-1);
-          frame->sp-=(1+argi-1);
+          //jit_pop(R1,R1+argi-1);
+          //frame->sp-=(1+argi-1);
         }
       }
       else if (given_tag == TAG_SYM && sig_tag != TAG_SYM) {
@@ -490,12 +490,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       else if (compatible_type(given_tag, sig_tag) || sig_tag==TAG_ANY) {
         argdefs[argi].cell = arg;
         argdefs[argi].slot = argi-1;
-        argdefs[argi].type = ARGT_CELL;
+        argdefs[argi].type = ARGT_CONST;
 
         if (given_tag == TAG_SYM || given_tag == TAG_CONS || given_tag == TAG_INT || given_tag == TAG_STR || given_tag == TAG_BYTES) {
-          argdefs[argi].type = ARGT_CONST;
-          //printf("const arg of type %d at %p\n",arg->tag,arg);
+          //argdefs[argi].type = ARGT_CONST;
         }
+        //printf("const arg of type %d at %p\n",arg->tag,arg);
       } else {
         // check if we can typecast
         // else, fail with type error
@@ -517,6 +517,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     
     argi++;
   } while (argi<MAXARGS && (args = cdr(args)) && (!signature_args || (signature_args = cdr(signature_args))));
+
+  // args are prepared, execute op
 
   if (op->tag == TAG_BUILTIN) {
     switch (op->ar.value) {
@@ -708,7 +710,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
       // el cheapo type inference
       if (1 &&
-          (argdefs[1].type == ARGT_INT ||
+          (argdefs[1].type == ARGT_REG_INT ||
            argdefs[1].type == ARGT_STACK_INT ||
            (argdefs[1].type == ARGT_CONST && argdefs[1].cell->tag == TAG_INT) ||
            (fidx>=0 && fn_frame[fidx].type == ARGT_STACK_INT) // already defined as int TODO: error on attempted type change
@@ -739,13 +741,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         } else {
           fn_frame[offset].type = ARGT_STACK;
         }
-        fn_frame[offset].slot = frame->locals;
+        fn_frame[offset].slot = -frame->locals;
         //printf("++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
         frame->locals++;
       }
 
       if (!is_reg) {
-        jit_str_stack(R0,PTRSZ*(fn_frame[offset].slot+frame->sp));
+        jit_str_stack(R0,PTRSZ*(frame->sp-fn_frame[offset].slot));
       }
       
       if (compiled_type == TAG_INT && return_type == TAG_ANY) {
@@ -755,8 +757,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
 
       if (is_reg) {
-        jit_movr(LBDREG + fn_frame[offset].slot, R0);
-        printf("let %s to reg: %d\r\n",fn_frame[offset].name, LBDREG + fn_frame[offset].slot);
+        jit_movr(fn_frame[offset].slot, R0);
+        printf("let %s to reg: %d\r\n",fn_frame[offset].name, fn_frame[offset].slot);
       }
       
       break;
@@ -801,12 +803,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
         if (j>=ARG_SPILLOVER) { // max args passed in registers
           fn_new_frame[j].type = ARGT_STACK;
-          fn_new_frame[j].slot = num_lets + j - 1;
+          fn_new_frame[j].slot = -num_lets - j + 1;
           spo_count++;
         }
         else {
           fn_new_frame[j].type = ARGT_REG;
-          fn_new_frame[j].slot = j;
+          fn_new_frame[j].slot = j + LBDREG;
         }
         fn_new_frame[j].name = argdefs[j].cell->ar.addr;
         fn_argc++;
@@ -880,10 +882,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_cmpi(R0,0);
       jit_je(label_skip);
 
+      // then
       tag = compile_expr(argdefs[1].cell, frame, return_type);
       if (!tag) return 0;
 
-      // else?
+      // else
       if (argdefs[2].cell) {
         char label_end[64];
         sprintf(label_end,"Lendif_%d",++label_skip_count);
@@ -1295,24 +1298,24 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
     int pushed = push_frame_regs(frame->f);
     frame->sp+=pushed;
-
+    
     for (j=argi-2; j>=0; j--) {
       if (j>=ARG_SPILLOVER) {
         // pass arg on stack
-          
+
         load_cell(R0, argdefs[j], frame);
         jit_push(R0,R0);
         spo_adjust++;
-
         frame->sp++;
       } else {
         // pass arg in reg (LBDREG + slot)
         
         if (argdefs[j].type == ARGT_REG) {
-          if (argdefs[j].slot<j) {
+          if (1 || argdefs[j].slot<j+LBDREG) {
+            int offset = ((pushed+spo_adjust) - (argdefs[j].slot-LBDREG) - 1);
             // register already clobbered, load from stack
-            printf("-- loading clobbered reg %d from stack to reg %d\n",argdefs[j].slot,LBDREG+j);
-            jit_ldr_stack(LBDREG+j, (pushed-1-argdefs[j].slot)*PTRSZ);
+            //printf("-- loading clobbered reg %d from stack offset %d to reg %d\n",argdefs[j].slot,offset,LBDREG+j);
+            jit_ldr_stack(LBDREG+j, offset*PTRSZ);
           } else {
             // no need to move a reg into itself
             if (argdefs[j].slot!=j) {
@@ -1345,7 +1348,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 #endif
 
   // at this point, registers R1-R6 are filled, execute
-  return compiled_type;
+  return clean_return(args_pushed, frame, compiled_type);
 }
 
 env_t* get_global_env() {

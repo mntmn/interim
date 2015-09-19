@@ -75,10 +75,10 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
   } else if (cell->tag == TAG_LAMBDA) {
     char tmp_args[TMP_BUF_SIZE];
     char tmp_body[TMP_BUF_SIZE*2];
-    tmp_args[0]=0;
-    tmp_body[0]=0;
     Cell* args = car(cell->ar.addr);
     int ai = 0;
+    tmp_args[0]=0;
+    tmp_body[0]=0;
     while (args && car(car(args))) {
       ai += snprintf(tmp_args+ai, TMP_BUF_SIZE-ai, "%s ", (char*)(car(car(args)))->ar.addr);
       args = cdr(args);

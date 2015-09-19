@@ -263,7 +263,6 @@ void debug_handler(char* line, Frame* frame) {
         if (a.type) {
           switch (a.type) {
           case ARGT_CONST: typestr = "CONST"; break;
-          case ARGT_CELL: typestr = "CELL"; break;
           case ARGT_ENV: typestr = "ENV"; break;
           case ARGT_LAMBDA: typestr = "LAMBDA"; break;
           case ARGT_REG: {
@@ -272,7 +271,7 @@ void debug_handler(char* line, Frame* frame) {
             typestr = buf;
             break;
           }
-          case ARGT_INT: typestr = "INT"; break;
+          case ARGT_REG_INT: typestr = "INT"; break;
           case ARGT_STACK: typestr = "STACK"; break;
           case ARGT_STACK_INT: typestr = "STACK_INT"; break;
           }
