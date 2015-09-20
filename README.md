@@ -7,9 +7,9 @@ Interim OS is a radical new operating system with a focus on minimalism. It stea
 
 Interim runs on:
 - Raspberry Pi 2 (Broadcom VideoCore4/ARMv7, Bare Metal)
-- Olimex Olinuxino (Freescale IMX233/ARMv5, Bare Metal)
 - ARM5+ Linux (Hosted)
-- Intel/AMD x64 Linux (Hosted)
+- Intel/AMD x64 Linux, Mac OS X (Hosted)
+- Motorola 68020+ Amiga OS 3.x+ (Hosted)
 
 Detailed docs are in *docs/index.html*.
 
