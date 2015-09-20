@@ -1185,11 +1185,6 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       break;
     }
-    case BUILTIN_MMAP: {
-      load_cell(ARGR0,argdefs[0], frame);
-      jit_call(fs_mmap,"fs_mmap");
-      break;
-    }
     case BUILTIN_ALLOC: {
       load_int(ARGR0,argdefs[0], frame);
       jit_call(alloc_num_bytes,"alloc_bytes");
@@ -1208,17 +1203,23 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_WRITE: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
+      jit_host_call_enter();
       jit_call2(lisp_write_to_cell,"lisp_write_to_cell");
+      jit_host_call_exit();
       break;
     }
     case BUILTIN_READ: {
       load_cell(ARGR0,argdefs[0], frame);
+      jit_host_call_enter();
       jit_call(read_string_cell,"read_string_cell");
+      jit_host_call_exit();
       break;
     }
     case BUILTIN_EVAL: {
       load_cell(ARGR0,argdefs[0], frame);
+      jit_host_call_enter();
       jit_call(platform_eval,"platform_eval");
+      jit_host_call_exit();
       break;
     }
     case BUILTIN_SIZE: {
@@ -1255,36 +1256,52 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_PRINT: {
       load_cell(ARGR0,argdefs[0], frame);
       push_frame_regs(frame->f);
+      jit_host_call_enter();
       jit_call(lisp_print,"lisp_print");
+      jit_host_call_exit();
       pop_frame_regs(frame->f);
       break;
     }
     case BUILTIN_MOUNT: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
+      jit_host_call_enter();
       jit_call2(fs_mount,"fs_mount");
+      jit_host_call_exit();
+      break;
+    }
+    case BUILTIN_MMAP: {
+      load_cell(ARGR0,argdefs[0], frame);
+      jit_host_call_enter();
+      jit_call(fs_mmap,"fs_mmap");
+      jit_host_call_exit();
       break;
     }
     case BUILTIN_OPEN: {
       load_cell(ARGR0,argdefs[0], frame);
       push_frame_regs(frame->f);
+      jit_host_call_enter();
       jit_call(fs_open,"fs_open");
+      jit_host_call_exit();
       pop_frame_regs(frame->f);
       break;
     }
     case BUILTIN_RECV: {
       load_cell(ARGR0,argdefs[0], frame);
       push_frame_regs(frame->f);
+      jit_host_call_enter();
       jit_call(stream_read,"stream_read");
+      jit_host_call_exit();
       pop_frame_regs(frame->f);
       break;
     }
     case BUILTIN_SEND: {
       load_cell(ARGR0,argdefs[0], frame);
       load_cell(ARGR1,argdefs[1], frame);
-      // FIXME clobbers stuff
       push_frame_regs(frame->f);
+      jit_host_call_enter();
       jit_call2(stream_write,"stream_write");
+      jit_host_call_exit();
       pop_frame_regs(frame->f);
       break;
     }

@@ -35,6 +35,8 @@ Building
 
 1. Get the dependencies. For a (Linux-)hosted version, this is only GCC and SDL1 or SDL2 if you want windowed graphics. Sledge can also use /dev/fb0 instead if available on your platform. If you want to cross-compile for an ARM platform, get *arm-none-eabi-gcc* and *libnewlib-arm-none-eabi*.
 
+1b. For a hosted version on Mac OS X, you will need GNU binutils, which can be obtained via homebrew: ````brew install binutils````. You can also get SDL2 via homebrew.
+
 2. To build the hosted variant, cd to ````sledge```` and ````./build_x64.sh````.
 
 3. To cross-compile for bare metal, use ````./rpi2-build.sh````. This will create build/interim-arm.elf.

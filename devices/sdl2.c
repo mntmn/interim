@@ -5,8 +5,8 @@
 #include "stream.h"
 #include "compiler_new.h"
 
-#define WIDTH 1920
-#define HEIGHT 1080
+#define WIDTH 800
+#define HEIGHT 600
 #define BPP 2
 #define DEPTH 16
 #define SCALE 1
