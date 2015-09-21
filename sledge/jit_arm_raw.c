@@ -427,6 +427,12 @@ void jit_pop(int r1, int r2) {
   code[code_idx++] = op; 
 }
 
+// do any needed stack alignment etc. here for host ABI
+void jit_host_call_enter() {
+}
+void jit_host_call_exit() {
+}
+
 void debug_handler() {
   // NYI
 }

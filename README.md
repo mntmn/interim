@@ -7,9 +7,9 @@ Interim OS is a radical new operating system with a focus on minimalism. It stea
 
 Interim runs on:
 - Raspberry Pi 2 (Broadcom VideoCore4/ARMv7, Bare Metal)
-- Olimex Olinuxino (Freescale IMX233/ARMv5, Bare Metal)
 - ARM5+ Linux (Hosted)
-- Intel/AMD x64 Linux (Hosted)
+- Intel/AMD x64 Linux, Mac OS X (Hosted)
+- Motorola 68020+ Amiga OS 3.x+ (Hosted)
 
 Detailed docs are in *docs/index.html*.
 
@@ -34,6 +34,8 @@ Building
 --------
 
 1. Get the dependencies. For a (Linux-)hosted version, this is only GCC and SDL1 or SDL2 if you want windowed graphics. Sledge can also use /dev/fb0 instead if available on your platform. If you want to cross-compile for an ARM platform, get *arm-none-eabi-gcc* and *libnewlib-arm-none-eabi*.
+
+1b. For a hosted version on Mac OS X, you will need GNU binutils, which can be obtained via homebrew: ````brew install binutils````. You can also get SDL2 via homebrew.
 
 2. To build the hosted variant, cd to ````sledge```` and ````./build_x64.sh````.
 

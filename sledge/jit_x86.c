@@ -409,5 +409,11 @@ void jit_dec_stack(int offset) {
   jit_subi(RSP, offset);
 }
 
+// do any needed stack alignment etc. here for host ABI
+void jit_host_call_enter() {
+}
+void jit_host_call_exit() {
+}
+
 void debug_handler() {
 }
