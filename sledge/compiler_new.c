@@ -10,7 +10,11 @@
 static env_t* global_env = NULL;
 
 //#define CHECK_BOUNDS    // enforce boundaries of array put/get
+#ifdef CPU_X86
+#define ARG_SPILLOVER 0
+#else
 #define ARG_SPILLOVER 3 // max 4 args via regs, rest via stack
+#endif
 #define LBDREG R4       // register base used for passing args to functions
 
 static int debug_mode = 0;
@@ -803,7 +807,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
         if (j>=ARG_SPILLOVER) { // max args passed in registers
           fn_new_frame[j].type = ARGT_STACK;
-          fn_new_frame[j].slot = -num_lets - j + 1;
+          fn_new_frame[j].slot = -num_lets - (j - ARG_SPILLOVER) - 2;
           spo_count++;
         }
         else {
@@ -861,7 +865,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_label(label_fe);
       jit_lea(R0,lambda);
       
-#if CPU_ARM||__AMIGA
+#if CPU_ARM||__AMIGA||CPU_X86
       fn_lbl = find_label(label_fn);
       //printf("fn_lbl idx: %d code: %p\r\n",fn_lbl->idx,code);
       lambda->dr.next = code + fn_lbl->idx;

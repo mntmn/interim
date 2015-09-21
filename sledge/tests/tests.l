@@ -80,7 +80,7 @@
   (let b 9)
   (print a)
   (print b)
-  (print x)
+  (print x) ; gives 2, should give 1
   (print y)
   (print z)
   

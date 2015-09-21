@@ -18,7 +18,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
   
   jit_init();
   
-  register void* sp asm ("sp"); // FIXME maybe unportable
+  register void* sp asm ("sp");
   Frame empty_frame = {NULL, 0, 0, sp};
   int success = compile_expr(expr, &empty_frame, TAG_ANY);
   jit_ret();
@@ -66,7 +66,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
     FILE* binary_f = fopen("/tmp/jit_out.bin","r");
     
     uint32_t* jit_binary = mmap(0, codesz, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
-        
+    
     int bytes_read = fread(jit_binary,1,codesz,binary_f);
     fclose(binary_f);
 
@@ -127,9 +127,9 @@ int compile_for_platform(Cell* expr, Cell** res) {
       }
       free(link_line);
     }
-      
-    int mp_res = mprotect(jit_binary, codesz, PROT_EXEC|PROT_READ);
 
+    int mp_res = mprotect(jit_binary, codesz, PROT_EXEC|PROT_READ);
+    
     if (!mp_res) {
       *res = execute_jitted(jit_binary);
       success = 1;

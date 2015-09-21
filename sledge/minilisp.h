@@ -10,7 +10,11 @@
 #include <stdint.h>
 #endif
 
-#define jit_word_t unsigned long // FIXME: works only on linux
+#if CPU_X64
+#define jit_word_t uint64_t
+#else
+#define jit_word_t uint32_t
+#endif
 
 #include "strmap.h"
 

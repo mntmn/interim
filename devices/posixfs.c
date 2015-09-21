@@ -3,7 +3,6 @@
 #include "alloc.h"
 #include "stream.h"
 #include "compiler_new.h"
-#include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -64,7 +63,7 @@ Cell* posixfs_open(Cell* cpath) {
         Cell* res;
         int read_len;
         
-        printf("[posixfs] trying to read file of len %d…\r\n",len);
+        printf("[posixfs] trying to read file of len %d...\r\n",len);
         res = alloc_num_bytes(len);
         read_len = read(f, res->ar.addr, len);
         close(f);

@@ -32,6 +32,7 @@ uint8_t regi[] = {
   2,
   1,
   3,
+  4,
   0
 };
 
@@ -62,82 +63,84 @@ void jit_init() {
   }
 }
 
-void jit_movi(int reg, int imm) {
-  /*if (reg==R0) {
-    code[code_idx++] = 0xa1;
-  } else {
-    code[code_idx++] = 0x8b;
-    code[code_idx++] = reg_code(reg);
-    }*/
-
-  code[code_idx++] = 0xb8 | regi[reg];
-  
+void jit_imm(int imm) { 
   code[code_idx++] = imm&0xff; imm>>=8;
   code[code_idx++] = imm&0xff; imm>>=8;
   code[code_idx++] = imm&0xff; imm>>=8;
   code[code_idx++] = imm&0xff;
 }
 
+Label* find_label(char* label) {
+  int i;
+  for (i=0; i<label_idx; i++) {
+    if (jit_labels[i].name && (strcmp(jit_labels[i].name,label)==0)) {
+      return &jit_labels[i];
+    }
+  }
+  return NULL;
+}
+
+Label* find_unresolved_label(char* label) {
+  int i;
+  for (i=0; i<unres_labels; i++) {
+    if (jit_labels_unres[i].name && (strcmp(jit_labels_unres[i].name,label)==0)) {
+      return &jit_labels_unres[i];
+    }
+  }
+  return NULL;
+}
+
+void jit_emit_branch(char* label) {
+  Label* lbl = find_label(label);
+  if (lbl) {
+    int offset = (lbl->idx - code_idx);
+    //printf("offset to %s: %d (*4)\r\n",label,offset);
+    if (offset<0) {
+      offset = 0xffffffff-(-offset)+1 - 4;
+      jit_imm(offset);
+    }
+  } else {
+    //printf("! label not found %s, adding unresolved.\r\n",label);
+    jit_labels_unres[unres_labels].name = strdup(label);
+    jit_labels_unres[unres_labels].idx  = code_idx;
+    
+    jit_imm(0);
+    
+    unres_labels++;
+  }
+}
+
+void jit_movi(int reg, int imm) {
+  code[code_idx++] = 0xb8 | regi[reg];
+  jit_imm(imm);
+}
+
 void jit_movr(int dreg, int sreg) {
+  if (dreg == sreg) return;
   code[code_idx++] = 0x89;
   code[code_idx++] = 0xc0 + (regi[sreg]<<3) + regi[dreg];
 }
 
 void jit_movneg(int dreg, int sreg) {
+  code[code_idx++] = 0x0f;
+  code[code_idx++] = 0x48;
+  code[code_idx++] = 0xc0 + (regi[dreg]<<3) + (regi[sreg]<<4);
 }
 
 void jit_movne(int dreg, int sreg) {
+  code[code_idx++] = 0x0f;
+  code[code_idx++] = 0x45;
+  code[code_idx++] = 0xc0 + (regi[dreg]<<3) + (regi[sreg]<<4);
 }
 
 void jit_moveq(int dreg, int sreg) {
+  code[code_idx++] = 0x0f;
+  code[code_idx++] = 0x44;
+  code[code_idx++] = 0xc0 + (regi[dreg]<<3) + (regi[sreg]<<4);
 }
 
 void jit_lea(int reg, void* addr) {
   jit_movi(reg, (uint32_t)addr);
-}
-
-void jit_ldr(int reg) {
-  code[code_idx++] = 0x8b;
-  code[code_idx++] = (regi[reg]<<3) + regi[reg];
-}
-
-void jit_ldr_stack(int dreg, int offset) {
-}
-
-void jit_str_stack(int sreg, int offset) {
-}
-
-void jit_inc_stack(int offset) {
-}
-
-void jit_dec_stack(int offset) {
-}
-
-// clobbers rdx!
-void jit_ldrb(int reg) {
-  /*fprintf(jit_out, "movb (%s), %%dl\n", regnames[reg]);
-  fprintf(jit_out, "andq $0xff, %rdx\n", regnames[reg]);
-  if (reg!=3) {
-    fprintf(jit_out, "movq %%rdx, %s\n", regnames[reg]);
-    }*/
-}
-
-// clobbers rdx!
-void jit_ldrw(int reg) {
-  /*fprintf(jit_out, "movl (%s), %%edx\n", regnames[reg]);
-  if (reg!=3) {
-    fprintf(jit_out, "movq %%rdx, %s\n", regnames[reg]);
-    }*/
-}
-
-// 8 bit only from rdx!
-void jit_strb(int reg) {
-  //fprintf(jit_out, "movb %%dl, (%s)\n", regnames[reg]);
-}
-
-// 32 bit only from rdx!
-void jit_strw(int reg) {
-  //fprintf(jit_out, "movl %%edx, (%s)\n", regnames[reg]);
 }
 
 void jit_addr(int dreg, int sreg) {
@@ -145,41 +148,130 @@ void jit_addr(int dreg, int sreg) {
   code[code_idx++] = 0xc0 + (regi[sreg]<<3) + regi[dreg];
 }
 
+// TODO: smaller immediate encodings
 void jit_addi(int dreg, int imm) {
+  if (dreg == R0) {
+    code[code_idx++] = 0x05;
+  } else {
+    code[code_idx++] = 0x81;
+    code[code_idx++] = 0xc0 | regi[dreg];
+  }
+  jit_imm(imm);
+}
+
+void jit_subi(int dreg, int imm) {
+  if (dreg == R0) {
+    code[code_idx++] = 0x2d;
+  } else {
+    code[code_idx++] = 0x81;
+    code[code_idx++] = 0xe8 | regi[dreg];
+  }
+  jit_imm(imm);
 }
 
 void jit_andr(int dreg, int sreg) {
+  code[code_idx++] = 0x21;
+  code[code_idx++] = 0xc0 | (regi[sreg]<<3) | regi[dreg];
+}
+
+void jit_andi(int dreg, int imm) {
+  if (dreg == R0) {
+    code[code_idx++] = 0x25;
+  } else {
+    code[code_idx++] = 0x81;
+    code[code_idx++] = 0xe0 | regi[dreg];
+  }
+  jit_imm(imm);
+}
+
+void jit_notr(int dreg) {
+  code[code_idx++] = 0xf7;
+  code[code_idx++] = 0xd0 | regi[dreg];
 }
 
 void jit_orr(int dreg, int sreg) {
+  code[code_idx++] = 0x09;
+  code[code_idx++] = 0xc0 | (regi[sreg]<<3) | regi[dreg];
 }
 
 void jit_xorr(int dreg, int sreg) {
+  code[code_idx++] = 0x31;
+  code[code_idx++] = 0xc0 | (regi[sreg]<<3) | regi[dreg];
 }
 
 void jit_shrr(int dreg, int sreg) {
-  //fprintf(jit_out, "movq %s, %%rcx\n", regnames[sreg]);
-  //fprintf(jit_out, "shr %%cl, %s\n", regnames[dreg]);
+  jit_movr(R3,R4);
+  jit_movr(R4,sreg);
+  code[code_idx++] = 0xd3; // shr %cl, dreg
+  code[code_idx++] = 0xe8 | (regi[dreg]);
+  jit_movr(R4,R3);
 }
 
 void jit_shlr(int dreg, int sreg) {
-  //fprintf(jit_out, "movq %s, %%rcx\n", regnames[sreg]);
-  //fprintf(jit_out, "shl %%cl, %s\n", regnames[dreg]);
+  jit_movr(R3,R4);
+  jit_movr(R4,sreg);
+  code[code_idx++] = 0xd3; // shr %cl, dreg
+  code[code_idx++] = 0xe0 | (regi[dreg]);
+  jit_movr(R4,R3);
 }
 
 void jit_subr(int dreg, int sreg) {
-  //fprintf(jit_out, "subq %s, %s\n", regnames[sreg], regnames[dreg]);
+  code[code_idx++] = 0x29;
+  code[code_idx++] = 0xc0 | (regi[sreg]<<3) | regi[dreg];
 }
 
 void jit_mulr(int dreg, int sreg) {
-  //fprintf(jit_out, "imulq %s, %s\n", regnames[sreg], regnames[dreg]);
+  code[code_idx++] = 0x0f;
+  code[code_idx++] = 0xaf;
+  code[code_idx++] = 0xc0 | (regi[sreg]<<3) | regi[dreg];
 }
 
 void jit_divr(int dreg, int sreg) {
-  /*fprintf(jit_out, "movq %s, %%rax\n", regnames[dreg]);
-  fprintf(jit_out, "cqto\n");
-  fprintf(jit_out, "idivq %s\n", regnames[sreg]);
-  fprintf(jit_out, "movq %%rax, %s\n", regnames[dreg]);*/
+  jit_movr(R0, dreg);
+  code[code_idx++] = 0xf7;
+  code[code_idx++] = 0xf8 | regi[sreg]; // idiv goes to %rax
+  jit_movr(dreg, R0);
+}
+
+
+void jit_ldr(int reg) {
+  code[code_idx++] = 0x8b;
+  code[code_idx++] = (regi[reg]<<3) + regi[reg];
+}
+
+void jit_ldr_stack(int dreg, int offset) {
+  code[code_idx++] = 0x8b;
+  code[code_idx++] = 0x44 | (regi[dreg]<<3);
+  code[code_idx++] = 0x24;
+  code[code_idx++] = (char)offset;
+}
+
+void jit_str_stack(int sreg, int offset) {
+  code[code_idx++] = 0x89;
+  code[code_idx++] = 0x44 | (regi[sreg]<<3);
+  code[code_idx++] = 0x24;
+  code[code_idx++] = (char)offset;
+}
+
+// clobbers rdx!
+void jit_ldrb(int reg) {
+  code[code_idx++] = 0x8a; // movb (reg), %dl
+  code[code_idx++] = 0x10 | regi[reg];
+
+  jit_andi(R3, 0xff);
+  jit_movr(reg, R3);
+}
+
+void jit_ldrw(int reg) {
+}
+
+// 8 bit only from rdx!
+void jit_strb(int reg) {
+  code[code_idx++] = 0x88; // movb %dl, (reg)
+  code[code_idx++] = 0x10 | regi[reg];
+}
+
+void jit_strw(int reg) {
 }
 
 void jit_call(void* func, char* note) {
@@ -219,38 +311,78 @@ void jit_call3(void* func, char* note) {
 }
 
 void jit_callr(int dreg) {
+  code[code_idx++] = 0xff;
+  code[code_idx++] = 0xd0 | regi[dreg];
 }
 
 int inline_mod(int a, int b) {
   return a%b;
 }
 void jit_modr(int dreg, int sreg) {
-  /*jit_movr(ARGR0,dreg);
+  jit_movr(ARGR0,dreg);
   jit_movr(ARGR1,sreg);
   jit_call(inline_mod,"mod");
-  if (dreg!=0) jit_movr(dreg,0);*/
+  if (dreg!=0) jit_movr(dreg,0);
 }
 
-void jit_cmpi(int sreg, int imm) {
-  //fprintf(jit_out, "cmp $%d, %s\n", imm, regnames[sreg]);
+void jit_cmpi(int dreg, int imm) {
+  if (dreg == R0) {
+    code[code_idx++] = 0x3d;
+  } else {
+    code[code_idx++] = 0x81;
+    code[code_idx++] = 0xf8 | regi[dreg];
+  }
+  jit_imm(imm);
 }
 
 void jit_cmpr(int sreg, int dreg) {
-  //fprintf(jit_out, "cmp %s, %s\n", regnames[dreg], regnames[sreg]);
+  code[code_idx++] = 0x39;
+  code[code_idx++] = 0xc0 | (regi[sreg]<<3) | regi[dreg];
 }
 
 void jit_je(char* label) {
-  //fprintf(jit_out, "je %s\n", label);
+  code[code_idx++] = 0x0f;
+  code[code_idx++] = 0x84;
+  jit_emit_branch(label);
+}
+
+void jit_jne(char* label) {
+  code[code_idx++] = 0x0f;
+  code[code_idx++] = 0x85;
+  jit_emit_branch(label);
 }
 
 void jit_jneg(char* label) {
-  //fprintf(jit_out, "js %s\n", label);
+  code[code_idx++] = 0x0f;
+  code[code_idx++] = 0x88;
+  jit_emit_branch(label);
 }
 
 void jit_jmp(char* label) {
+  code[code_idx++] = 0xe9;
+  jit_emit_branch(label);
 }
 
 void jit_label(char* label) {
+  Label* unres_lbl = NULL;
+  jit_labels[label_idx].name = strdup(label);
+  jit_labels[label_idx].idx = code_idx;
+
+  while ((unres_lbl = find_unresolved_label(label))) {
+    //printf("! forward label to %s at idx %d resolved.\r\n",label,unres_lbl->idx);
+    int offset = (code_idx - unres_lbl->idx);
+    int imm = offset-4;
+    code[unres_lbl->idx]   = imm&0xff; imm>>=8;
+    code[unres_lbl->idx+1] = imm&0xff; imm>>=8;
+    code[unres_lbl->idx+2] = imm&0xff; imm>>=8;
+    code[unres_lbl->idx+3] = imm&0xff; imm>>=8;
+    
+    free(unres_lbl->name);
+    unres_lbl->name = NULL;
+    unres_lbl->idx  = 0;
+  }
+  
+  label_idx++;
 }
 
 void jit_ret() {
@@ -258,15 +390,23 @@ void jit_ret() {
 }
 
 void jit_push(int r1, int r2) {
-  /*for (int i=r1; i<=r2; i++) {
-    fprintf(jit_out, "push %s\n",regnames[i]);
-    }*/
+  for (int i=r1; i<=r2; i++) {
+    code[code_idx++] = 0x50|regi[i];
+  }
 }
 
 void jit_pop(int r1, int r2) {
-  /*for (int i=r2; i>=r1; i--) {
-    fprintf(jit_out, "pop %s\n",regnames[i]);
-    }*/
+  for (int i=r2; i>=r1; i--) {
+    code[code_idx++] = 0x58|regi[i];
+  }
+}
+
+void jit_inc_stack(int offset) {
+  jit_addi(RSP, offset);
+}
+
+void jit_dec_stack(int offset) {
+  jit_subi(RSP, offset);
 }
 
 void debug_handler() {
