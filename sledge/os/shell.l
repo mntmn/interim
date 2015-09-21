@@ -150,8 +150,8 @@
       (def net-y (+ 0 ofsy))
       (if (gt net-y maxy) (def net-y miny) 0)
 
-      (remote-cmd msg)
-      
+      ; only enable this when you know what you're doing
+      ; (remote-cmd msg)
     ) 0)
   )))
   1
@@ -163,14 +163,14 @@
   (send net (concat (concat (concat (concat "GET " path) " HTTP/1.1") (bytes->str [0d0a])) header))
 )))
 
-(def irc-join (fn nick (do
+(def irc-join (fn nick channel (do
   (send net "PASS *")
   (send net [0a])
   (send net (concat "NICK " nick))
   (send net [0a])
   (send net (concat "USER " (concat nick " 8 * :Interim OS")))
   (send net [0a])
-  (send net "JOIN #nodrama.de")
+  (send net (concat "JOIN " channel))
   (send net [0a])
 )))
 
@@ -220,7 +220,7 @@
         (blit-char 32 term-x term-y)
         (def history (cons buffer history))
 
-        (def buffer-read (list (read buffer))) ; FIXME let here crashes
+        (def buffer-read (list (read buffer)))
         (let result (eval buffer-read))
         
         (def buffer "")
