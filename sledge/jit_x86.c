@@ -118,25 +118,25 @@ void jit_movi(int reg, int imm) {
 void jit_movr(int dreg, int sreg) {
   if (dreg == sreg) return;
   code[code_idx++] = 0x89;
-  code[code_idx++] = 0xc0 + (regi[sreg]<<3) + regi[dreg];
+  code[code_idx++] = 0xc0 | (regi[sreg]<<3) | regi[dreg];
 }
 
 void jit_movneg(int dreg, int sreg) {
   code[code_idx++] = 0x0f;
   code[code_idx++] = 0x48;
-  code[code_idx++] = 0xc0 + (regi[dreg]<<3) + (regi[sreg]<<4);
+  code[code_idx++] = 0xc0 | (regi[dreg]<<3) | regi[sreg];
 }
 
 void jit_movne(int dreg, int sreg) {
   code[code_idx++] = 0x0f;
   code[code_idx++] = 0x45;
-  code[code_idx++] = 0xc0 + (regi[dreg]<<3) + (regi[sreg]<<4);
+  code[code_idx++] = 0xc0 | (regi[dreg]<<3) | regi[sreg];
 }
 
 void jit_moveq(int dreg, int sreg) {
   code[code_idx++] = 0x0f;
   code[code_idx++] = 0x44;
-  code[code_idx++] = 0xc0 + (regi[dreg]<<3) + (regi[sreg]<<4);
+  code[code_idx++] = 0xc0 | (regi[dreg]<<3) | regi[sreg];
 }
 
 void jit_lea(int reg, void* addr) {
@@ -223,11 +223,12 @@ void jit_subr(int dreg, int sreg) {
 void jit_mulr(int dreg, int sreg) {
   code[code_idx++] = 0x0f;
   code[code_idx++] = 0xaf;
-  code[code_idx++] = 0xc0 | (regi[sreg]<<3) | regi[dreg];
+  code[code_idx++] = 0xc0 | (regi[dreg]<<3) | regi[sreg];
 }
 
 void jit_divr(int dreg, int sreg) {
   jit_movr(R0, dreg);
+  code[code_idx++] = 0x99; // sign-extend rax to edx:rax (cdq)
   code[code_idx++] = 0xf7;
   code[code_idx++] = 0xf8 | regi[sreg]; // idiv goes to %rax
   jit_movr(dreg, R0);
@@ -321,7 +322,7 @@ int inline_mod(int a, int b) {
 void jit_modr(int dreg, int sreg) {
   jit_movr(ARGR0,dreg);
   jit_movr(ARGR1,sreg);
-  jit_call(inline_mod,"mod");
+  jit_call2(inline_mod,"mod");
   if (dreg!=0) jit_movr(dreg,0);
 }
 

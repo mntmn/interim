@@ -2,7 +2,7 @@
 #include "stream.h"
 #include <stdio.h>
 
-#define TMP_BUF_SIZE 256
+#define TMP_BUF_SIZE 512
 #define INTFORMAT "%ld"
 
 char* tag_to_str(int tag) {

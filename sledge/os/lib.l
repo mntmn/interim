@@ -25,7 +25,6 @@
 )))
 
 (def split (fn str sepstr (do
-  (print (list "split" str sepstr))
   (let sep (get sepstr 0))
   (let result (quote ()))
   (let sz (size str))
@@ -36,7 +35,10 @@
   (let partsize 0)
   
   (while (gt i -2) (do
-    (if (or (eq (get str i) sep) (eq i -1)) (do
+    (if (lt i 0)
+      (let c 0)
+      (let c (get str i)))
+    (if (or (eq c sep) (eq i -1)) (do
       (let partsize (- (- last-i i) 1))
   
       (if (gt partsize -1)
@@ -51,12 +53,9 @@
 (def copy (fn buf from to num (do
   (let i 0)
   (let c 0)
-
-  (print (list "copy: " buf from to num))
   
   (if (lt from to)
     (do
-      (print "mode1")
       (let i (- num 1)) 
       (while (gt i -1) (do
         (let c (get buf (+ from i)))
@@ -64,7 +63,6 @@
         (let i (- i 1))
       )) 0)
     (do
-      (print "mode2")
       (let i 0)
       (while (lt i num) (do
         (let c (get buf (+ from i)))
@@ -81,9 +79,7 @@
   (let p (+ pos 0))
   (let from (+ pos 1))
   (let num (- (size buf) pos))
-  (print (list "remove" buf pos p from (- num 1)))
   (copy buf from p num)
-  (print "copied")
   (put buf (- (size buf) 1) 0)
   buf
 )))

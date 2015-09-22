@@ -52,6 +52,7 @@ Cell* posixfs_open(Cell* cpath) {
         
         do {
           if ((dp = readdir(dirp)) != NULL) {
+            printf("dp: |%s|\r\n",dp->d_name);
             _file_cell = alloc_concat(_file_cell,alloc_concat(alloc_string_copy(dp->d_name),nl));
           }
         } while (dp != NULL);

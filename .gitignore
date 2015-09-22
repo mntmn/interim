@@ -16,3 +16,5 @@ build/386iso/boot/interim.386
 build/test
 build/interim.amiga
 sledge.exe
+SDL2.dll
+sledge-win32

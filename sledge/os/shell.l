@@ -3,6 +3,8 @@
   (split (load "/sd/") [0a])
 )))
 
+(print (list "screen" screen-width screen-height screen-bpp))
+
 (def draw-logo (fn ox oy (do
   (def stroke-color 0xff8e)
   (line (pt (+ ox 16) (- oy 38)) (pt (+ ox 16) (- oy 102)))
@@ -20,6 +22,8 @@
 (draw-logo (- (/ screen-width 2) 140) (+ 1 (/ screen-height 2)))
 (send scr 0)
 
+(def keyboard (open "/keyboard"))
+
 (blit-str "Welcome to Interim OS." 32 32)
 (send scr 0)
 
@@ -28,8 +32,6 @@
   (write xp evbuf)
   (blit-str evbuf x y)
 )))
-
-(def keyboard (open "/keyboard"))
 
 (def term-x minx)
 (def term-y (+ miny 32))

@@ -673,18 +673,19 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_EQ: {
-      load_int(ARGR0, argdefs[0], frame);
+      load_int(R1, argdefs[0], frame);
       load_int(R2, argdefs[1], frame);
+      jit_movi(R0,0);
       jit_movi(R3,1);
-      jit_subr(ARGR0,R2);
-      jit_movi(R2,0);
-      jit_cmpi(ARGR0,0);
-      jit_moveq(ARGR0,R3);
-      jit_movne(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      jit_cmpr(R1,R2);
+      jit_moveq(R0,R3);
+      if (return_type == TAG_ANY) {
+        jit_movr(ARGR0,R0);
+        jit_call(alloc_int, "alloc_int");
+      }
       else {
         compiled_type = TAG_INT;
-        jit_movr(R0,ARGR0);
+        // int is in R0 already
       }
       break;
     }

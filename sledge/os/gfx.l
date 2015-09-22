@@ -28,7 +28,7 @@
   (let ya (car (cdr a)))
   (let xb (car b))
   (let yb (car (cdr b)))
-  
+
   (let dx (abs (- xb xa)))
   (let dy (abs (- yb ya)))
   (let sx (if (lt xa xb) 1 -1))

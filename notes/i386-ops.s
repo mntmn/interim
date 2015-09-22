@@ -31,8 +31,16 @@ cmovs %edi, %esi
 cmovs %esi, %edx
 cmovs %esi, %esi
 
-cmove %eax, %edi
-cmovne %eax, %esi
+cmove %eax, %eax
+cmove %eax, %ecx
+cmove %eax, %edx
+cmove %ecx, %eax
+cmove %edx, %eax
+cmovne %eax, %eax
+cmovne %eax, %ecx
+cmovne %eax, %edx
+cmovne %ecx, %eax
+cmovne %edx, %eax
 
 mov %esi, %edi
 mov (%esi), %edi
