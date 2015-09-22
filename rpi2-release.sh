@@ -1,5 +1,7 @@
 cp ./build/kernel7.img ./release-rpi2/
 cp ./sledge/unifont.bin ./release-rpi2/
+cp ./sledge/os/lib.l ./release-rpi2/
+cp ./sledge/os/gfx.l ./release-rpi2/
 cp ./sledge/os/shell.l ./release-rpi2/
 cp ./sledge/os/editor.l ./release-rpi2/
 cp ./sledge/os/paint.l ./release-rpi2/
