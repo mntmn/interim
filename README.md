@@ -13,6 +13,15 @@ Interim runs on:
 
 Detailed docs are in *docs/index.html*.
 
+Contact / FAQ / Get Involved
+----------------------------
+
+To coordinate the development efforts, there is now an official mailing list. The best for technical discussion is there:
+
+![interim-dev Mailing List](http://sympa.mntmn.com/info/interim-dev) 
+
+If you find bugs, please file an issue in the ![Github issue tracker](https://github.com/mntmn/interim/issues).
+
 Architecture
 ------------
 
