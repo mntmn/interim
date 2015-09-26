@@ -2,7 +2,7 @@
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
-#define DEBUG
+//#define DEBUG
 
 #include <sys/mman.h> // mprotect
 #include <sys/stat.h>
