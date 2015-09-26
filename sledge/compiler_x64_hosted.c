@@ -2,7 +2,7 @@
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
-//#define DEBUG
+#define DEBUG
 
 #include <sys/mman.h> // mprotect
 #include <sys/stat.h>
@@ -48,7 +48,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
         
     // prefix with arm-none-eabi- on ARM  -mlittle-endian
     
-    system("as -L /tmp/jit_out.s -o /tmp/jit_out.o");
+    system("as /tmp/jit_out.s -o /tmp/jit_out.o");
 #if defined(__APPLE__) && defined(__MACH__)
     system("gobjcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
 #else
