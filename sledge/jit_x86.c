@@ -46,13 +46,17 @@ static int label_idx = 0;
 static Label jit_labels[JIT_MAX_LABELS];
 static Label jit_labels_unres[JIT_MAX_LABELS]; // unresolved (forward) labels
 static int unres_labels = 0;
+static int jit_max_size = 0;
 
-
-void jit_init() {
+void jit_init(uint8_t* dest, int max_size) {
+  code = dest;
+  
   // cleans up jit state
   label_idx = 0;
   unres_labels = 0;
   code_idx = 0;
+  jit_max_size = max_size; // TODO enforce
+  
   for (int i=0; i<JIT_MAX_LABELS; i++) {
     if (jit_labels[i].name) free(jit_labels[i].name);
     jit_labels[i].name = NULL;
