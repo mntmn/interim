@@ -2,7 +2,7 @@
 #define MAP_ANONYMOUS MAP_ANON
 #endif
 
-//#define DEBUG
+#define DEBUG
 
 #include <sys/mman.h> // mprotect
 #include <sys/stat.h>
@@ -48,7 +48,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
         
     // prefix with arm-none-eabi- on ARM  -mlittle-endian
     
-    system("as -L /tmp/jit_out.s -o /tmp/jit_out.o");
+    system("as -o /tmp/jit_out.o /tmp/jit_out.s -L");
 #if defined(__APPLE__) && defined(__MACH__)
     system("gobjcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
 #else
@@ -100,7 +100,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
           char ida=link_line[19];
           char idb=link_line[20];
           char idc=link_line[21];
-          //printf("link_line: %s %c %c %c\n",link_line,ida,idb,idc);
+          printf("link_line: %s %c %c %c\n",link_line,ida,idb,idc);
 
           if (ida=='L' && idc=='_') {
             Cell* lambda = (Cell*)strtoul(&link_line[24], NULL, 16);
@@ -109,7 +109,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
               // TODO: 64/32 bit
               unsigned long long offset = strtoul(link_line, NULL, 16);
               void* binary = ((uint8_t*)jit_binary) + offset;
-              //printf("function %p entrypoint: %p (+%ld)\n",lambda,binary,offset);
+              printf("function %p entrypoint: %p (+%ld)\n",lambda,binary,offset);
 
               if (lambda->tag == TAG_LAMBDA) {
                 lambda->dr.next = binary;
@@ -120,7 +120,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
             else if (idb=='1') {
               // function exit
               unsigned long long offset = strtoul(link_line, NULL, 16);
-              //printf("function exit point: %p\n",offset);
+              printf("function exit point: %p\n",offset);
             }
           }
         }
@@ -131,7 +131,14 @@ int compile_for_platform(Cell* expr, Cell** res) {
     int mp_res = mprotect(jit_binary, codesz, PROT_EXEC|PROT_READ);
     
     if (!mp_res) {
+
+#ifdef DEBUG
+    printf("checking the bug %p>\n",jit_binary);
+#endif
       *res = execute_jitted(jit_binary);
+#ifdef DEBUG
+    printf("checking the bug %p>\n",res);
+#endif
       success = 1;
     } else {
       printf("<mprotect result: %d\n>",mp_res);
