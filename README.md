@@ -9,6 +9,7 @@ Interim runs on:
 - Raspberry Pi 2 (Broadcom VideoCore4/ARMv7, Bare Metal)
 - ARM5+ Linux (Hosted)
 - Intel/AMD x64 Linux, Mac OS X (Hosted)
+- Intel/AMD x86 Linux, Windows (Hosted, win32 .exe cross compiled from Linux)
 - Motorola 68020+ Amiga OS 3.x+ (Hosted)
 
 Detailed docs are in *docs/index.html*.
