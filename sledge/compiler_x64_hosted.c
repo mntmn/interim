@@ -48,10 +48,11 @@ int compile_for_platform(Cell* expr, Cell** res) {
         
     // prefix with arm-none-eabi- on ARM  -mlittle-endian
     
-    system("as -L /tmp/jit_out.s -o /tmp/jit_out.o");
 #if defined(__APPLE__) && defined(__MACH__)
+    system("clang -no-integrated-as -c /tmp/jit_out.s -o /tmp/jit_out.o -Xassembler -L");
     system("gobjcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
 #else
+    system("as -L /tmp/jit_out.s -o /tmp/jit_out.o");
     system("objcopy /tmp/jit_out.o -O binary /tmp/jit_out.bin");
 #endif
 
