@@ -16,7 +16,7 @@ Detailed docs are in *docs/index.html*.
 Contact / FAQ / Get Involved
 ----------------------------
 
-To coordinate the development efforts, there is now an official mailing list. The best for technical discussion is there:
+To coordinate the development efforts, there is now an official mailing list. The best place for technical discussion is there:
 
 http://sympa.mntmn.com/info/interim-dev
 
