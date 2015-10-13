@@ -20,7 +20,7 @@ To coordinate the development efforts, there is now an official mailing list. Th
 
 http://sympa.mntmn.com/info/interim-dev
 
-If you find bugs, please file an issue in the ![Github issue tracker](https://github.com/mntmn/interim/issues).
+If you find bugs, please file an issue in the [Github issue tracker](https://github.com/mntmn/interim/issues).
 
 Architecture
 ------------
@@ -28,8 +28,6 @@ Architecture
 - Layer 2: Bitmapped Terminal / Editor
 - Layer 1: Sledge Lisp JIT Compiler
 - Layer 0: Platform Interface (Startup code and filesystems)
-
-![Interim OS Screenshot](http://dump.mntmn.com/interim-paper/illustrations/interim-picture.jpg)
 
 Design Choices
 --------------
@@ -64,6 +62,16 @@ Running (Raspberry Pi 2)
 ------------------------
 
 Prepare a bootable SD card with the usual FAT partition that has the Pi-specific boot blobs in it and copy ````kernel.img```` into it. You can recycle any other Raspberry OS distribution, i.e. Raspian for this. Just replace the kernel7.img and delete cmdline.txt. Keyboard input is currently only over UART, so you will probably want to connect a UART->USB cable to another computer and use it to control Interim. 
+
+![Interim OS Screenshot](http://dump.mntmn.com/interim-paper/illustrations/interim-picture.jpg)
+
+Roadmap
+-------
+
+- IEEE 754 double-precision floating point numbers.
+- Vectors.
+- Native string maps (dictionaries) based on the existing sd_hash.
+- JavaScript to Interim Lisp compiler.
 
 Licenses
 --------
