@@ -221,12 +221,7 @@
   1
 )))
 
-(def maxx (- screen-width 32))
-(def maxy (- screen-height 32))
-(def minx 32)
-(def miny 32)
-
-(def blit-str (fn str x y (do
+(def blit-str (fn str x y maxx maxy (do
   (let i 0)
   (let xx 0)
   (let yy 0)
@@ -240,10 +235,10 @@
     (let xx (+ xx rune-spacing))
     ; newline
     (if (or (eq c 10) (gt xx maxx)) (do
-      (let xx minx)
+      (let xx x)
       (let yy (+ yy rune-h))
       (if (gt yy maxy) (do
-        (let yy miny)) 0)
+        (let yy y)) 0)
     ) 0)
     (let i (+ i 1))
     (if (get str i) 0 (let i sz)) ; stop at 0
@@ -305,6 +300,6 @@
   x
 )))
 
-(def clear (fn (boxfill 0 0 maxx maxy 0xffff)))
+(def clear (fn (boxfill 0 0 (- screen-width 1) (- screen-height 1) 0xffff)))
 
 )

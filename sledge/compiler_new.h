@@ -4,7 +4,7 @@
 #include <string.h>
 
 #define MAXARGS 8
-#define MAXFRAME 24 // maximum MAXFRAME-MAXARGS local vars
+#define MAXFRAME 64 // maximum MAXFRAME-MAXARGS local vars
 
 typedef void* (*funcptr)();
 
@@ -26,12 +26,15 @@ typedef struct Arg {
   char* name;
 } Arg;
 
-typedef struct Frame {
+typedef struct Frame Frame;
+
+struct Frame {
   Arg* f;
   int sp;
   int locals;
   void* stack_end;
-} Frame;
+  Frame* parent_frame;
+};
 
 typedef struct Label {
   char* name;

@@ -713,58 +713,73 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       offset = MAXARGS + frame->locals;
       fidx = get_sym_frame_idx(argdefs[0].cell->ar.addr, fn_frame, 0);
 
-      // el cheapo type inference
-      if (1 &&
-          (argdefs[1].type == ARGT_REG_INT ||
+      if (fidx >= 0) {
+        // existing stack entry
+        offset = fidx;
+        printf("+~ frame entry %s, existing stack-local idx %d (type %d)\n",fn_frame[offset].name,fn_frame[offset].slot,fn_frame[offset].type);
+
+        // is_int from existing entry
+        if (fn_frame[offset].type == ARGT_REG_INT ||
+            fn_frame[offset].type == ARGT_STACK_INT) {
+          is_int = 1;
+        }
+        
+        if (fn_frame[offset].type == ARGT_REG_INT ||
+            fn_frame[offset].type == ARGT_REG) {
+          is_reg = 1;
+        }
+        
+      } else {
+        if ((argdefs[1].type == ARGT_REG_INT ||
            argdefs[1].type == ARGT_STACK_INT ||
-           (argdefs[1].type == ARGT_CONST && argdefs[1].cell->tag == TAG_INT) ||
-           (fidx>=0 && fn_frame[fidx].type == ARGT_STACK_INT) // already defined as int TODO: error on attempted type change
+           (argdefs[1].type == ARGT_CONST && argdefs[1].cell->tag == TAG_INT)
          )) {
+          is_int = 1;
+        }
+
+        // create new stack entry for this let
+        fn_frame[offset].name = argdefs[0].cell->ar.addr;
+        fn_frame[offset].cell = NULL;
+        if (is_int) {
+          fn_frame[offset].type = ARGT_STACK_INT;
+          printf("new let %s inferred INT\n",argdefs[0].cell->ar.addr);
+        } else {
+          fn_frame[offset].type = ARGT_STACK;
+          printf("new let %s inferred ANY\n",argdefs[0].cell->ar.addr);
+        }
+        fn_frame[offset].slot = -frame->locals;
+        //printf("++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
+        
+        frame->locals++;
+        if (frame->locals+MAXARGS>=MAXFRAME) {
+          printf("<error: too many locals (maximum %d)>\r\n",MAXFRAME-MAXARGS);
+        }
+      }
+      
+      if (is_int) {
         load_int(R0, argdefs[1], frame);
-        is_int = 1;
         compiled_type = TAG_INT;
       } else {
         load_cell(R0, argdefs[1], frame);
         compiled_type = TAG_ANY;
       }
 
-      is_reg = 0;
-      
-      if (fidx >= 0) {
-        // existing stack entry
-        offset = fidx;
-        //printf("+~ frame entry %s, existing stack-local idx %d\n",fn_frame[offset].name,fn_frame[offset].slot);
-
-        if (fn_frame[offset].type == ARGT_REG) {
-          is_reg = 1;
-        }
-      } else {
-        fn_frame[offset].name = argdefs[0].cell->ar.addr;
-        fn_frame[offset].cell = NULL;
-        if (is_int) {
-          fn_frame[offset].type = ARGT_STACK_INT;
-        } else {
-          fn_frame[offset].type = ARGT_STACK;
-        }
-        fn_frame[offset].slot = -frame->locals;
-        //printf("++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
-        frame->locals++;
-      }
-
       if (!is_reg) {
         jit_str_stack(R0,PTRSZ*(frame->sp-fn_frame[offset].slot));
+      }
+      
+      if (is_reg) {
+        jit_movr(fn_frame[offset].slot, R0);
+        printf("let %s to reg: %d\r\n",fn_frame[offset].name, fn_frame[offset].slot);
       }
       
       if (compiled_type == TAG_INT && return_type == TAG_ANY) {
         jit_movr(ARGR0,R0);
         jit_call(alloc_int, "alloc_int");
         compiled_type = TAG_ANY;
+      } else {
       }
 
-      if (is_reg) {
-        jit_movr(fn_frame[offset].slot, R0);
-        printf("let %s to reg: %d\r\n",fn_frame[offset].name, fn_frame[offset].slot);
-      }
       
       break;
     }
@@ -854,6 +869,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       } else {
         nframe_ptr = &nframe;
       }
+
+      //nframe_ptr->parent_frame = frame;
       
       tag = compile_expr(fn_body, nframe_ptr, TAG_ANY); // new frame, fresh sp
       if (!tag) return 0;
