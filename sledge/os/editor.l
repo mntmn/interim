@@ -1,7 +1,22 @@
 (
-(def editor-running 1)
-
-(def buf (alloc-str 1024))
+(def editor (struct
+  buffer "hello world!"
+  win-x 32
+  win-y 32
+  win-w 400
+  win-h 250
+  cursor 0
+  cursor-char 32
+  cursor-x 0
+  cursor-y 0
+  cursor-abs-x 32
+  cursor-abs-y 32
+  last-num-lines -1
+  scroll-y 0
+  scroll-dirty 0
+  buf-dirty 1
+  focused 0
+))
 
 (def find-prev (fn buf rune pos (do
   (let p pos)
@@ -31,39 +46,36 @@
   (+ p 0)
 )))
 
-(def buf-render-x 32)
-(def buf-render-y 32)
-(def cursor-char 32)
-(def cursor-x 0)
-(def cursor-y 0)
-(def last-num-lines 0)
-(def scroll-y 0)
-(def scroll-dirty 0)
-
-(def buf-render (fn cursor b (do
-  (let lines (split b [0a]))
+(def buf-render (fn (this editor) (do
+  (let buffer (sget this buffer))
+  (let lines (split buffer [0a]))
   (let i 0)
-  (let y 0)
   (let ln (car lines))
   (let pos 0)
   (let nextpos 0)
-  (let y buf-render-y)
+  (let x 0)
+  (let y 0)
+  (let x (+ 0 (sget this win-x)))
+  (let y (+ 0 (sget this win-y)))
+  (let maxx (+ x (sget this win-w)))
+  (let maxy (+ y (sget this win-h)))
+  (let cursor (sget this cursor))
+  (let scroll-dirty (sget this scroll-dirty))
+  (let scroll-y (sget this scroll-y))
   (let render-all 0)
-
-  (print (list "buf-render" cursor b lines last-num-lines))
   
   ; number of lines changed? then rerender
-  (if (or scroll-dirty (not (eq last-num-lines (list-size lines)))) (do
+  (if (or scroll-dirty (not (eq (sget this last-num-lines) (list-size lines)))) (do
       (let render-all 1)
-      (boxfill minx miny maxx maxy 0xffff)
-      (def scroll-dirty 0)
+      (boxfill x y maxx maxy 0xffff)
+      (box (- x 1) (- y 1) (+ maxx 2) (+ maxy 2) 0x0)
+      (sput this scroll-dirty 0)
     )
   0)
 
-  (def last-num-lines (list-size lines))
+  (sput this last-num-lines (list-size lines))
 
   (let i 0)
-  
   (while ln (do
     (let is-current-line 0)
     (let i (+ i 1))
@@ -72,11 +84,11 @@
 
     (if (and (gt cursor (- pos 1)) (lt cursor (+ nextpos 1))) (do
       ; cursor is in this line
-      (def term-y (+ y 0))
-      (def cursor-x (- cursor pos))
-      (def cursor-y (- (- i 1) scroll-y ))
-      (def term-x (+ buf-render-x (* rune-spacing cursor-x)))
-      (def cursor-char (get ln cursor-x))
+      (sput this cursor-abs-y (+ y 0))
+      (sput this cursor-x (- cursor pos))
+      (sput this cursor-y (- (- i 1) scroll-y ))
+      (sput this cursor-abs-x (+ (sget this win-x) (* rune-spacing (sget this cursor-x))))
+      (sput this cursor-char (get ln (sget this cursor-x)))
       (let is-current-line 1)
 
       ; blank out the line
@@ -84,13 +96,10 @@
       ;  (boxfill buf-render-x term-y (- maxx buf-render-x) rune-h 0xffff)
       ;) 0)
     ) 0)
-
-    ; this crashes arm
-    ; (or is-current-line (not only-current))
     
     (if (or render-all is-current-line) (do
       (if (and (lt y maxy) (not (gt scroll-y i)))
-        (blit-str ln buf-render-x y)
+        (blit-str ln (sget this win-x) y maxx maxy)
         0)
     ) 0)
     
@@ -112,78 +121,95 @@
   (substr buf from (- to from))
 )))
 
-(def cursor 0)
-(def buf-dirty 0)
-
-(def backspace (fn (if (gt cursor 0) (do
-  (remove buf (- cursor 1))
-  (def cursor (- cursor 1))
-  (def buf-dirty 1)
+(def backspace (fn (this editor) (if (gt (sget this cursor) 0) (do
+  (remove (sget this buffer) (- (sget this cursor) 1))
+  (sput this cursor (- (sget this cursor) 1))
+  (sput this buf-dirty 1)
 ) 0)))
 
-(def repair-at-cursor (fn (do
+(def repair-at-cursor (fn (this editor) (do
   (print "repair-at-cursor")
+  (let term-x (sget this cursor-abs-x))
+  (let term-y (sget this cursor-abs-y))
+  (let cursor-char (sget this cursor-char))
+  
   (blit-char (if (eq cursor-char 0) 32 cursor-char) term-x term-y)
 )))
 
-(def cursor-left (fn (do
-  (repair-at-cursor)
-  (def cursor (- cursor 1))
-  (def buf-dirty 1)
+(def cursor-left (fn (this editor) (do
+  (repair-at-cursor this)
+  (sput this cursor (- (sget this cursor) 1))
+  (sput this buf-dirty 1)
 )))
 
-(def cursor-right (fn (do
-  (repair-at-cursor)
-  (def cursor (+ cursor 1))
-  (def buf-dirty 1)
+(def cursor-right (fn (this editor) (do
+  (repair-at-cursor this)
+  (sput this cursor (+ (sget this cursor) 1))
+  (sput this buf-dirty 1)
 )))
 
-(def scroll-speed 10)
+(def scroll-speed 5)
 
-(def cursor-up (fn (do
-  (repair-at-cursor)
-  (def cursor (find-prev buf 10 (- cursor 1)))
-  (if (and (lt cursor-y 5) (gt scroll-y 0)) (do
-    (def scroll-y (- scroll-y scroll-speed))
-    (if (lt scroll-y 0) (def scroll-y 0) 0)
-    (def scroll-dirty 1)
+(def cursor-up (fn (this editor) (do
+  (repair-at-cursor this)
+  (let buf (sget this buffer))
+  
+  (sput this cursor (find-prev buf 10 (- (sget this cursor) 1)))
+  (if (and (lt (sget this cursor-y) 5) (gt (sget this scroll-y) 0)) (do
+    (sput this scroll-y (- (sget this scroll-y) scroll-speed))
+    (if (lt (sget this scroll-y) 0) (sput this scroll-y 0) 0)
+    (sput this scroll-dirty 1)
   ) 0)
-  (def buf-dirty 1)
+  (sput this buf-dirty 1)
 )))
 
-(def cursor-down (fn (do
-  (repair-at-cursor)
+(def cursor-down (fn (this editor) (do
+  (repair-at-cursor this)
+  (let cursor (sget this cursor))
+  (let last-num-lines (sget this last-num-lines))
+  (let buf (sget this buffer))
+  
   (let nextzero (find-next buf 0 (+ cursor 1)))
-  (let nextnl (find-next buf 10 (+ cursor 1)))
-  (def cursor (if (lt nextzero nextnl) cursor nextnl))
-  (if (and (gt cursor-y 30) (lt scroll-y last-num-lines)) (do
-    (def scroll-y (+ scroll-y scroll-speed))
-    (if (gt scroll-y (- last-num-lines 1)) (def scroll-y (- last-num-lines 1)) 0)
-    (def scroll-dirty 1)
+  (let nextnl   (find-next buf 10 (+ cursor 1)))
+
+  (let y (+ 0 (sget this win-y)))
+  (let maxy (+ y (sget this win-h)))
+  (let maxlines (/ maxy rune-h))
+  
+  (sput this cursor (if (lt nextzero nextnl) cursor nextnl))
+  (if (and (gt (sget this cursor-y) maxlines) (lt (sget this scroll-y) (sget this last-num-lines))) (do
+    (sput this scroll-y (+ (sget this scroll-y) scroll-speed))
+    (if (gt (sget this scroll-y) (- last-num-lines 1)) (sput this scroll-y (- (sget this last-num-lines) 1)) 0)
+    (sput this scroll-dirty 1)
   ) 0)
-  (def buf-dirty 1)
+  (sput this buf-dirty 1)
 )))
 
 (def exit-editor (fn (do
   (print "exit-editor")
-  (def editor-running 0)
 )))
 
-(def handle-editor-key (fn k (do
-  (if (eq k 20) (cursor-right)
-    (if (eq k 19) (cursor-left)
-      (if (eq k 0x7f) (backspace)
-        (if (eq k 17) (cursor-up)
-          (if (eq k 18) (cursor-down)
-            (if (eq k 27) (exit-editor)
+(def editor-yield-focus (fn (this editor) (do
+  (print "yield focus")
+  (sput this focused 0)
+)))
+
+(def handle-editor-key (fn (this editor) k (do
+  (if (eq k 20) (cursor-right this)
+    (if (eq k 19) (cursor-left this)
+      (if (eq k 0x7f) (backspace this)
+        (if (eq k 17) (cursor-up this)
+          (if (eq k 18) (cursor-down this)
+            (if (eq k 9) (editor-yield-focus this)
 
   (if (and (gt k 0) (lt k 250))
     (do
       (print (list "handle-editor-key2" k))
-      (def buf (concat buf " ")) ; room for new character
-      (insert buf cursor (+ k 0))
-      (def cursor (+ cursor 1))
-      (def buf-dirty 1)
+      (let buf (concat (sget this buffer) " ")) ; room for new character
+      (insert buf (sget this cursor) (+ k 0))
+      (sput this buffer buf)
+      (sput this cursor (+ (sget this cursor) 1))
+      (sput this buf-dirty 1)
     ) 0)
   
   ))))))
@@ -192,54 +218,51 @@
 
 (def handle-command-key (fn 0))
 
-(def edit (fn edit-buf (do
-  (def buf edit-buf)
-  (def editor-running 1)
-  (def last-num-lines -1)
-  (def cursor 0)
-
-  (let blink 0)
-  (clear)
-  (gc)
-  (def term-x buf-render-x)
-  (def term-y buf-render-y)
-  (def buf-dirty 1)
+(def edit-main (fn (this editor) focused (do
+  (sput this focused focused)
+  (let cursor (sget this cursor))
+  (let buf (sget this buffer))
   
-  (while (eq 1 editor-running) (do
+  (if focused (do
     (let str (recv keyboard))
     (let k (get str 0))
-
-    (handle-editor-key k)
-    
-    (if (lt cursor 0) (def cursor 0) 0)
-    (if (gt cursor (size buf)) (def cursor (size buf)) 0)
-
-    (if buf-dirty (do
-      (buf-render cursor buf)
-      (def buf-dirty 0)
+    (handle-editor-key this k)
     ) 0)
-    
-    ; (print (list "term-x/y" term-x term-y))
-    (if (gt blink 9)
+  
+  (if (lt cursor 0) (sput this cursor 0) 0)
+  (if (gt cursor (size buf)) (sput this cursor (size buf)) 0)
+
+  (if (sget this buf-dirty) (do
+                    (buf-render this)
+                    (sput this buf-dirty 0)
+                  ) 0)
+
+  (let term-x (sget this cursor-abs-x))
+  (let term-y (sget this cursor-abs-y))
+  (let cursor-char (sget this cursor-char))
+  
+  (if (and focused (eq cursor-blink (/ cursor-blink-delay 2)))
       (blit-char 0x2588 term-x term-y)
-      (do
-        (blit-char (if (eq cursor-char 0) 32 cursor-char) term-x term-y)
-      ))
-      
-    (let blink (% (+ blink 1) 20))
-    
-    (send scr 0)
-    (gc)
-  ))
-  (concat buf "")
+  (if (eq cursor-blink 0)
+        (blit-char (if (eq cursor-char 0) 32 cursor-char) term-x term-y) 0))
+  (let focused (sget this focused))
+  focused
 )))
 
-(def edit-file (fn path (do
-  (let content (load path))
-  (edit content)
+(def editor-task (fn state (do
+  (let s state)
+  (let focused (car s)) (let s (cdr s))
+  (let this (car s))
+  (let focused (edit-main this focused))
+  (list focused this)
 )))
 
-(def edit-new (fn (do
-  (edit (alloc-str 4096))
-)))
+;(def edit-file (fn path (do
+;  (let content (load path))
+;  (edit content)
+;)))
+
+;(def edit-new (fn (do
+;  (edit (alloc-str 4096))
+;)))
 )

@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
   }
 
   while (1) {
-    if (in_f == stdin) printf("sledge> ");
+    if (in_f == stdin) printf("interim> ");
     expr = NULL;
     len = 0;
 

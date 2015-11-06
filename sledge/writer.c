@@ -10,7 +10,7 @@ char* tag_to_str(int tag) {
   case TAG_FREED: return "freed"; 
   case TAG_INT: return "int";
   case TAG_CONS: return "cons";
-  case TAG_SYM: return "sym";
+  case TAG_SYM: return "symbol";
   case TAG_LAMBDA: return "lambda";
   case TAG_BUILTIN: return "builtin";
   case TAG_BIGNUM: return "bignum";
@@ -21,6 +21,7 @@ char* tag_to_str(int tag) {
   case TAG_ANY: return "any";
   case TAG_VOID: return "void";
   case TAG_STREAM: return "stream";
+  case TAG_STRUCT: return "struct";
     //case TAG_FS: return "filesystem";
     //case TAG_MARK: return "gc_mark";
   default: return "unknown";
@@ -79,8 +80,18 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
     int ai = 0;
     tmp_args[0]=0;
     tmp_body[0]=0;
+    /*char debug[256];
+    write_(args,debug,0,256);
+    printf("debug %s\n",debug);*/
     while (args && car(car(args))) {
-      ai += snprintf(tmp_args+ai, TMP_BUF_SIZE-ai, "%s ", (char*)(car(car(args)))->ar.addr);
+      if (car(car(args))->tag == TAG_CONS) {
+        Cell* arg_cell = car(car(args));
+        // typed arg
+        ai += snprintf(tmp_args+ai, TMP_BUF_SIZE-ai, "(%s %s) ", (char*)(car(arg_cell)->ar.addr), (char*)(car(cdr(arg_cell))->ar.addr));
+      } else {
+        // untyped arg
+        ai += snprintf(tmp_args+ai, TMP_BUF_SIZE-ai, "%s ", (char*)(car(car(args)))->ar.addr);
+      }
       args = cdr(args);
     }
     write_(cdr(cell->ar.addr), tmp_body, 0, TMP_BUF_SIZE);
@@ -109,6 +120,39 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
       }
       buffer[i*2+1]=']';
       buffer[i*2+2]=0;
+    }
+  } else if (cell->tag == TAG_VEC || cell->tag == TAG_STRUCT || cell->tag == TAG_STRUCT_DEF) {
+    Cell** vec = cell->ar.addr;
+    int elements = cell->dr.size;
+    int pos = 1;
+
+    if (bufsize>12) {
+      int i;
+      buffer[0]='(';
+      pos = 1;
+      if (cell->tag == TAG_VEC) {
+        sprintf(&buffer[1],"vec ");
+        pos = 5;
+      }
+      else if (cell->tag == TAG_STRUCT) {
+        sprintf(&buffer[1],"instance ");
+        pos = 10;
+      }
+      else if (cell->tag == TAG_STRUCT_DEF) {
+        sprintf(&buffer[1],"struct ");
+        pos = 8;
+      }
+      
+      for (i=0; i<elements && pos<bufsize-1; i++) {
+        //printf("i: %d pos: %d vec[i]: %p\n",i,pos,vec[i]);
+        write_(vec[i], buffer+pos, 0, bufsize-pos);
+        //printf("-> %s\n",buffer);
+        pos += strlen(buffer+pos);
+        buffer[pos]=' ';
+        pos++;
+      }
+      buffer[pos]=')';
+      buffer[pos+1]=0;
     }
   } else if (cell->tag == TAG_STREAM) {
     Stream* s = (Stream*)cell->ar.addr;

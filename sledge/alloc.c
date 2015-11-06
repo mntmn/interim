@@ -108,17 +108,15 @@ void mark_tree(Cell* c) {
     lisp_write(c, buf, 79);
     printf("~~ marking live: %p %s\n",c,buf);*/
     
-    c->tag |= TAG_MARK;
-    
-    if (c->tag & TAG_CONS) {
+    if (c->tag == TAG_CONS) {
       if (c->ar.addr) mark_tree((Cell*)c->ar.addr);
       if (c->dr.next) mark_tree((Cell*)c->dr.next);
     }
-    else if (c->tag & TAG_SYM) {
+    else if (c->tag == TAG_SYM) {
       // TODO: mark bytes in heap
       // also for STR, BYTES
     }
-    else if (c->tag & TAG_LAMBDA) {
+    else if (c->tag == TAG_LAMBDA) {
       /*static char buf[512];
       lisp_write((Cell*)c->ar.addr, buf, 511);
       printf("~~ mark lambda args: %s\n",buf);*/
@@ -128,14 +126,14 @@ void mark_tree(Cell* c) {
       // TODO: mark compiled code / free unused compiled code
       // -- keep all compiled blobs in a list
     }
-    else if (c->tag & TAG_BUILTIN) {
+    else if (c->tag == TAG_BUILTIN) {
       mark_tree((Cell*)c->dr.next); // builtin signature
     }
-    else if (c->tag & TAG_STREAM) {
+    else if (c->tag == TAG_STREAM) {
       Stream* s = (Stream*)c->ar.addr;
       mark_tree(s->path);
     }
-    else if (c->tag & TAG_FS) {
+    else if (c->tag == TAG_FS) {
       Filesystem* fs = (Filesystem*)c->dr.next;
       mark_tree(fs->mount_point);
       mark_tree(fs->open_fn);
@@ -145,6 +143,16 @@ void mark_tree(Cell* c) {
       mark_tree(fs->delete_fn);
       mark_tree(fs->mmap_fn);
     }
+    else if (c->tag == TAG_VEC || c->tag == TAG_STRUCT || c->tag == TAG_STRUCT_DEF) {
+      int i=0;
+      int sz=c->dr.size;
+      Cell** elements=c->ar.addr;
+      for (i=0; i<sz; i++) {
+        mark_tree(elements[i]);
+      }
+    }
+    
+    c->tag |= TAG_MARK;
   }
 }
 
@@ -455,6 +463,42 @@ Cell* alloc_lambda(Cell* args) {
 
 Cell* alloc_nil(void) {
   return alloc_cons(0,0);
+}
+
+Cell* alloc_vector(int size) {
+  Cell* c = cell_alloc();
+  c->tag = TAG_VEC;
+  c->ar.addr = malloc(size * sizeof(void*));
+  c->dr.size = size;
+  return c;
+}
+
+Cell* alloc_struct_def(int size) {
+  Cell* c = cell_alloc();
+  c->tag = TAG_STRUCT_DEF;
+  c->ar.addr = malloc(size * sizeof(void*));
+  c->dr.size = size;
+  return c;
+}
+
+Cell* alloc_struct(Cell* struct_def) {
+  Cell** elements;
+  Cell** def_elements;
+  int num_fields = struct_def->dr.size/2;
+  int i;
+  Cell* result = alloc_vector(num_fields+1);
+  def_elements = (Cell**)struct_def->ar.addr;
+  elements = (Cell**)result->ar.addr;
+
+  // element zero points to the structure definition
+  elements[0] = struct_def;
+  
+  for (i=0; i<num_fields; i++) {
+    elements[i+1] = alloc_clone(def_elements[i*2+1]);
+  }
+  result->tag = TAG_STRUCT;
+
+  return result;
 }
 
 int is_nil(Cell* c) {

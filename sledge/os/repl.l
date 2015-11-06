@@ -21,7 +21,6 @@
 (def repl-task-initial-state (list
   0  ; focused
   "" ; buffer
-  0  ; blink
   0  ; win-x
   0  ; win-y
   0  ; term-x
@@ -33,14 +32,13 @@
 ))
 
 (def repl-make (fn focused win-x win-y w h (list
-  focused "" 0 win-x win-y 0 0 w h (list) (list)
+  focused "" win-x win-y 0 0 w h (list) (list)
 )))
 
 (def repl-task (fn state (do
   (let s state)
   (let focused (car s)) (let s (cdr s))
   (let buffer  (car s)) (let s (cdr s))
-  (let blink   (car s)) (let s (cdr s))
   (let win-x   (car s)) (let s (cdr s))
   (let win-y   (car s)) (let s (cdr s))
   (let term-x  (car s)) (let s (cdr s))
@@ -61,6 +59,11 @@
   ;(line (pt (+ win-x maxx) win-y) (pt (+ win-x maxx) (+ win-y maxy)))
   ;(line (pt win-x win-y) (pt win-x (+ win-y maxy)))
   ;(line (pt win-x (+ win-y maxy)) (pt (+ win-x maxx) (+ win-y maxy)))
+
+  ; new strategy:
+  ; - list of lines
+  ; - fn to render one line
+  ; - fn to render all visible lines
   
   (if (gt c 0) (print c) 0)
     (if (and (gt c 0x1f) (not (eq 0x7f c))) (do
@@ -125,14 +128,12 @@
 
     (if (lt term-x 0) (let term-x 0) 0)
     
-    (if (and focused (eq blink (/ cursor-blink-delay 2)))
+    (if (and focused (eq cursor-blink (/ cursor-blink-delay 2)))
         (blit-char 0x2588 (+ win-x term-x) (+ win-y term-y)) 0)
-    (if (eq blink 0)
+    (if (eq cursor-blink 0)
         (blit-char 32 (+ win-x term-x) (+ win-y term-y)) 0)
 
-    (let blink (% (+ blink 1) cursor-blink-delay))
-
-    (let new-state (list focused buffer blink win-x win-y term-x term-y maxx maxy history future))
+    (let new-state (list focused buffer win-x win-y term-x term-y maxx maxy history future))
     new-state
 )))
 )

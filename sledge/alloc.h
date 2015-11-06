@@ -54,6 +54,9 @@ Cell* alloc_error(unsigned int code);
 Cell* alloc_lambda(Cell* args);
 Cell* alloc_builtin(unsigned int b, Cell* signature);
 Cell* alloc_clone(Cell* orig);
+Cell* alloc_struct_def(int size);
+Cell* alloc_struct(Cell* struct_def);
+Cell* alloc_vector(int size);
 
 MemStats* alloc_stats();
 

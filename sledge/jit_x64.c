@@ -122,6 +122,10 @@ void jit_strw(int reg) {
   fprintf(jit_out, "movl %%edx, (%s)\n", regnames[reg]);
 }
 
+void jit_stra(int reg) {
+  fprintf(jit_out, "movq %%rdx, (%s)\n", regnames[reg]);
+}
+
 void jit_addr(int dreg, int sreg) {
   fprintf(jit_out, "addq %s, %s\n", regnames[sreg], regnames[dreg]);
 }

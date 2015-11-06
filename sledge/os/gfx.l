@@ -281,14 +281,18 @@
   (line a c)
 )))
 
-(def box (fn tl br (do
-  (let tr (list (car br) (car (cdr tl))))
-  (let bl (list (car tl) (car (cdr br))))
-  
+(def box (fn x y x2 y2 color (do
+  (let tl (list x y))
+  (let tr (list x2 y))
+  (let bl (list x y2))
+  (let br (list x2 y2))
+
+  (def stroke-color color)
   (line tl tr)
   (line bl br)
   (line tr br)
   (line tl bl)
+  0
 )))
 
 (def circle (fn cx cy r (do

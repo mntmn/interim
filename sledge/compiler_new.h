@@ -24,6 +24,7 @@ typedef struct Arg {
   env_entry* env;
   int slot;
   char* name;
+  char* type_name;
 } Arg;
 
 typedef struct Frame Frame;
@@ -62,8 +63,8 @@ typedef enum builtin_t {
   BUILTIN_WHILE,
 
   BUILTIN_DEF,
-  BUILTIN_IF ,
-  BUILTIN_FN ,
+  BUILTIN_IF,
+  BUILTIN_FN,
 
   BUILTIN_CAR,
   BUILTIN_CDR,
@@ -72,6 +73,7 @@ typedef enum builtin_t {
 
   BUILTIN_ALLOC,
   BUILTIN_ALLOC_STR,
+  BUILTIN_NEW,
   BUILTIN_BYTES_TO_STR,
   BUILTIN_STR_TO_BYTES,
   BUILTIN_CONCAT,
@@ -81,6 +83,8 @@ typedef enum builtin_t {
   BUILTIN_GET32,
   BUILTIN_PUT,
   BUILTIN_PUT32,
+  BUILTIN_SGET,
+  BUILTIN_SPUT,
   BUILTIN_SIZE,
 
   BUILTIN_UGET,
@@ -90,6 +94,7 @@ typedef enum builtin_t {
   BUILTIN_TYPE,
   BUILTIN_LET,
   BUILTIN_QUOTE,
+  BUILTIN_STRUCT,
   BUILTIN_MAP,
   BUILTIN_DO,
 
@@ -104,15 +109,6 @@ typedef enum builtin_t {
   BUILTIN_CLOSE,
   BUILTIN_RECV,
   BUILTIN_SEND,
-
-  BUILTIN_PIXEL,
-  BUILTIN_FLIP,
-  BUILTIN_RECTFILL,
-  BUILTIN_BLIT,
-  BUILTIN_BLIT_MONO,
-  BUILTIN_BLIT_MONO_INV,
-  BUILTIN_BLIT_STRING,
-  BUILTIN_INKEY,
 
   BUILTIN_GC,
   BUILTIN_SYMBOLS,

@@ -478,11 +478,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           argdefs[argi] = fn_frame[arg_frame_idx];
 
           //printf("argument %s from stack frame.\n", arg->ar.addr);
+          //printf("-> cell %p slot %d type %d\n", fn_frame[arg_frame_idx].cell, fn_frame[arg_frame_idx].slot, fn_frame[arg_frame_idx].type);
         } else {
           argdefs[argi].env = lookup_global_symbol((char*)arg->ar.addr);
           argdefs[argi].type = ARGT_ENV;
           
-          //printf("argument %s from environment.\n", arg->ar.addr);
+          //printf("argument %i:%s from environment.\n", argi, arg->ar.addr);
         }
         //printf("arg_frame_idx: %d\n",arg_frame_idx);
 
@@ -818,8 +819,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
       fn_argc = 0;
       for (j=argi-3; j>=0; j--) {
-        Cell* arg = alloc_cons(alloc_sym(argdefs[j].cell->ar.addr),alloc_int(TAG_ANY));
-        fn_args = alloc_cons(arg,fn_args);
+        Cell* arg;
+        int arg_tag = TAG_ANY;
 
         if (j>=ARG_SPILLOVER) { // max args passed in registers
           fn_new_frame[j].type = ARGT_STACK;
@@ -830,7 +831,25 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           fn_new_frame[j].type = ARGT_REG;
           fn_new_frame[j].slot = j + LBDREG;
         }
-        fn_new_frame[j].name = argdefs[j].cell->ar.addr;
+        
+        if (argdefs[j].cell->tag == TAG_SYM) {
+          fn_new_frame[j].name = argdefs[j].cell->ar.addr;
+        } else if (argdefs[j].cell->tag == TAG_CONS) {
+          fn_new_frame[j].name = car(argdefs[j].cell)->ar.addr;
+          fn_new_frame[j].type_name = car(cdr(argdefs[j].cell))->ar.addr;
+        } else {
+          // illegal type
+          printf("<error: only symbols or (symbol typename) allowed in fn signature>\r\n");
+          return 0;
+        }
+
+        if (argdefs[j].cell->tag == TAG_CONS) {
+          // TODO other types!
+          arg_tag = TAG_STRUCT;
+        }
+        
+        arg = alloc_cons(alloc_clone(argdefs[j].cell),alloc_int(arg_tag));
+        fn_args = alloc_cons(arg,fn_args);
         fn_argc++;
 
         //printf("arg j %d: %s\r\n",j,fn_new_frame[j].name);
@@ -1011,6 +1030,158 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         jit_movr(ARGR1,R0);
       }
       break; // FIXME
+    }
+    case BUILTIN_STRUCT: {
+      Cell* key;
+      Cell* arg;
+      int n = 0, i;
+      int t = 0;
+      args = orig_args;
+      while ((key = car(args))) {
+        if (key->tag != TAG_SYM) {
+          printf("<every even argument of struct has to be a symbol>\r\n");
+          return 0;
+        }
+        jit_lea(R0,key);
+        jit_push(R0,R0);
+
+        args = cdr(args);
+        arg = car(args);
+        if (!arg) return 0;
+        
+        args = cdr(args);
+        
+        int tag = compile_expr(arg, frame, TAG_ANY);
+        if (!tag) return 0;
+        
+        jit_push(R0,R0);
+        frame->sp+=2;
+        n+=2;
+      }
+      jit_movi(ARGR0,n);
+      jit_call(alloc_struct_def, "struct:alloc_struct_def");
+      jit_movr(R1,R0);
+      jit_ldr(R1); // load addr of cell array
+      jit_addi(R1,n*PTRSZ);
+      for (i=0; i<n; i++) {
+        jit_addi(R1,-PTRSZ);
+        jit_pop(R3,R3);
+        frame->sp--;
+        jit_stra(R1); // strw from r3
+      }
+      
+      break;
+    }
+    case BUILTIN_NEW: {
+      Cell* arg;
+      arg = argdefs[0].env->cell;
+
+      printf("[new] arg: %p\r\n",arg);
+      printf("[new] struct size %d\r\n",arg->dr.size/2);
+
+      // arg points to struct definition which is TAG_VEC
+      if (arg->tag != TAG_STRUCT_DEF) {
+        printf("<(new) requires a struct definition>\r\n");
+        return 0;
+      }
+
+      jit_lea(ARGR0,arg);
+      jit_call(alloc_struct,"new:alloc_struct");
+      
+      break;
+    }
+    case BUILTIN_SGET: {
+      Cell* struct_def;
+      char* lookup_name = argdefs[1].cell->ar.addr;
+      Cell** struct_elements;
+      int num_fields;
+      int found=0;
+      if (argdefs[0].type == ARGT_ENV) {
+        struct_def = argdefs[0].env->cell;
+        struct_def = car(car(struct_def));
+      } else {
+        env_entry* type_env = lookup_global_symbol(argdefs[0].type_name);
+        //printf("[sget] arg type name %s\r\n",argdefs[0].type_name);
+        
+        struct_def = type_env->cell;
+        //printf("[sget] struct_def %p\r\n",struct_def);
+      }
+
+      // arg points to struct definition which is TAG_VEC
+      if (struct_def->tag != TAG_STRUCT_DEF) {
+        printf("<(sget) requires a struct>\r\n");
+        return 0;
+      }
+      num_fields = struct_def->dr.size/2;
+      struct_elements = (Cell**)(struct_def->ar.addr);
+      
+      //printf("[sget] struct_elements %p\r\n",struct_elements);
+      //printf("[sget] lookup %s\r\n",lookup_name);
+
+      for (int i=0; i<num_fields; i++) {
+        if (!strcmp(lookup_name,(char*)struct_elements[i*2]->ar.addr)) {
+          //printf("field found at index %d\r\n",i);
+          load_cell(R0,argdefs[0],frame);
+          jit_ldr(R0);
+          jit_addi(R0,(i+1)*PTRSZ);
+          jit_ldr(R0);
+          found = 1;
+          break;
+        }
+      }
+
+      if (!found) {
+        printf("<sget field %s not found!>\r\n",lookup_name);
+        jit_movi(R0,0);
+        return 0;
+      }
+      
+      break;
+    }
+    case BUILTIN_SPUT: {
+      Cell* struct_def;
+      char* lookup_name = argdefs[1].cell->ar.addr;
+      Cell** struct_elements;
+      int num_fields;
+      int found=0;
+      if (argdefs[0].type == ARGT_ENV) {
+        struct_def = argdefs[0].env->cell;
+        struct_def = car(car(struct_def));
+      } else {
+        env_entry* type_env = lookup_global_symbol(argdefs[0].type_name);
+        struct_def = type_env->cell;
+      }
+
+      // arg points to struct definition which is TAG_VEC
+      if (struct_def->tag != TAG_STRUCT_DEF) {
+        printf("<(sput) requires a struct>\r\n");
+        return 0;
+      }
+      num_fields = struct_def->dr.size/2;
+      struct_elements = (Cell**)(struct_def->ar.addr);
+      //printf("[sput] lookup %s\r\n",lookup_name);
+
+      for (int i=0; i<num_fields; i++) {
+        if (!strcmp(lookup_name,(char*)struct_elements[i*2]->ar.addr)) {
+          //printf("[sput] field found at index %d\r\n",i);
+          load_cell(R2,argdefs[0],frame);
+          jit_movr(R0,R2);
+          jit_ldr(R2);
+          jit_addi(R2,(i+1)*PTRSZ);
+          load_cell(R3,argdefs[2],frame); // TODO type check!
+          jit_stra(R2);
+          found = 1;
+          break;
+        }
+      }
+
+      if (!found) {
+        printf("<sput field %s not found!>\r\n",lookup_name);
+        jit_movi(R0,0);
+        return 0;
+      }
+      
+      break;
     }
     case BUILTIN_QUOTE: {
       Cell* arg;
@@ -1350,6 +1521,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         // pass arg in reg (LBDREG + slot)
         
         if (argdefs[j].type == ARGT_REG) {
+          // FIXME kludge?
           if (1 || argdefs[j].slot<j+LBDREG) {
             int offset = ((pushed+spo_adjust) - (argdefs[j].slot-LBDREG) - 1);
             // register already clobbered, load from stack
@@ -1415,6 +1587,12 @@ void init_compiler() {
   signature[0]=alloc_int(TAG_SYM); signature[1]=alloc_int(TAG_ANY);
   insert_symbol(alloc_sym("def"), alloc_builtin(BUILTIN_DEF, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("let"), alloc_builtin(BUILTIN_LET, alloc_list(signature, 2)), &global_env);
+  
+  signature[0]=alloc_int(TAG_STRUCT_DEF); signature[1]=alloc_int(TAG_SYM); signature[2]=alloc_int(TAG_ANY);
+  insert_symbol(alloc_sym("new"), alloc_builtin(BUILTIN_NEW, alloc_list(signature, 1)), &global_env);
+  signature[0]=alloc_int(TAG_STRUCT);
+  insert_symbol(alloc_sym("sget"), alloc_builtin(BUILTIN_SGET, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("sput"), alloc_builtin(BUILTIN_SPUT, alloc_list(signature, 3)), &global_env);
 
   signature[0]=alloc_int(TAG_INT); signature[1]=alloc_int(TAG_INT);
   insert_symbol(alloc_sym("+"), alloc_builtin(BUILTIN_ADD, alloc_list(signature, 2)), &global_env);
@@ -1456,6 +1634,7 @@ void init_compiler() {
   insert_symbol(alloc_sym("cons"), alloc_builtin(BUILTIN_CONS, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("list"), alloc_builtin(BUILTIN_LIST, NULL), &global_env);
   insert_symbol(alloc_sym("quote"), alloc_builtin(BUILTIN_QUOTE, NULL), &global_env);
+  insert_symbol(alloc_sym("struct"), alloc_builtin(BUILTIN_STRUCT, NULL), &global_env);
   //insert_symbol(alloc_sym("map"), alloc_builtin(BUILTIN_MAP), &global_env);
 
   //printf("[compiler] lists\r\n");
@@ -1509,5 +1688,5 @@ void init_compiler() {
 
   insert_symbol(alloc_sym("debug"), alloc_builtin(BUILTIN_DEBUG, NULL), &global_env);
   
-  printf("[compiler] sledge knows %u symbols. enter (symbols) to see them.\r\n", sm_get_count(global_env));
+  printf("[compiler] interim knows %u symbols. enter (symbols) to see them.\r\n", sm_get_count(global_env));
 }
