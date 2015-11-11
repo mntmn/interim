@@ -24,6 +24,8 @@
 (def pt list)
 
 (def line (fn a b (do
+  (print (list "line" a b))
+  (print (list "cdr a" (cdr a)))
   (let xa (car a))
   (let ya (car (cdr a)))
   (let xb (car b))

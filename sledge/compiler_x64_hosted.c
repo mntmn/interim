@@ -19,9 +19,16 @@ int compile_for_platform(Cell* expr, Cell** res) {
   jit_init();
   
   register void* sp asm ("sp");
-  Frame empty_frame = {NULL, 0, 0, sp};
-  int success = compile_expr(expr, &empty_frame, TAG_ANY);
+  Frame* empty_frame = malloc(sizeof(Frame)); // FIXME leak
+  empty_frame->f=NULL;
+  empty_frame->sp=0;
+  empty_frame->locals=0;
+  empty_frame->stack_end=sp;
+  empty_frame->parent_frame=NULL;
+
+  int success = compile_expr(expr, empty_frame, TAG_ANY);
   jit_ret();
+  char* defsym = "anon";
 
   if (!success) {
     printf("<compile_expr failed: %d>\r\n",success);
@@ -35,16 +42,27 @@ int compile_for_platform(Cell* expr, Cell** res) {
     stat("/tmp/jit_out.s", &src_stat);
     off_t generated_sz = src_stat.st_size;
 
-    FILE* asm_f = fopen("/tmp/jit_out.s","r");
-    uint32_t* jit_asm = malloc(generated_sz);
-    memset(jit_asm,0,generated_sz);
-    fread(jit_asm,1,generated_sz,asm_f);
-    fclose(asm_f);
-        
+    if (expr && expr->tag == TAG_CONS && car(expr)->tag == TAG_SYM) {
+      if (!strcmp(car(expr)->ar.addr,"def")) {
+        defsym = car(cdr(expr))->ar.addr;
+        char cpcmd[256];
+        printf("compiled def %s\r\n",defsym);
+        snprintf(cpcmd,255,"cp /tmp/jit_out.s /tmp/jit_out_%s.s",defsym);
+        system(cpcmd);
+      }
+    }
+
 #ifdef DEBUG
-    printf("\nJIT ---------------------\n%s-------------------------\n\n",jit_asm);
-#endif
+    FILE* asm_f = fopen("/tmp/jit_out.s","r");
+    char* jit_asm = malloc(generated_sz+1);
+    memset(jit_asm,0,generated_sz+1);
+    int read = fread(jit_asm,1,generated_sz,asm_f);
+    fclose(asm_f);
+    printf("read: %d\n",read);
+    
+    printf("\nJIT ---------------------\n%s\n-------------------------\n\n",jit_asm);
     free(jit_asm);
+#endif
         
     // prefix with arm-none-eabi- on ARM  -mlittle-endian
     
@@ -71,11 +89,11 @@ int compile_for_platform(Cell* expr, Cell** res) {
     fclose(binary_f);
 
 #ifdef DEBUG
-    printf("<assembled bytes: %d at: %p>\n",bytes_read,jit_binary);
+    printf("<assembled bytes: %d at: %p (%s)>\n",bytes_read,jit_binary,defsym);
     char cmd[256];
-    sprintf(cmd,"cp /tmp/jit_out.o /tmp/jit_%p.o",jit_binary);
+    sprintf(cmd,"cp /tmp/jit_out.o /tmp/jit_%p_%s.o",jit_binary,defsym);
     system(cmd);
-    sprintf(cmd,"cp /tmp/jit_out.s /tmp/jit_%p.s",jit_binary);
+    sprintf(cmd,"cp /tmp/jit_out.s /tmp/jit_%p_%s.s",jit_binary,defsym);
     system(cmd);
 #endif
 
@@ -106,8 +124,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
             Cell* lambda = (Cell*)strtoul(&link_line[24], NULL, 16);
             if (idb=='0') {
               // function entrypoint
-              // TODO: 64/32 bit
-              unsigned long long offset = strtoul(link_line, NULL, 16);
+              uint64_t offset = strtoul(link_line, NULL, 16);
               void* binary = ((uint8_t*)jit_binary) + offset;
               //printf("function %p entrypoint: %p (+%ld)\n",lambda,binary,offset);
 
@@ -119,7 +136,7 @@ int compile_for_platform(Cell* expr, Cell** res) {
             }
             else if (idb=='1') {
               // function exit
-              unsigned long long offset = strtoul(link_line, NULL, 16);
+              //unsigned long long offset = strtoul(link_line, NULL, 16);
               //printf("function exit point: %p\n",offset);
             }
           }

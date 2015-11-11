@@ -10,7 +10,6 @@ Cell* reader_next_list_cell(Cell* cell, ReaderState* rs) {
 }
 
 Cell* reader_end_list(Cell* cell, ReaderState* rs) {
-  Cell* tmpc;
   if (rs->level<1) {
     rs->state = PST_ERR_UNEXP_CLOSING_BRACE;
     return cell;
@@ -19,8 +18,7 @@ Cell* reader_end_list(Cell* cell, ReaderState* rs) {
   rs->stack--;
   if (cell->ar.addr) cell->dr.next = alloc_nil();
   cell = *rs->stack;
-  tmpc = cell;
-
+  
   cell = reader_next_list_cell(cell, rs);
   rs->state = PST_ATOM;
   return cell;

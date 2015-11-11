@@ -182,12 +182,12 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
   // and look where they lead (cons trees, bytes, strings)
   // mark all of them as usable
 
-  // (def foo (fn (do (let a 1) (let b 2) (+ a b) (gc))))
-
   //printf("[gc] stack at: %p, stack end: %p\r\n",stack_pointer,stack_end);
 
-  int gc, highwater, i;
-  //char buf[300];
+  int gc=0, i;
+#ifdef DEBUG_GC
+  int highwater=0;
+#endif
 
   int sw_state = 0;
   jit_word_t* a;
@@ -260,9 +260,8 @@ Cell* collect_garbage(env_t* global_env, void* stack_end, void* stack_pointer) {
       free_list_avail++;
       gc++;
     } else {
-      highwater = i;
-      
 #ifdef DEBUG_GC
+      highwater = i;
       printf("o");
 #endif
     }
@@ -494,7 +493,7 @@ Cell* alloc_struct(Cell* struct_def) {
   elements[0] = struct_def;
   
   for (i=0; i<num_fields; i++) {
-    elements[i+1] = alloc_clone(def_elements[i*2+1]);
+    elements[i+1] = alloc_clone(def_elements[i*2+1+1]);
   }
   result->tag = TAG_STRUCT;
 

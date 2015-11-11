@@ -22,7 +22,6 @@ Cell* posixfs_open(Cell* cpath) {
   path = cpath->ar.addr;
   
   if (!strncmp(path,"/sd/",4)) {
-    char* name = NULL;
     char* filename = NULL;
 
     if (strlen(path)>4) {
@@ -31,7 +30,7 @@ Cell* posixfs_open(Cell* cpath) {
 
     if (!filename || !filename[0]) filename = ".";
 
-    printf("filename: %s\r\n",filename);
+    //printf("filename: %s\r\n",filename);
     
     if (filename) {
       struct stat src_stat;
@@ -62,11 +61,10 @@ Cell* posixfs_open(Cell* cpath) {
       f = open(filename, O_RDONLY);
       if (f>-1) {
         Cell* res;
-        int read_len;
         
-        printf("[posixfs] trying to read file of len %d...\r\n",len);
+        printf("[posixfs] trying to read file of len %zu...\r\n",len);
         res = alloc_num_bytes(len);
-        read_len = read(f, res->ar.addr, len);
+        read(f, res->ar.addr, len);
         close(f);
         // TODO: close?
         _file_cell = res;

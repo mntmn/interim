@@ -1,5 +1,5 @@
 (
-(def editor (struct
+(struct editor
   buffer "hello world!"
   win-x 32
   win-y 32
@@ -16,7 +16,7 @@
   scroll-dirty 0
   buf-dirty 1
   focused 0
-))
+)
 
 (def find-prev (fn buf rune pos (do
   (let p pos)

@@ -9,7 +9,7 @@
 #define HEIGHT 600
 #define BPP 2
 #define DEPTH 16
-#define SCALE 1
+#define SCALE 2
 
 SDL_Surface* win_surf;
 SDL_Surface* pixels_surf;
@@ -29,7 +29,7 @@ void* sdl_init(int fullscreen)
   
   SDL_Init(SDL_INIT_VIDEO);
 
-  win = SDL_CreateWindow("sledge", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, (fullscreen?SDL_WINDOW_FULLSCREEN:0));
+  win = SDL_CreateWindow("sledge", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WIDTH*SCALE, HEIGHT*SCALE, (fullscreen?SDL_WINDOW_FULLSCREEN:0));
   
   win_surf = SDL_GetWindowSurface(win);
 
@@ -65,17 +65,13 @@ Cell* fbfs_read() {
   return alloc_int(0);
 }
 
-static int fb_state = 0;
-static int cursor_x = 0;
-static int cursor_y = 0;
-
 Cell* fbfs_write(Cell* arg) {
   sdl_init(0);
   SDL_Event event;
   SDL_PollEvent(&event);
 
-  SDL_Rect sr = {0,0,WIDTH/SCALE,HEIGHT/SCALE};
-  SDL_Rect dr = {0,0,WIDTH,HEIGHT};
+  SDL_Rect sr = {0,0,WIDTH,HEIGHT};
+  SDL_Rect dr = {0,0,WIDTH*SCALE,HEIGHT*SCALE};
 
   SDL_BlitScaled(pixels_surf,&sr,win_surf,&dr);
   

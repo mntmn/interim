@@ -71,7 +71,6 @@
   (def tasks (reverse new-tl))
 )))
 
-;(def ed (fn (import "/sd/os/editor.l") ))
 ;(def zz (fn (import "/sd/tests/gtn.l")))
 
 (def cursor-blink 0)
@@ -82,9 +81,9 @@
 
 (add-task repl-task (repl-make 1 432 32 200 300))
 (add-task editor-task (list 1 (new editor)))
-(def ed2 (new editor))
-(sput ed2 win-y 300)
-(add-task editor-task (list 0 ed2))
+;(def ed2 (new editor))
+;(sput ed2 win-y 300)
+;(add-task editor-task (list 0 ed2))
 
 ;(def newshell (fn x y 
 ;  (add-task repl-task (repl-make 0 x y 400 100))

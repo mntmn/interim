@@ -17,6 +17,8 @@ static env_t* global_env = NULL;
 #endif
 #define LBDREG R4       // register base used for passing args to functions
 
+//#define DEBUG_ASM_SRC
+
 static int debug_mode = 0;
 
 env_entry* lookup_global_symbol(char* name) {
@@ -187,7 +189,6 @@ int get_sym_frame_idx(char* argname, Arg* fn_frame, int ignore_regs) {
 // TODO: optimize!
 int push_frame_regs(Arg* fn_frame) {
   int pushreg=0;
-  int pushstack=0;
   int i;
   
   if (!fn_frame) return 0;
@@ -206,7 +207,6 @@ int push_frame_regs(Arg* fn_frame) {
 
 int pop_frame_regs(Arg* fn_frame) {
   int pushreg=0;
-  int pushstack=0;
   int i;
   
   if (!fn_frame) return 0;
@@ -283,7 +283,7 @@ int clean_return(int args_pushed, Frame* frame, int compiled_type) {
 int compile_expr(Cell* expr, Frame* frame, int return_type) {
   int compiled_type = TAG_ANY;
   Arg* fn_frame = frame->f;
-  Cell* opsym, *args, *orig_args, *signature_args, *op;
+  Cell* opsym, *args, *orig_args, *signature_args, *op, *orig_op=NULL;
   env_entry* op_env;
   
   int is_let = 0;
@@ -311,7 +311,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         jit_ldr(R0);
         return value->tag; // FIXME TODO forbid later type change
       } else {
-        printf("undefined symbol %s\n",expr->ar.addr);
+        printf("undefined symbol %s\n",(char*)expr->ar.addr);
         jit_movi(R0,0);
         return 0;
       }
@@ -338,7 +338,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   op_env = lookup_global_symbol(opsym->ar.addr);
 
   if (!op_env || !op_env->cell) {
-    printf("[compile_expr] error: undefined symbol %s in operator position.\n",opsym->ar.addr);
+    printf("[compile_expr] error: undefined symbol %s in operator position.\n",(char*)opsym->ar.addr);
     return 0;
   }
   op = op_env->cell;
@@ -350,17 +350,31 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     if (op->ar.value == BUILTIN_LET) {
       is_let = 1;
     }
-    
-  } else if (op->tag == TAG_LAMBDA) {
+  }
+  else if (op->tag == TAG_LAMBDA) {
     signature_args = car((Cell*)(op->ar.addr));
-  } else {
-    printf("[compile-expr] error: non-lambda symbol %s in operator position.\n",opsym->ar.addr);
+  }
+  else if (op->tag == TAG_STRUCT_DEF) {
+    signature_args = NULL;
+    orig_op = op;
+    op_env = lookup_global_symbol("new");
+    op = op_env->cell;
+  }
+  else {
+    printf("[compile-expr] error: non-lambda/struct symbol %s in operator position.\n",(char*)opsym->ar.addr);
     return 0;
   }
 
   //printf("[op] %s\n",debug_buf);
   //lisp_write(signature_args, debug_buf, sizeof(debug_buf));
   //printf("[sig] %s\n",debug_buf);
+
+#ifdef DEBUG_ASM_SRC
+  char* debug_buf = malloc(256);
+  lisp_write(expr, debug_buf, 255);
+  jit_comment(debug_buf);
+  free(debug_buf);
+#endif
 
   if (debug_mode) {
     char* debug_buf = malloc(256);
@@ -385,7 +399,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
     if (signature_arg && signature_arg->tag == TAG_CONS) {
       // named argument
-      snprintf(arg_name,sizeof(arg_name),"%s",car(signature_arg)->ar.addr);
+      snprintf(arg_name,sizeof(arg_name),"%s",(char*)(car(signature_arg)->ar.addr));
       signature_arg = cdr(signature_arg);
     }
 
@@ -431,27 +445,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         argdefs[argi].type = ARGT_LAMBDA;
       }
       else if (arg->tag == TAG_CONS) {
-        int k;
         // eager evaluation
         // nested expression
-        if (argi>0) {
-          // save registers
-          // FIXME RETHINK
-
-          //jit_push(R1,R1+argi-1);
-          //frame->sp+=(1+argi-1);
-        }
         given_tag = compile_expr(arg, frame, sig_tag);
         if (given_tag<1) return given_tag; // failure
         
         argdefs[argi].cell = NULL; // cell is in R0 at runtime
         argdefs[argi].slot = ++frame->sp; // record sp at this point
-
-        /*for (k=0; k<argi; k++) {
-          if (argdefs[k].type == ARGT_STACK || argdefs[k].type == ARGT_STACK_INT) {
-            argdefs[k].slot++;
-          }
-        }*/
 
         if (given_tag == TAG_INT) {
           argdefs[argi].type = ARGT_STACK_INT;
@@ -459,13 +459,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           argdefs[argi].type = ARGT_STACK;
         }
         jit_push(R0,R0);
-        //frame->sp++;
         args_pushed++;
         
-        if (argi>0) {
-          //jit_pop(R1,R1+argi-1);
-          //frame->sp-=(1+argi-1);
-        }
       }
       else if (given_tag == TAG_SYM && sig_tag != TAG_SYM) {
         // symbol given, lookup (indirect)
@@ -488,7 +483,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         //printf("arg_frame_idx: %d\n",arg_frame_idx);
 
         if (!argdefs[argi].env && arg_frame_idx<0) {
-          printf("undefined symbol %s given for argument %s.\n",arg->ar.addr,arg_name);
+          printf("undefined symbol %s given for argument %s.\n",(char*)arg->ar.addr,arg_name);
           return 0;
         }
       }
@@ -711,13 +706,14 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
       
       is_int = 0;
+      is_reg = 0;
       offset = MAXARGS + frame->locals;
       fidx = get_sym_frame_idx(argdefs[0].cell->ar.addr, fn_frame, 0);
 
       if (fidx >= 0) {
         // existing stack entry
         offset = fidx;
-        printf("+~ frame entry %s, existing stack-local idx %d (type %d)\n",fn_frame[offset].name,fn_frame[offset].slot,fn_frame[offset].type);
+        //printf("+~ frame entry %s, existing stack-local idx %d (type %d)\n",fn_frame[offset].name,fn_frame[offset].slot,fn_frame[offset].type);
 
         // is_int from existing entry
         if (fn_frame[offset].type == ARGT_REG_INT ||
@@ -728,7 +724,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         if (fn_frame[offset].type == ARGT_REG_INT ||
             fn_frame[offset].type == ARGT_REG) {
           is_reg = 1;
-        }
+        } 
         
       } else {
         if ((argdefs[1].type == ARGT_REG_INT ||
@@ -743,13 +739,19 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         fn_frame[offset].cell = NULL;
         if (is_int) {
           fn_frame[offset].type = ARGT_STACK_INT;
-          printf("new let %s inferred INT\n",argdefs[0].cell->ar.addr);
+          //printf("new let %s inferred INT\n",argdefs[0].cell->ar.addr);
         } else {
           fn_frame[offset].type = ARGT_STACK;
-          printf("new let %s inferred ANY\n",argdefs[0].cell->ar.addr);
+          //printf("new let %s inferred ANY\n",argdefs[0].cell->ar.addr);
         }
         fn_frame[offset].slot = -frame->locals;
-        //printf("++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
+
+#ifdef DEBUG_ASM_SRC
+        debug_buf = malloc(256);
+        snprintf(debug_buf,255,"++ frame entry %s, new stack-local idx %d, is_int %d\n",fn_frame[offset].name,fn_frame[offset].slot,is_int);
+        jit_comment(debug_buf);
+        free(debug_buf);
+#endif
         
         frame->locals++;
         if (frame->locals+MAXARGS>=MAXFRAME) {
@@ -758,30 +760,37 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
       
       if (is_int) {
+        jit_comment("(let) load int");
         load_int(R0, argdefs[1], frame);
         compiled_type = TAG_INT;
       } else {
+        jit_comment("(let) load cell");
         load_cell(R0, argdefs[1], frame);
         compiled_type = TAG_ANY;
       }
 
       if (!is_reg) {
+        jit_comment("(let) store to stack");
         jit_str_stack(R0,PTRSZ*(frame->sp-fn_frame[offset].slot));
       }
       
       if (is_reg) {
+#ifdef DEBUG_ASM_SRC
+        debug_buf = malloc(256);
+        snprintf(debug_buf,255,"(let) store %s to reg %d",fn_frame[offset].name,fn_frame[offset].slot);
+        jit_comment(debug_buf);
+        free(debug_buf);
+#endif
         jit_movr(fn_frame[offset].slot, R0);
-        printf("let %s to reg: %d\r\n",fn_frame[offset].name, fn_frame[offset].slot);
       }
       
       if (compiled_type == TAG_INT && return_type == TAG_ANY) {
+        jit_comment("(let) box int");
         jit_movr(ARGR0,R0);
         jit_call(alloc_int, "alloc_int");
         compiled_type = TAG_ANY;
       } else {
       }
-
-      
       break;
     }
     case BUILTIN_FN: {
@@ -793,7 +802,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       Frame* nframe_ptr;
       Frame nframe = {fn_new_frame, 0, 0, frame->stack_end};
+#if CPU_ARM||__AMIGA||CPU_X86
       Label* fn_lbl;
+#endif
       
       if (argi<2) {
         printf("error: trying to define fn without body.\n");
@@ -884,7 +895,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         memcpy(nargs_ptr, nframe.f, sizeof(Arg)*MAXFRAME);
         nframe_ptr->f = nargs_ptr;
 
-        printf("frame copied: %p args: %p\r\n",nframe_ptr,nframe_ptr->f);
+        //printf("frame copied: %p args: %p\r\n",nframe_ptr,nframe_ptr->f);
       } else {
         nframe_ptr = &nframe;
       }
@@ -1034,12 +1045,18 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_STRUCT: {
       Cell* key;
       Cell* arg;
+      Cell* name_sym;
       int n = 0, i;
-      int t = 0;
-      args = orig_args;
+      args = cdr(orig_args);
+      name_sym = car(orig_args);
+
+      // struct knows its own name
+      jit_lea(R0,name_sym);
+      jit_push(R0,R0);
+      
       while ((key = car(args))) {
         if (key->tag != TAG_SYM) {
-          printf("<every even argument of struct has to be a symbol>\r\n");
+          printf("<every second argument of struct following the struct'sname has to be a symbol>\r\n");
           return 0;
         }
         jit_lea(R0,key);
@@ -1058,6 +1075,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         frame->sp+=2;
         n+=2;
       }
+      n++; // account for name
+      
       jit_movi(ARGR0,n);
       jit_call(alloc_struct_def, "struct:alloc_struct_def");
       jit_movr(R1,R0);
@@ -1069,15 +1088,27 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         frame->sp--;
         jit_stra(R1); // strw from r3
       }
+
+      // load the struct name
+      jit_lea(ARGR0,name_sym);
+      jit_movr(ARGR1,R0);
+      push_frame_regs(frame->f);
+      jit_call2(insert_global_symbol, "insert_global_symbol");
+      pop_frame_regs(frame->f);
       
       break;
     }
     case BUILTIN_NEW: {
       Cell* arg;
-      arg = argdefs[0].env->cell;
-
-      printf("[new] arg: %p\r\n",arg);
-      printf("[new] struct size %d\r\n",arg->dr.size/2);
+      if (orig_op) {
+        // (struct-def …)
+        arg = orig_op;
+      } else {
+        // (new struct-def …)
+        arg = argdefs[0].env->cell;
+      }
+      //printf("[new] arg: %p\r\n",arg);
+      //printf("[new] struct size %d\r\n",arg->dr.size/2);
 
       // arg points to struct definition which is TAG_VEC
       if (arg->tag != TAG_STRUCT_DEF) {
@@ -1119,7 +1150,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       //printf("[sget] lookup %s\r\n",lookup_name);
 
       for (int i=0; i<num_fields; i++) {
-        if (!strcmp(lookup_name,(char*)struct_elements[i*2]->ar.addr)) {
+        if (!strcmp(lookup_name,(char*)struct_elements[1+i*2]->ar.addr)) {
           //printf("field found at index %d\r\n",i);
           load_cell(R0,argdefs[0],frame);
           jit_ldr(R0);
@@ -1147,9 +1178,17 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       if (argdefs[0].type == ARGT_ENV) {
         struct_def = argdefs[0].env->cell;
         struct_def = car(car(struct_def));
-      } else {
+      } else if (argdefs[0].type_name) {
         env_entry* type_env = lookup_global_symbol(argdefs[0].type_name);
-        struct_def = type_env->cell;
+        if (type_env) {
+          struct_def = type_env->cell;
+        } else {
+          printf("<type not found.>");
+          return 0;
+        }
+      } else {
+        printf("<indirect struct field access not yet implemented.>");
+        return 0;
       }
 
       // arg points to struct definition which is TAG_VEC
@@ -1162,7 +1201,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       //printf("[sput] lookup %s\r\n",lookup_name);
 
       for (int i=0; i<num_fields; i++) {
-        if (!strcmp(lookup_name,(char*)struct_elements[i*2]->ar.addr)) {
+        if (!strcmp(lookup_name,(char*)struct_elements[1+i*2]->ar.addr)) {
           //printf("[sput] field found at index %d\r\n",i);
           load_cell(R2,argdefs[0],frame);
           jit_movr(R0,R2);

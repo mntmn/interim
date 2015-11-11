@@ -1,3 +1,4 @@
+#include <inttypes.h>
 
 char* regnames[] = {
   "%rax",
@@ -45,7 +46,7 @@ void jit_init() {
 }
 
 void jit_movi(int reg, uint64_t imm) {
-  fprintf(jit_out, "movq $%llu, %s\n", imm, regnames[reg]);
+  fprintf(jit_out, "movq $%" PRIu64 ", %s\n", imm, regnames[reg]);
 }
 
 void jit_movr(int dreg, int sreg) {
@@ -254,6 +255,10 @@ void jit_pop(int r1, int r2) {
   for (int i=r2; i>=r1; i--) {
     fprintf(jit_out, "pop %s\n",regnames[i]);
   }
+}
+
+void jit_comment(char* comment) {
+  fprintf(jit_out, "# %s\n",comment);
 }
 
 void debug_handler(char* line, Frame* frame) {
