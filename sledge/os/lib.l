@@ -34,7 +34,7 @@
 )))
 
 (def split (fn str sepstr (do
-  (let sep (get sepstr 0))
+  (let sep (get8 sepstr 0))
   (let result (quote ()))
   (let sz (size str))
   (let i 0)
@@ -46,7 +46,7 @@
   (while (gt i -2) (do
     (if (lt i 0)
       (let c 0)
-      (let c (get str i)))
+      (let c (get8 str i)))
     (if (or (eq c sep) (eq i -1)) (do
       (let partsize (- (- last-i i) 1))
   
@@ -67,15 +67,15 @@
     (do
       (let i (- num 1)) 
       (while (gt i -1) (do
-        (let c (get buf (+ from i)))
-        (put buf (+ to i) c)
+        (let c (get8 buf (+ from i)))
+        (put8 buf (+ to i) c)
         (let i (- i 1))
       )) 0)
     (do
       (let i 0)
       (while (lt i num) (do
-        (let c (get buf (+ from i)))
-        (put buf (+ to i) c)
+        (let c (get8 buf (+ from i)))
+        (put8 buf (+ to i) c)
         (let i (+ i 1))
       )) 0)
   )
@@ -89,7 +89,7 @@
   (let from (+ pos 1))
   (let num (- (size buf) pos))
   (copy buf from p num)
-  (put buf (- (size buf) 1) 0)
+  (put8 buf (- (size buf) 1) 0)
   buf
 )))
 
@@ -99,17 +99,17 @@
   (let c (+ k 0))
   (let num (- (size buf) (+ pos 1)))
   (copy buf p to num)
-  (put buf p c)
+  (put8 buf p c)
   buf
 )))
 
 (def strlen (fn s (if s (do
   (let i 0)
   (let sz (size s))
-  (let c (get s 0))
+  (let c (get8 s 0))
   (while (and (gt c 0) (lt i sz)) (do
     (let i (+ i 1))
-    (let c (get s i))
+    (let c (get8 s i))
   ))
   i) 0)
 ))
@@ -131,7 +131,7 @@
 
 (def sintab [80828486888b8d8f919496989a9c9ea1a3a5a7a9abadafb2b4b6b8babcbec0c1c3c5c7c9cbcdced0d2d3d5d7d8dadcdddfe0e2e3e4e6e7e8eaebecedeeeff1f2f3f4f4f5f6f7f8f9f9fafbfbfcfcfdfdfefefefffffffffffffffffffffffffffffffefefefdfdfcfcfbfbfaf9f9f8f7f6f5f4f4f3f2f1efeeedecebeae8e7e6e4e3e2e0dfdddcdad8d7d5d3d2d0cecdcbc9c7c5c3c1c0bebcbab8b6b4b2afadaba9a7a5a3a19e9c9a989694918f8d8b88868482807d7b79777472706e6b69676563615e5c5a58565452504d4b49474543413f3e3c3a38363432312f2d2c2a2827252322201f1d1c1b1918171514131211100e0d0c0b0b0a0908070606050404030302020101010000000000000000000000000000000101010202030304040506060708090a0b0b0c0d0e1011121314151718191b1c1d1f2022232527282a2c2d2f31323436383a3c3e3f41434547494b4d50525456585a5c5e61636567696b6e70727477797b7d])
 
-(def sin (fn deg (get sintab (% deg 360))))
-(def cos (fn deg (get sintab (% (+ deg 90) 360))))
+(def sin (fn deg (get8 sintab (% deg 360))))
+(def cos (fn deg (get8 sintab (% (+ deg 90) 360))))
 (def abs (fn a (if (lt a 0) (- 0 a) a)))
 )

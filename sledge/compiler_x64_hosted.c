@@ -26,12 +26,12 @@ int compile_for_platform(Cell* expr, Cell** res) {
   empty_frame->stack_end=sp;
   empty_frame->parent_frame=NULL;
 
-  int success = compile_expr(expr, empty_frame, TAG_ANY);
+  Cell* success = compile_expr(expr, empty_frame, prototype_any);
   jit_ret();
   char* defsym = "anon";
 
   if (!success) {
-    printf("<compile_expr failed: %d>\r\n",success);
+    printf("<compile_expr failed: %p>\r\n",success);
   }
 
   if (success) {
@@ -149,12 +149,11 @@ int compile_for_platform(Cell* expr, Cell** res) {
     
     if (!mp_res) {
       *res = execute_jitted(jit_binary);
-      success = 1;
     } else {
       printf("<mprotect result: %d\n>",mp_res);
       *res = NULL;
       success = 0;
     }
   }
-  return success;
+  return !!success;
 }

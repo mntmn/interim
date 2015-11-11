@@ -105,6 +105,15 @@ void jit_ldrb(int reg) {
 }
 
 // clobbers rdx!
+void jit_ldrs(int reg) {
+  fprintf(jit_out, "movw (%s), %%dx\n", regnames[reg]);
+  fprintf(jit_out, "andq $0xffff, %%rdx\n");
+  if (reg!=3) {
+    fprintf(jit_out, "movq %%rdx, %s\n", regnames[reg]);
+  }
+}
+
+// clobbers rdx!
 void jit_ldrw(int reg) {
   fprintf(jit_out, "movl (%s), %%edx\n", regnames[reg]);
   //fprintf(jit_out, "andq $0xffffffff, %rdx\n", regnames[reg]);
@@ -116,6 +125,11 @@ void jit_ldrw(int reg) {
 // 8 bit only from rdx!
 void jit_strb(int reg) {
   fprintf(jit_out, "movb %%dl, (%s)\n", regnames[reg]);
+}
+
+// 16 bit only from rdx!
+void jit_strs(int reg) {
+  fprintf(jit_out, "movw %%dx, (%s)\n", regnames[reg]);
 }
 
 // 32 bit only from rdx!

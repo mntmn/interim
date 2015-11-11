@@ -1,0 +1,26 @@
+
+
+"foobar"
+123123
+
+symb()      (symb)
+
+foo.bar()   (call (lookup foo "bar"))
+
+function(a,b,c) {
+  return c;
+}
+
+(fn a b c c)
+
+if (a) {
+  return 1;
+}
+
+(if a 1 js_undef)
+
+var x = [1,2,3];
+
+(let x (vec 1 2 3))
+
+------------------

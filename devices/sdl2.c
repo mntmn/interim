@@ -8,7 +8,7 @@
 #define WIDTH 800
 #define HEIGHT 600
 #define BPP 2
-#define DEPTH 16
+#define DEPTH 8*BPP
 #define SCALE 2
 
 SDL_Surface* win_surf;
@@ -61,8 +61,27 @@ Cell* fbfs_open() {
   return alloc_int(1);
 }
 
-Cell* fbfs_read() {
-  return alloc_int(0);
+Cell* fbfs_read(Cell* stream) {
+  Stream* s = (Stream*)stream->ar.addr;
+  char* path = s->path->ar.addr;
+  if (!strcmp(path+12,"/width")) {
+    return alloc_int(WIDTH);
+  }
+  else if (!strcmp(path+12,"/height")) {
+    return alloc_int(HEIGHT);
+  }
+  else if (!strcmp(path+12,"/depth")) {
+    return alloc_int(BPP);
+  }
+  else if (!strcmp(path+12,"/")) {
+    return
+      alloc_cons(alloc_string_copy("/width"),
+      alloc_cons(alloc_string_copy("/height"),
+      alloc_cons(alloc_string_copy("/depth"),alloc_nil())));
+  }
+  else {
+    return alloc_int(0);
+  }
 }
 
 Cell* fbfs_write(Cell* arg) {
@@ -92,10 +111,6 @@ Cell* fbfs_mmap(Cell* arg) {
 
 void sdl_mount_fbfs() {
   fs_mount_builtin("/framebuffer", fbfs_open, fbfs_read, fbfs_write, 0, fbfs_mmap);
-  
-  insert_global_symbol(alloc_sym("screen-width"),alloc_int(WIDTH));
-  insert_global_symbol(alloc_sym("screen-height"),alloc_int(HEIGHT));
-  insert_global_symbol(alloc_sym("screen-bpp"),alloc_int(BPP));
 }
 
 

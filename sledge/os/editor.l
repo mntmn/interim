@@ -1,10 +1,7 @@
 (
 (struct editor
   buffer "hello world!"
-  win-x 32
-  win-y 32
-  win-w 400
-  win-h 250
+  surf (surface)
   cursor 0
   cursor-char 32
   cursor-x 0

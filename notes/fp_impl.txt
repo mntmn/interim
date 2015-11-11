@@ -1,0 +1,11 @@
+I'm planning to include double-precision 64-bit IEEE 754 floating point numbers. This opens many questions of how and when to convert between fp and integers (probably always explicitly).
+
+To implement a new type like TAG_FLOAT, you need to:
+- add a TAG_FLOAT constant in minilisp.h (they are currently power-of-two-ints, but this can be changed except for TAG_MARK which has to be a bit)
+- add alloc_float(double f) function in alloc.h / alloc.c (you can copy stuff from alloc_int)
+- add a state PST_FLOAT in reader.h and switch from PST_NUM or PST_ATOM to PST_FLOAT in reader.c when a '.' is encountered
+- implement PST_FLOAT parser in reader.c (which calls alloc_float with the parsed number)
+- implement PST_FLOAT printing in writer.c
+- probably implement load_float in compiler_new.c analog to load_int (maybe triggering a refactor to make load_int/_cell/_float more compact). alternatively first always use *boxed* floats to make things simpler. then you would only need to expand load_int to coerce a float cell to an integer.
+- introduce BUILTIN_FADD / _FSUB / _FMUL / _FDIV cases in compiler_new.c and register those constants in compiler_new.h enum builtin_t
+

@@ -17,7 +17,7 @@ static env_t* global_env = NULL;
 #endif
 #define LBDREG R4       // register base used for passing args to functions
 
-//#define DEBUG_ASM_SRC
+#define DEBUG_ASM_SRC
 
 static int debug_mode = 0;
 
@@ -60,8 +60,18 @@ static Cell* cell_heap_start;
 static int label_skip_count = 0;
 static char temp_print_buffer[TMP_PRINT_BUFSZ];
 static Cell* consed_type_error;
-static Cell* reusable_type_error;
-static Cell* reusable_nil;
+static Cell* prototype_type_error;
+static Cell* prototype_nil;
+static Cell* prototype_int;
+static Cell* prototype_any;
+static Cell* prototype_void;
+static Cell* prototype_struct;
+static Cell* prototype_struct_def;
+static Cell* prototype_stream;
+static Cell* prototype_string;
+static Cell* prototype_symbol;
+static Cell* prototype_lambda;
+static Cell* prototype_cons;
 
 #ifdef CPU_ARM
 #include "jit_arm_raw.c"
@@ -161,7 +171,7 @@ void load_cell(int dreg, Arg arg, Frame* f) {
     if (dreg!=ARGR0) jit_pop(ARGR0,ARGR0);
   }
   else {
-    printf("arg.type: %d\r\n",arg.type);
+    printf("<load_cell unhandled arg.type: %d>\r\n",arg.type);
     jit_movi(dreg, 0xdeadcafe);
   }
 }
@@ -247,7 +257,7 @@ int analyze_fn(Cell* expr, Cell* parent, int num_lets) {
               num_lets++;
             }
           } else {
-            printf("!! analyze error: malformed let!\r\n");
+            printf("<analyze_fn error: malformed let!>\r\n");
           }
         }
       }
@@ -271,7 +281,7 @@ int compatible_type(int given, int required) {
   return 0;
 }
 
-int clean_return(int args_pushed, Frame* frame, int compiled_type) {
+Cell* clean_return(int args_pushed, Frame* frame, Cell* compiled_type) {
   if (args_pushed) {
     jit_inc_stack(args_pushed*PTRSZ);
     frame->sp-=args_pushed;
@@ -280,8 +290,9 @@ int clean_return(int args_pushed, Frame* frame, int compiled_type) {
   return compiled_type;
 }
 
-int compile_expr(Cell* expr, Frame* frame, int return_type) {
-  int compiled_type = TAG_ANY;
+// returns a prototype cell that can be used for type information
+Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
+  Cell* compiled_type = prototype_any;
   Arg* fn_frame = frame->f;
   Cell* opsym, *args, *orig_args, *signature_args, *op, *orig_op=NULL;
   env_entry* op_env;
@@ -309,9 +320,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         Cell* value = env->cell;
         jit_movi(R0,(jit_word_t)env);
         jit_ldr(R0);
-        return value->tag; // FIXME TODO forbid later type change
+        return value; // FIXME TODO forbid later type change
       } else {
-        printf("undefined symbol %s\n",(char*)expr->ar.addr);
+        printf("<undefined symbol %s>\r\n",(char*)expr->ar.addr);
         jit_movi(R0,0);
         return 0;
       }
@@ -331,14 +342,14 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
   signature_args = NULL;
 
   if (!opsym || opsym->tag != TAG_SYM) {
-    printf("[compile_expr] error: non-symbol in operator position.\n");
+    printf("<error: non-symbol in operator position>\r\n");
     return 0;
   }
 
   op_env = lookup_global_symbol(opsym->ar.addr);
 
   if (!op_env || !op_env->cell) {
-    printf("[compile_expr] error: undefined symbol %s in operator position.\n",(char*)opsym->ar.addr);
+    printf("<error: undefined symbol %s in operator position>\r\n",(char*)opsym->ar.addr);
     return 0;
   }
   op = op_env->cell;
@@ -361,7 +372,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     op = op_env->cell;
   }
   else {
-    printf("[compile-expr] error: non-lambda/struct symbol %s in operator position.\n",(char*)opsym->ar.addr);
+    printf("<error: non-lambda/struct symbol %s in operator position>\r\n",(char*)opsym->ar.addr);
     return 0;
   }
 
@@ -400,6 +411,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     if (signature_arg && signature_arg->tag == TAG_CONS) {
       // named argument
       snprintf(arg_name,sizeof(arg_name),"%s",(char*)(car(signature_arg)->ar.addr));
+      
+      //printf("named arg: %s\r\n",arg_name);
       signature_arg = cdr(signature_arg);
     }
 
@@ -412,8 +425,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     if (arg && (!signature_args || signature_arg)) {
       int given_tag = arg->tag;
       int sig_tag = 0;
-      if (signature_arg) sig_tag = signature_arg->ar.value;
-
+      if (signature_arg) sig_tag = signature_arg->tag;
+      
       if (is_let && argi==1) {
         int type_hint = -1;
         // check the symbol to see if we already have type information
@@ -447,8 +460,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       else if (arg->tag == TAG_CONS) {
         // eager evaluation
         // nested expression
-        given_tag = compile_expr(arg, frame, sig_tag);
-        if (given_tag<1) return given_tag; // failure
+        Cell* cons_type = compile_expr(arg, frame, signature_arg);
+        if (!cons_type) return NULL; // failure
+        given_tag = cons_type->tag;
         
         argdefs[argi].cell = NULL; // cell is in R0 at runtime
         argdefs[argi].slot = ++frame->sp; // record sp at this point
@@ -458,6 +472,15 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         } else {
           argdefs[argi].type = ARGT_STACK;
         }
+
+        if (given_tag == TAG_STRUCT) {
+          // struct extraction
+          Cell** fields = cons_type->ar.addr;
+          Cell** def_fields = fields[0]->ar.addr;
+          argdefs[argi].type_name = def_fields[0]->ar.addr;
+          printf("!!! nested struct name extracted: %s (arg# %d argt %d) !!!\r\n",argdefs[argi].type_name,argi,argdefs[argi].type);
+        }
+        
         jit_push(R0,R0);
         args_pushed++;
         
@@ -483,7 +506,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         //printf("arg_frame_idx: %d\n",arg_frame_idx);
 
         if (!argdefs[argi].env && arg_frame_idx<0) {
-          printf("undefined symbol %s given for argument %s.\n",(char*)arg->ar.addr,arg_name);
+          printf("<undefined symbol %s given for argument %s>\r\n",(char*)arg->ar.addr,arg_name);
           return 0;
         }
       }
@@ -500,17 +523,17 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         // check if we can typecast
         // else, fail with type error
 
-        printf("!! type mismatch for argument %s (given %s, expected %s)!\n",arg_name,tag_to_str(given_tag),tag_to_str(sig_tag));
+        printf("<type mismatch for argument %s (given %s, expected %s)>\r\n",arg_name,tag_to_str(given_tag),tag_to_str(sig_tag));
         return 0;
       }
     } else {
       if (!arg && signature_arg) {
         // missing arguments
-        printf("!! argument %s missing!\n",arg_name);
+        printf("<argument %s missing!>\r\n",arg_name);
         return 0;
       } else if (arg && !signature_arg) {
         // surplus arguments
-        printf("!! surplus arguments!\n");
+        printf("<surplus arguments!>\r\n");
         return 0;
       }
     }
@@ -526,9 +549,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_andr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -536,9 +559,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_BITNOT: {
       load_int(ARGR0,argdefs[0], frame);
       jit_notr(ARGR0);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -547,9 +570,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_orr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -558,9 +581,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_xorr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -569,9 +592,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_shlr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -580,9 +603,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_shrr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -591,9 +614,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_addr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -602,9 +625,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_subr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -613,9 +636,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_mulr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -624,9 +647,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_divr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -635,9 +658,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_int(ARGR0,argdefs[0], frame);
       load_int(R2,argdefs[1], frame);
       jit_modr(ARGR0,R2);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -648,9 +671,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_movi(R3,0);
       jit_subr(ARGR0,R2);
       jit_movneg(ARGR0,R3);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -661,9 +684,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_movi(R3,0);
       jit_subr(ARGR0,R2);
       jit_movneg(ARGR0,R3);
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
@@ -675,12 +698,12 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_movi(R3,1);
       jit_cmpr(R1,R2);
       jit_moveq(R0,R3);
-      if (return_type == TAG_ANY) {
+      if (return_type->tag == TAG_ANY) {
         jit_movr(ARGR0,R0);
         jit_call(alloc_int, "alloc_int");
       }
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         // int is in R0 already
       }
       break;
@@ -736,6 +759,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
 
         // create new stack entry for this let
         fn_frame[offset].name = argdefs[0].cell->ar.addr;
+        fn_frame[offset].type_name = argdefs[1].type_name; // copy inferred type
         fn_frame[offset].cell = NULL;
         if (is_int) {
           fn_frame[offset].type = ARGT_STACK_INT;
@@ -762,11 +786,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       if (is_int) {
         jit_comment("(let) load int");
         load_int(R0, argdefs[1], frame);
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
       } else {
         jit_comment("(let) load cell");
         load_cell(R0, argdefs[1], frame);
-        compiled_type = TAG_ANY;
+        compiled_type = prototype_any;
       }
 
       if (!is_reg) {
@@ -784,11 +808,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         jit_movr(fn_frame[offset].slot, R0);
       }
       
-      if (compiled_type == TAG_INT && return_type == TAG_ANY) {
+      if (compiled_type->tag == TAG_INT && return_type->tag == TAG_ANY) {
         jit_comment("(let) box int");
         jit_movr(ARGR0,R0);
         jit_call(alloc_int, "alloc_int");
-        compiled_type = TAG_ANY;
+        compiled_type = prototype_any;
       } else {
       }
       break;
@@ -796,7 +820,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     case BUILTIN_FN: {
       Cell* fn_body, *fn_args, *lambda;
       Arg fn_new_frame[MAXFRAME];
-      int num_lets, i, j, spo_count, fn_argc, tag;
+      int num_lets, i, j, spo_count, fn_argc;
+      Cell* compiled_type;
       char label_fn[64];
       char label_fe[64];
       
@@ -831,8 +856,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       fn_argc = 0;
       for (j=argi-3; j>=0; j--) {
         Cell* arg;
-        int arg_tag = TAG_ANY;
-
+        Cell* arg_prototype = prototype_any;
+        fn_new_frame[j].type = 0;
+        fn_new_frame[j].name = NULL;
+        fn_new_frame[j].type_name = NULL;
+        
         if (j>=ARG_SPILLOVER) { // max args passed in registers
           fn_new_frame[j].type = ARGT_STACK;
           fn_new_frame[j].slot = -num_lets - (j - ARG_SPILLOVER) - 2;
@@ -846,20 +874,39 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         if (argdefs[j].cell->tag == TAG_SYM) {
           fn_new_frame[j].name = argdefs[j].cell->ar.addr;
         } else if (argdefs[j].cell->tag == TAG_CONS) {
+          env_entry* type_env = NULL;
+          Cell* type_cell = car(cdr(argdefs[j].cell));
+          
+          if (!type_cell) {
+            printf("<missing struct-name in (arg-name struct-name) declaration>\r\n");
+            return 0;
+          }
+          if (type_cell->tag!=TAG_SYM) {
+            printf("<non-symbol struct-name in (arg-name struct-name) declaration>\r\n");
+            return 0;
+          }
           fn_new_frame[j].name = car(argdefs[j].cell)->ar.addr;
-          fn_new_frame[j].type_name = car(cdr(argdefs[j].cell))->ar.addr;
+          fn_new_frame[j].type_name = type_cell->ar.addr;
+
+          type_env = lookup_global_symbol(fn_new_frame[j].type_name);
+          if (!type_env || !type_env->cell) {
+            printf("<undefined struct-name %s in (arg-name struct-name) declaration>\r\n",fn_new_frame[j].type_name);
+            return 0;
+          }
+          if (type_env->cell->tag!=TAG_STRUCT_DEF) {
+            printf("<struct-name %s in (arg-name struct-name) declaration does not resolve to a struct definition>\r\n",fn_new_frame[j].type_name);
+            return 0;
+          }
+          
+          // TODO other types!
+          arg_prototype = type_env->cell;
         } else {
           // illegal type
           printf("<error: only symbols or (symbol typename) allowed in fn signature>\r\n");
           return 0;
         }
-
-        if (argdefs[j].cell->tag == TAG_CONS) {
-          // TODO other types!
-          arg_tag = TAG_STRUCT;
-        }
         
-        arg = alloc_cons(alloc_clone(argdefs[j].cell),alloc_int(arg_tag));
+        arg = alloc_cons(alloc_sym(fn_new_frame[j].name),arg_prototype);
         fn_args = alloc_cons(arg,fn_args);
         fn_argc++;
 
@@ -901,9 +948,10 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
 
       //nframe_ptr->parent_frame = frame;
-      
-      tag = compile_expr(fn_body, nframe_ptr, TAG_ANY); // new frame, fresh sp
-      if (!tag) return 0;
+
+      // TODO here we can introduce function return types
+      compiled_type = compile_expr(fn_body, nframe_ptr, prototype_any); // new frame, fresh sp
+      if (!compiled_type) return 0;
 
       //printf(">> fn has %d args and %d locals. predicted locals: %d\r\n",fn_argc,nframe.locals,num_lets);
       
@@ -923,7 +971,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       break;
     }
     case BUILTIN_IF: {
-      int tag;
+      Cell* then_type=NULL;
+      Cell* else_type=NULL;
       char label_skip[64];
       sprintf(label_skip,"Lelse_%d",++label_skip_count);
       
@@ -935,8 +984,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_je(label_skip);
 
       // then
-      tag = compile_expr(argdefs[1].cell, frame, return_type);
-      if (!tag) return 0;
+      then_type = compile_expr(argdefs[1].cell, frame, return_type);
+      if (!then_type) return 0;
 
       // else
       if (argdefs[2].cell) {
@@ -945,19 +994,22 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         jit_jmp(label_end);
         
         jit_label(label_skip);
-        tag = compile_expr(argdefs[2].cell, frame, return_type);
-        if (!tag) return 0;
+        else_type = compile_expr(argdefs[2].cell, frame, return_type);
+        if (!else_type) return 0;
         
         jit_label(label_end);
       } else {
         jit_label(label_skip);
       }
+
+      if (return_type->tag!=TAG_VOID && then_type && else_type && then_type->tag!=else_type->tag) {
+        printf("<incompatible then/else types of if: %s/%s, return type: %s>\r\n",tag_to_str(then_type->tag),tag_to_str(else_type->tag),tag_to_str(return_type->tag));
+        return 0;
+      }
       
       break;
     }
     case BUILTIN_WHILE: {
-      int compiled_type;
-      
       char label_loop[64];
       char label_skip[64];
       char label_skip2[64];
@@ -967,11 +1019,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       jit_label(label_loop);
       
-      compiled_type = compile_expr(argdefs[0].cell, frame, TAG_INT);
+      compiled_type = compile_expr(argdefs[0].cell, frame, prototype_int);
       if (!compiled_type) return 0;
 
       // load the condition
-      if (compiled_type != TAG_INT) {
+      if (compiled_type->tag != TAG_INT) {
         jit_ldr(R0);
       }
 
@@ -986,7 +1038,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_jmp(label_loop);
       jit_label(label_skip);
 
-      if (return_type == TAG_ANY) {
+      if (return_type->tag == TAG_ANY) {
         // if the while never executed, we have to create a zero int cell
         // from r0
         jit_cmpi(R0,0);
@@ -1007,15 +1059,15 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       }
       
       while ((arg = car(args))) {
-        int tag;
+        Cell* compiled_type;
         if (car(cdr(args))) {
           // discard all returns except for the last one
-          tag = compile_expr(arg, frame, TAG_VOID);
+          compiled_type = compile_expr(arg, frame, prototype_void);
         } else {
-          tag = compile_expr(arg, frame, return_type);
+          compiled_type = compile_expr(arg, frame, return_type);
         }
         
-        if (!tag) return 0;
+        if (!compiled_type) return 0;
         args = cdr(args);
       }
       break;
@@ -1025,8 +1077,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       int n = 0, i;
       args = orig_args;
       while ((arg = car(args))) {
-        int tag = compile_expr(arg, frame, TAG_ANY);
-        if (!tag) return 0;
+        Cell* compiled_type = compile_expr(arg, frame, prototype_any);
+        if (!compiled_type) return 0;
         jit_push(R0,R0);
         frame->sp++;
         args = cdr(args);
@@ -1068,8 +1120,8 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
         
         args = cdr(args);
         
-        int tag = compile_expr(arg, frame, TAG_ANY);
-        if (!tag) return 0;
+        Cell* compiled_type = compile_expr(arg, frame, prototype_any);
+        if (!compiled_type) return 0;
         
         jit_push(R0,R0);
         frame->sp+=2;
@@ -1130,12 +1182,17 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       if (argdefs[0].type == ARGT_ENV) {
         struct_def = argdefs[0].env->cell;
         struct_def = car(car(struct_def));
-      } else {
-        env_entry* type_env = lookup_global_symbol(argdefs[0].type_name);
+      }
+      else if (argdefs[0].type_name) {
         //printf("[sget] arg type name %s\r\n",argdefs[0].type_name);
+        env_entry* type_env = lookup_global_symbol(argdefs[0].type_name);
         
         struct_def = type_env->cell;
         //printf("[sget] struct_def %p\r\n",struct_def);
+      }
+      else {
+        printf("<untyped value passed to sget (field %s)>\r\n",lookup_name);
+        return 0;
       }
 
       // arg points to struct definition which is TAG_VEC
@@ -1157,6 +1214,13 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
           jit_addi(R0,(i+1)*PTRSZ);
           jit_ldr(R0);
           found = 1;
+
+          // extract and return the field type (prototype)
+          compiled_type = struct_elements[1+i*2+1];
+          if (compiled_type->tag != TAG_STRUCT) {
+            compiled_type = prototype_any; // FIXME
+          }
+          
           break;
         }
       }
@@ -1248,7 +1312,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // ------------------------------
       
       jit_ldr(R0);
-      jit_lea(R2,reusable_nil);
+      jit_lea(R2,prototype_nil);
       jit_cmpi(R0,0); // check for null cell
       jit_moveq(R0,R2);
       break;
@@ -1267,7 +1331,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       // ------------------------------
 
       jit_ldr(R0);
-      jit_lea(R2,reusable_nil);
+      jit_lea(R2,prototype_nil);
       jit_cmpi(R0,0); // check for null cell
       jit_moveq(R0,R2);
       break;
@@ -1291,7 +1355,7 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_call3(alloc_substr,"alloc_substr");
       break;
     }
-    case BUILTIN_GET: {
+    case BUILTIN_GET8: {
       char label_skip[64];
       char label_ok[64];
       sprintf(label_skip,"Lskip_%d",++label_skip_count);
@@ -1338,14 +1402,70 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       
       jit_movr(ARGR0, R3);
       
-      if (return_type == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
       else {
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
         jit_movr(R0,ARGR0);
       }
       break;
     }
-    case BUILTIN_PUT: {
+
+    case BUILTIN_GET16: {
+      char label_skip[64];
+      char label_ok[64];
+      sprintf(label_skip,"Lskip_%d",++label_skip_count);
+      sprintf(label_ok,"Lok_%d",label_skip_count);
+      
+      load_cell(R1,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame); // offset -> R2
+      jit_movr(R0,R1); // save original cell in r0
+
+      // todo: compile-time checking would be much more awesome
+      // type check
+      jit_addi(R1,2*PTRSZ);
+      jit_ldr(R1);
+      jit_cmpi(R1,TAG_BYTES); // todo: better perf with mask?
+      jit_je(label_ok);
+      jit_cmpi(R1,TAG_STR);
+      jit_je(label_ok);
+
+      // wrong type
+      jit_movi(R3, 0);
+      jit_jmp(label_skip);
+
+      // good type
+      jit_label(label_ok);
+      jit_movr(R1,R0); // get original cell from r3
+
+#ifdef CHECK_BOUNDS
+      // bounds check -----
+      jit_movr(R1,R0);
+      jit_addi(R1,PTRSZ);
+      jit_ldr(R1);
+      jit_cmpr(R2,R1);
+      jit_jge(label_skip);
+      // -------------------
+#endif
+      
+      jit_movr(R1,R0);
+      jit_ldr(R1); // string address
+      jit_addr(R1,R2);
+      jit_movi(R3, 0);
+      jit_ldrs(R1); // data in r3
+
+      jit_label(label_skip);
+      
+      jit_movr(ARGR0, R3);
+      
+      if (return_type->tag == TAG_ANY) jit_call(alloc_int, "alloc_int");
+      else {
+        compiled_type = prototype_int;
+        jit_movr(R0,ARGR0);
+      }
+      break;
+    }
+
+    case BUILTIN_PUT8: {
       char label_skip[64];
       sprintf(label_skip,"Lskip_%d",++label_skip_count);
       
@@ -1367,6 +1487,33 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       jit_ldr(R1); // string address
       jit_addr(R1,R2);
       jit_strb(R1); // address is in r1, data in r3
+
+      jit_label(label_skip);
+      
+      break;
+    }
+    case BUILTIN_PUT16: {
+      char label_skip[64];
+      sprintf(label_skip,"Lskip_%d",++label_skip_count);
+      
+      load_cell(R0,argdefs[0], frame);
+      load_int(R2,argdefs[1], frame); // offset -> R2
+      load_int(R3,argdefs[2], frame); // byte to store -> R3
+
+#ifdef CHECK_BOUNDS
+      // bounds check -----
+      jit_movr(R1,R0);
+      jit_addi(R1,PTRSZ);
+      jit_ldr(R1);
+      jit_cmpr(R2,R1);
+      jit_jge(label_skip);
+      // -------------------
+#endif
+
+      jit_movr(R1,R0);
+      jit_ldr(R1); // string address
+      jit_addr(R1,R2);
+      jit_strs(R1); // address is in r1, data in r3
 
       jit_label(label_skip);
       
@@ -1458,11 +1605,11 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
       load_cell(ARGR0,argdefs[0], frame);
       jit_addi(ARGR0,PTRSZ); // fetch size -> R0
       jit_ldr(ARGR0);
-      if (return_type == TAG_ANY) {
+      if (return_type->tag == TAG_ANY) {
         jit_call(alloc_int, "alloc_int");
-      } else if (return_type == TAG_INT) {
+      } else if (return_type->tag == TAG_INT) {
         jit_movr(R0,ARGR0);
-        compiled_type = TAG_INT;
+        compiled_type = prototype_int;
       }
       
       break;
@@ -1583,7 +1730,9 @@ int compile_expr(Cell* expr, Frame* frame, int return_type) {
     jit_ldr(R0); // load cell
     jit_addi(R0,PTRSZ); // &cell->dr.next
     jit_ldr(R0); // cell->dr.next
-    jit_callr(R0);
+
+    jit_callr(R0); // the call!
+    
     if (spo_adjust) {
       jit_inc_stack(spo_adjust*PTRSZ);
       frame->sp-=spo_adjust;
@@ -1614,26 +1763,42 @@ void init_compiler() {
   //printf("[compiler] init_allocator\r\n");
   init_allocator();
 
-  reusable_nil = alloc_nil();
-  reusable_type_error = alloc_error(ERR_INVALID_PARAM_TYPE);
-  consed_type_error = alloc_cons(reusable_type_error,reusable_nil);
+  prototype_nil = alloc_nil();
+  prototype_type_error = alloc_error(ERR_INVALID_PARAM_TYPE);
+  consed_type_error = alloc_cons(prototype_type_error,prototype_nil);
+  prototype_any = alloc_int(0);
+  prototype_any->tag = TAG_ANY;
+  prototype_void = alloc_int(0);
+  prototype_void->tag = TAG_VOID;
+  prototype_symbol = alloc_sym("symbol");
+  prototype_int = alloc_int(0);
+  prototype_struct = alloc_int(0);
+  prototype_struct->tag = TAG_STRUCT;
+  prototype_struct_def = alloc_int(0);
+  prototype_struct_def->tag = TAG_STRUCT_DEF;
+  prototype_stream = alloc_int(0);
+  prototype_stream->tag = TAG_STREAM;
+  prototype_string = alloc_string_copy("string");
+  prototype_lambda = alloc_int(0);
+  prototype_lambda->tag = TAG_LAMBDA;
+  prototype_cons = alloc_cons(alloc_nil(),alloc_nil());
 
-  insert_symbol(alloc_sym("nil"), reusable_nil, &global_env);
+  insert_symbol(alloc_sym("nil"), prototype_nil, &global_env);
   insert_symbol(alloc_sym("type_error"), consed_type_error, &global_env);
   
   //printf("[compiler] inserting symbols\r\n");
 
-  signature[0]=alloc_int(TAG_SYM); signature[1]=alloc_int(TAG_ANY);
+  signature[0]=prototype_symbol; signature[1]=prototype_any;
   insert_symbol(alloc_sym("def"), alloc_builtin(BUILTIN_DEF, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("let"), alloc_builtin(BUILTIN_LET, alloc_list(signature, 2)), &global_env);
   
-  signature[0]=alloc_int(TAG_STRUCT_DEF); signature[1]=alloc_int(TAG_SYM); signature[2]=alloc_int(TAG_ANY);
+  signature[0]=prototype_struct_def; signature[1]=prototype_symbol; signature[2]=prototype_any;
   insert_symbol(alloc_sym("new"), alloc_builtin(BUILTIN_NEW, alloc_list(signature, 1)), &global_env);
-  signature[0]=alloc_int(TAG_STRUCT);
+  signature[0]=prototype_struct;
   insert_symbol(alloc_sym("sget"), alloc_builtin(BUILTIN_SGET, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("sput"), alloc_builtin(BUILTIN_SPUT, alloc_list(signature, 3)), &global_env);
 
-  signature[0]=alloc_int(TAG_INT); signature[1]=alloc_int(TAG_INT);
+  signature[0]=prototype_int; signature[1]=prototype_int;
   insert_symbol(alloc_sym("+"), alloc_builtin(BUILTIN_ADD, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("-"), alloc_builtin(BUILTIN_SUB, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("*"), alloc_builtin(BUILTIN_MUL, alloc_list(signature, 2)), &global_env);
@@ -1654,22 +1819,22 @@ void init_compiler() {
   
   //printf("[compiler] compare\r\n");
   
-  signature[0]=alloc_int(TAG_INT); signature[1]=alloc_int(TAG_LAMBDA); signature[2]=alloc_int(TAG_LAMBDA); 
+  signature[0]=prototype_int; signature[1]=prototype_lambda; signature[2]=prototype_lambda; 
   insert_symbol(alloc_sym("if"), alloc_builtin(BUILTIN_IF, alloc_list(signature, 3)), &global_env);
   insert_symbol(alloc_sym("fn"), alloc_builtin(BUILTIN_FN, NULL), &global_env);
   insert_symbol(alloc_sym("while"), alloc_builtin(BUILTIN_WHILE, NULL), &global_env);
   insert_symbol(alloc_sym("do"), alloc_builtin(BUILTIN_DO, NULL), &global_env);
   
-  signature[0]=alloc_int(TAG_ANY);
+  signature[0]=prototype_any;
   insert_symbol(alloc_sym("print"), alloc_builtin(BUILTIN_PRINT, alloc_list(signature, 1)), &global_env);
   
   //printf("[compiler] flow\r\n");
   
-  signature[0]=alloc_int(TAG_CONS);
+  signature[0]=prototype_cons;
   insert_symbol(alloc_sym("car"), alloc_builtin(BUILTIN_CAR, alloc_list(signature, 1)), &global_env);
   insert_symbol(alloc_sym("cdr"), alloc_builtin(BUILTIN_CDR, alloc_list(signature, 1)), &global_env);
   
-  signature[0]=alloc_int(TAG_ANY); signature[1]=alloc_int(TAG_ANY);
+  signature[0]=prototype_any; signature[1]=prototype_any;
   insert_symbol(alloc_sym("cons"), alloc_builtin(BUILTIN_CONS, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("list"), alloc_builtin(BUILTIN_LIST, NULL), &global_env);
   insert_symbol(alloc_sym("quote"), alloc_builtin(BUILTIN_QUOTE, NULL), &global_env);
@@ -1678,44 +1843,46 @@ void init_compiler() {
 
   //printf("[compiler] lists\r\n");
   
-  signature[0]=alloc_int(TAG_STR);
-  signature[1]=alloc_int(TAG_STR);
+  signature[0]=prototype_string;
+  signature[1]=prototype_string;
   insert_symbol(alloc_sym("concat"), alloc_builtin(BUILTIN_CONCAT, alloc_list(signature, 2)), &global_env);
   
-  signature[0]=alloc_int(TAG_STR);
-  signature[1]=alloc_int(TAG_INT);
-  signature[2]=alloc_int(TAG_INT);
+  signature[0]=prototype_string;
+  signature[1]=prototype_int;
+  signature[2]=prototype_int;
   insert_symbol(alloc_sym("substr"), alloc_builtin(BUILTIN_SUBSTR, alloc_list(signature, 3)), &global_env);
-  insert_symbol(alloc_sym("put"), alloc_builtin(BUILTIN_PUT, alloc_list(signature, 3)), &global_env);
-  insert_symbol(alloc_sym("get"), alloc_builtin(BUILTIN_GET, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("put8"), alloc_builtin(BUILTIN_PUT8, alloc_list(signature, 3)), &global_env);
+  insert_symbol(alloc_sym("get8"), alloc_builtin(BUILTIN_GET8, alloc_list(signature, 2)), &global_env);
+  insert_symbol(alloc_sym("put16"), alloc_builtin(BUILTIN_PUT16, alloc_list(signature, 3)), &global_env);
+  insert_symbol(alloc_sym("get16"), alloc_builtin(BUILTIN_GET16, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("get32"), alloc_builtin(BUILTIN_GET32, alloc_list(signature, 2)), &global_env);
   insert_symbol(alloc_sym("put32"), alloc_builtin(BUILTIN_PUT32, alloc_list(signature, 3)), &global_env);
   insert_symbol(alloc_sym("size"), alloc_builtin(BUILTIN_SIZE, alloc_list(signature, 1)), &global_env);
   
-  signature[0]=alloc_int(TAG_INT);
+  signature[0]=prototype_int;
   insert_symbol(alloc_sym("alloc"), alloc_builtin(BUILTIN_ALLOC, alloc_list(signature, 1)), &global_env);
   insert_symbol(alloc_sym("alloc-str"), alloc_builtin(BUILTIN_ALLOC_STR, alloc_list(signature, 1)), &global_env);
 
-  signature[0]=alloc_int(TAG_ANY);
+  signature[0]=prototype_any;
   insert_symbol(alloc_sym("bytes->str"), alloc_builtin(BUILTIN_BYTES_TO_STR, alloc_list(signature, 1)), &global_env);
 
   //printf("[compiler] strings\r\n");
   
-  signature[0]=alloc_int(TAG_ANY);
-  signature[1]=alloc_int(TAG_STR);
+  signature[0]=prototype_any;
+  signature[1]=prototype_string;
   insert_symbol(alloc_sym("write"), alloc_builtin(BUILTIN_WRITE, alloc_list(signature,2)), &global_env);
   insert_symbol(alloc_sym("eval"), alloc_builtin(BUILTIN_EVAL, alloc_list(signature,1)), &global_env);
-  signature[0]=alloc_int(TAG_STR);
+  signature[0]=prototype_string;
   insert_symbol(alloc_sym("read"), alloc_builtin(BUILTIN_READ, alloc_list(signature,1)), &global_env);
 
-  signature[0]=alloc_int(TAG_STR);
-  signature[1]=alloc_int(TAG_CONS);
+  signature[0]=prototype_string;
+  signature[1]=prototype_cons;
   insert_symbol(alloc_sym("mount"), alloc_builtin(BUILTIN_MOUNT, alloc_list(signature,2)), &global_env);
   insert_symbol(alloc_sym("open"), alloc_builtin(BUILTIN_OPEN, alloc_list(signature,1)), &global_env);
   insert_symbol(alloc_sym("mmap"), alloc_builtin(BUILTIN_MMAP, alloc_list(signature,1)), &global_env);
   
-  signature[0]=alloc_int(TAG_STREAM);
-  signature[1]=alloc_int(TAG_ANY);
+  signature[0]=prototype_stream;
+  signature[1]=prototype_any;
   insert_symbol(alloc_sym("recv"), alloc_builtin(BUILTIN_RECV, alloc_list(signature,1)), &global_env);
   insert_symbol(alloc_sym("send"), alloc_builtin(BUILTIN_SEND, alloc_list(signature,2)), &global_env);
 

@@ -1,0 +1,40 @@
+TODO:
+------
+
+- repl as struct
+- scrolling in repl
+
+
+- paint
+
+paint-window
+
+paint moved window
+
+
+paint call with rectangle?
+paint call width, height
+
+resize call width/height
+paint call
+
+render to a surface
+
+(struct surface
+        pixels []
+        width 0
+        height 0
+        shift 4
+        pitch 0)
+
+(defn make-surface w h)
+
+(blit-str surface font x y "hello!")
+(blit surf-dest surf-src x y w h)
+
+
+------------------
+
+(bind mystruct)
+-> registers all of mystruct fields as local vars (lets)
+

@@ -279,6 +279,8 @@ void jit_strb(int reg) {
 void jit_strw(int reg) {
 }
 
+#define jit_stra jit_strw
+
 void jit_call(void* func, char* note) {
   jit_lea(R0, func);
   code[code_idx++] = 0x57; // push edi
@@ -418,6 +420,9 @@ void jit_dec_stack(int offset) {
 void jit_host_call_enter() {
 }
 void jit_host_call_exit() {
+}
+
+void jit_comment(char* comment) {
 }
 
 void debug_handler() {

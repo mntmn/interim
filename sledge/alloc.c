@@ -131,17 +131,21 @@ void mark_tree(Cell* c) {
     }
     else if (c->tag == TAG_STREAM) {
       Stream* s = (Stream*)c->ar.addr;
-      mark_tree(s->path);
+      if (s) {
+        mark_tree(s->path);
+      }
     }
     else if (c->tag == TAG_FS) {
       Filesystem* fs = (Filesystem*)c->dr.next;
-      mark_tree(fs->mount_point);
-      mark_tree(fs->open_fn);
-      mark_tree(fs->close_fn);
-      mark_tree(fs->read_fn);
-      mark_tree(fs->write_fn);
-      mark_tree(fs->delete_fn);
-      mark_tree(fs->mmap_fn);
+      if (fs) {
+        mark_tree(fs->mount_point);
+        mark_tree(fs->open_fn);
+        mark_tree(fs->close_fn);
+        mark_tree(fs->read_fn);
+        mark_tree(fs->write_fn);
+        mark_tree(fs->delete_fn);
+        mark_tree(fs->mmap_fn);
+      }
     }
     else if (c->tag == TAG_VEC || c->tag == TAG_STRUCT || c->tag == TAG_STRUCT_DEF) {
       int i=0;

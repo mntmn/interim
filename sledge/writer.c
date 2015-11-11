@@ -134,7 +134,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
         sprintf(&buffer[1],"vec ");
         pos = 5;
       }
-      else if (cell->tag == TAG_STRUCT) {
+      else if (cell->tag == TAG_STRUCT && vec && vec[0]) {
         Cell** struct_def = (Cell**)(vec[0]->ar.addr);
         pos = 1+sprintf(&buffer[1],"%s ",(char*)struct_def[0]->ar.addr);
         i=1;
@@ -157,7 +157,11 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
     }
   } else if (cell->tag == TAG_STREAM) {
     Stream* s = (Stream*)cell->ar.addr;
-    snprintf(buffer, bufsize, "<stream:%d:%s:%s>", s->id, (char*)s->path->ar.addr, (char*)s->fs->mount_point->ar.addr);
+    if (s) {
+      snprintf(buffer, bufsize, "<stream:%d:%s:%s>", s->id, (char*)s->path->ar.addr, (char*)s->fs->mount_point->ar.addr);
+    } else {
+      snprintf(buffer, bufsize, "<stream:null>");
+    }
   } else {
     snprintf(buffer, bufsize, "<tag:%ld>", cell->tag);
   }

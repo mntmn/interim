@@ -31,7 +31,7 @@ Cell* fs_open(Cell* path) {
       Stream* s = malloc(sizeof(Stream));
       Cell* stream_cell;
       
-      printf("[open] found matching fs: %s for path: %s\r\n", (char*)fs->mount_point->ar.addr, (char*)path->ar.addr);
+      printf("[open] via %s: %s\r\n", (char*)fs->mount_point->ar.addr, (char*)path->ar.addr);
       s->fs = fs;
       s->path = path;
       s->id = stream_id;
@@ -46,7 +46,6 @@ Cell* fs_open(Cell* path) {
       // open the filesystem
       if (s->fs->open_fn && s->fs->open_fn->dr.next) {
         Cell* open_fn = s->fs->open_fn;
-        printf("[open] open_fn: %p\r\n", s->fs->open_fn->dr.next);
         ((funcptr2)open_fn->dr.next)(path, NULL);
       }
 

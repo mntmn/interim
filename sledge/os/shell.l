@@ -3,32 +3,32 @@
   (split (load "/sd/") [0a])
 )))
 
-(print (list "screen" screen-width screen-height screen-bpp))
-
 (def draw-logo (fn ox oy (do
-  (def stroke-color 0xff8e)
-  (line (pt (+ ox 16) (- oy 38)) (pt (+ ox 16) (- oy 102)))
-  (line (pt (+ ox 16) (- oy 102)) (pt (+ ox 80) (- oy 38)))
-  (line (pt (+ ox 80) (- oy 38)) (pt (+ ox 80) (- oy 102)))
-  (line (pt (+ ox 80) (- oy 102)) (pt (+ ox 144) (- oy 38)))
-  (line (pt (+ ox 144) (- oy 38)) (pt (+ ox 144) (- oy 102)))
-  (line (pt (+ ox 144) (- oy 102)) (pt (+ ox 208) (- oy 38)))
-  (line (pt (+ ox 208) (- oy 38)) (pt (+ ox 208) (- oy 102)))
-  (line (pt (+ ox 208) (- oy 102)) (pt (+ ox 272) (- oy 102)))
+  (let c 0xff8e)
+  (line fb (pt (+ ox 16) (- oy 38)) (pt (+ ox 16) (- oy 102)) c)
+  (line fb (pt (+ ox 16) (- oy 102)) (pt (+ ox 80) (- oy 38)) c)
+  (line fb (pt (+ ox 80) (- oy 38)) (pt (+ ox 80) (- oy 102)) c)
+  (line fb (pt (+ ox 80) (- oy 102)) (pt (+ ox 144) (- oy 38)) c)
+  (line fb (pt (+ ox 144) (- oy 38)) (pt (+ ox 144) (- oy 102)) c)
+  (line fb (pt (+ ox 144) (- oy 102)) (pt (+ ox 208) (- oy 38)) c)
+  (line fb (pt (+ ox 208) (- oy 38)) (pt (+ ox 208) (- oy 102)) c)
+  (line fb (pt (+ ox 208) (- oy 102)) (pt (+ ox 272) (- oy 102)) c)
 )))
 
-(draw-logo (- (/ screen-width 2) 140) (/ screen-height 2))
-(draw-logo (- (/ screen-width 2) 139) (/ screen-height 2))
-(draw-logo (- (/ screen-width 2) 140) (+ 1 (/ screen-height 2)))
-(send scr 0)
+(draw-logo (- (/ (sget fb width) 2) 140) (/ (sget fb height) 2))
+(draw-logo (- (/ (sget fb width) 2) 139) (/ (sget fb height) 2))
+(draw-logo (- (/ (sget fb width) 2) 140) (+ 1 (/ (sget fb height) 2)))
+(send screen 0)
 
 (def keyboard (open "/keyboard"))
 
-(def evbuf (alloc-str 4096))
-(def p (fn xp x y maxx maxy (do
-  (write xp evbuf)
-  (blit-str evbuf x y maxx maxy)
-)))
+;; (def evbuf (alloc-str 4096))
+;; (def p (fn xp x y maxx maxy (do
+;;   (write xp evbuf)
+;;   (blit-str evbuf x y maxx maxy)
+;; )))
+
+(blit-str fb unifont "hello" 100 100)
 
 (def tasks (list))
 (def new-tasks (list))
@@ -76,10 +76,10 @@
 (def cursor-blink 0)
 (def cursor-blink-delay 20)
 
-(import "/sd/os/repl.l")
+;(import "/sd/os/repl.l")
 (import "/sd/os/editor.l")
 
-(add-task repl-task (repl-make 1 432 32 200 300))
+;(add-task repl-task (repl-make 1 432 32 200 300))
 (add-task editor-task (list 1 (new editor)))
 ;(def ed2 (new editor))
 ;(sput ed2 win-y 300)
@@ -91,7 +91,7 @@
 
 (def main (fn (while 1 (do
   (run-tasks)
-  (send scr 0)
+  (send screen 0)
   (gc)
   (def cursor-blink (% (+ cursor-blink 1) cursor-blink-delay))
 ))))

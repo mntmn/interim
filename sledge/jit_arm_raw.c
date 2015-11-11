@@ -189,6 +189,8 @@ void jit_strw(int reg) {
   code[code_idx++] = op;
 }
 
+#define jit_stra jit_strw
+
 void jit_addr(int dreg, int sreg) {
   uint32_t op = 0xe0900000;
   op |= (sreg<<0);
@@ -431,6 +433,9 @@ void jit_pop(int r1, int r2) {
 void jit_host_call_enter() {
 }
 void jit_host_call_exit() {
+}
+
+void jit_comment(char* comment) {
 }
 
 void debug_handler() {

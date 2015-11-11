@@ -1,0 +1,57 @@
+
+(def mystruct (struct
+  one   0
+  two   (list 1 2 3)
+  three "whatever"
+))
+
+(fn (this mystruct) yep yop (do
+  (print (<- this one))
+  (-> this one 123)
+  (-> this one "foo") <-- compile error
+))
+
+(struct person name "noname" age 0)
+(def dude (person))
+(sput dude name "John Doe")
+(sput dude age 21)
+
+(def make-older (fn (p person) (sput p age (+ (sget p age) 1))))
+
+(make-older dude)
+
+
+----------------
+
+strategy:
+
+- mystruct is a constant vector of keys and default values (really a hashmap later?)
+- (new mystruct) makes a vector with struct tag, dr.next pointing to mystruct which has the size and field names and types
+
+------------------
+
+todo:
+
+- disallow redefinition of fn with other signature
+- disallow redefinition of global var with other type
+- later refcount?
+
+-------------
+
+(def ← sget)
+(def → sput)
+
+(def player (struct name "anonymous" x 0 y 0))
+(def dude (new player))
+(sput dude name "the dude")
+(sput dude x 25)
+(sput dude y 35)
+
+(def print-player (fn (p player) (print (list (sget p name) (sget p x) (sget p y)) )))
+
+(def move-player (fn (p player) new-x new-y (do
+  (sput p x new-x)
+  (sput p y new-y)
+  p
+)))
+
