@@ -9,7 +9,7 @@
 #define HEIGHT 600
 #define BPP 2
 #define DEPTH 8*BPP
-#define SCALE 2
+#define SCALE 1
 
 SDL_Surface* win_surf;
 SDL_Surface* pixels_surf;
