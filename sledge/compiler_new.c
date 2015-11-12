@@ -296,6 +296,7 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
   Arg* fn_frame = frame->f;
   Cell* opsym, *args, *orig_args, *signature_args, *op, *orig_op=NULL;
   env_entry* op_env;
+  char* op_name;
   
   int is_let = 0;
   int argi = 0;
@@ -346,10 +347,11 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
     return 0;
   }
 
-  op_env = lookup_global_symbol(opsym->ar.addr);
+  op_name = (char*)opsym->ar.addr;
+  op_env = lookup_global_symbol(op_name);
 
   if (!op_env || !op_env->cell) {
-    printf("<error: undefined symbol %s in operator position>\r\n",(char*)opsym->ar.addr);
+    printf("<error: undefined symbol %s in operator position>\r\n",op_name);
     return 0;
   }
   op = op_env->cell;
@@ -440,10 +442,12 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
           //printf("INT mode of let\r\n");
           // let prefers raw integers!
           sig_tag = TAG_INT;
+          signature_arg = prototype_int;
         } else {
           //printf("ANY mode of let\r\n");
           // but cells are ok, too
           sig_tag = TAG_ANY;
+          signature_arg = prototype_any;
         }
       }
 
@@ -506,7 +510,7 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
         //printf("arg_frame_idx: %d\n",arg_frame_idx);
 
         if (!argdefs[argi].env && arg_frame_idx<0) {
-          printf("<undefined symbol %s given for argument %s>\r\n",(char*)arg->ar.addr,arg_name);
+          printf("<undefined symbol %s given for argument %s of %s>\r\n",(char*)arg->ar.addr,arg_name,op_name);
           return 0;
         }
       }
@@ -523,17 +527,17 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
         // check if we can typecast
         // else, fail with type error
 
-        printf("<type mismatch for argument %s (given %s, expected %s)>\r\n",arg_name,tag_to_str(given_tag),tag_to_str(sig_tag));
+        printf("<type mismatch for argument %s of %s (given %s, expected %s)>\r\n",arg_name,op_name,tag_to_str(given_tag),tag_to_str(sig_tag));
         return 0;
       }
     } else {
       if (!arg && signature_arg) {
         // missing arguments
-        printf("<argument %s missing!>\r\n",arg_name);
+        printf("<argument %s of %s missing!>\r\n",arg_name,op_name);
         return 0;
       } else if (arg && !signature_arg) {
         // surplus arguments
-        printf("<surplus arguments!>\r\n");
+        printf("<surplus arguments to %s!>\r\n",op_name);
         return 0;
       }
     }
@@ -1170,6 +1174,8 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
 
       jit_lea(ARGR0,arg);
       jit_call(alloc_struct,"new:alloc_struct");
+
+      compiled_type = alloc_struct(arg); // prototype
       
       break;
     }
@@ -1247,7 +1253,7 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
         if (type_env) {
           struct_def = type_env->cell;
         } else {
-          printf("<type not found.>");
+          printf("<sput: struct type %s not found.>\r\n",argdefs[0].type_name);
           return 0;
         }
       } else {

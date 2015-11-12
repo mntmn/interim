@@ -4,6 +4,8 @@
         height 0
         shift  1
         pitch  0
+        x      0
+        y      0
         pixels [])
 
 (struct font
@@ -98,8 +100,6 @@
 
   (let rune-ww (shl rune-spacing 1))
 
-  (print (list "rune" rune so do font-pitch screen-pitch x y))
-  
   (while (lt iy rune-h) (do
     (let ix 0)
     (while (lt ix rune-ww) (do
@@ -208,31 +208,61 @@
 ;   ))
 ;   res
 ; )))
+(def boxfill (fn (surf surface) x y w h color (do
+  (let ofs 0)
+  (let xi 0)
+  (let yi 0)
+  (let xi (+ x 0)) ; TODO get rid of this
+  (let yi (+ y 0))
+  (let xx (+ x w))
+  (let yy (+ y h))
+  (let ww (shl w 1))
+  (let pitch (sget surf pitch))
+  (let ofs (+ (* y pitch) (shl x 1)))
+  (let pixels (sget surf pixels))
 
-; (def paste (fn from x y w h (do
-;   (let xx 0)
-;   (let yy 0)
-;   (let di 0)
-;   (let si 0)
-;   (let yy (+ y 0))
-;   (let xw (+ x w))
-;   (let yh (+ y h))
-;   (let to grab-from)
-;   (let pitch (+ grab-pitch 0))
-;   (while (lt yy yh) (do
-;     (let xx (+ x 0))
-;     (while (lt xx xw) (do
-;       (let di (+ xx (* pitch yy)))
-;       (put to di (get from si))
-;       (put to (+ di 1) (get from (+ si 1)))
-;       (let si (+ si 2))
-;       (let di (+ di 2))
-;       (let xx (+ xx 1))
-;     ))
-;     (let yy (+ yy 1))
-;   ))
-;   1
-; )))
+  (while (lt yi yy) (do
+    (let xi (+ x 0))
+    (while (lt xi xx) (do
+      (put16 pixels ofs color)
+      (let xi (+ xi 1))
+      (let ofs (+ ofs 2))
+    ))
+    (let ofs (- (+ ofs pitch) ww))
+    (let yi (+ yi 1))
+  ))
+  0 ; FIXME crashes x64 if this is not here
+)))
+
+(def blit (fn (dest surface) (from surface) (do
+  (let xx 0)
+  (let yy 0)
+  (let di 0)
+  (let si 0)
+  (let yy (+ (sget from y) 0))
+  (let xw (+ (sget from x) (sget from width)))
+  (let yh (+ (sget from y) (sget from height)))
+  (let to (sget dest pixels))
+  (let shift (sget dest shift))
+  (let pitch (- (sget dest pitch) (shl (sget from width) shift)))
+  (let di (+ (shl (sget from x) shift) (* yy (sget dest pitch))))
+  (let c 0)
+  (let pixels (sget from pixels))
+  
+  (while (lt yy yh) (do
+    (let xx (+ (sget from x) 0))
+    (while (lt xx xw) (do
+      (let c (get16 pixels si))
+      (put16 to di c)
+      (let si (+ si 2))
+      (let di (+ di 2))
+      (let xx (+ xx 1))
+    ))
+    (let yy (+ yy 1))
+    (let di (+ di pitch))
+  ))
+  1
+)))
 
 (def blit-str (fn (surf surface) (font font) str x y (do
   (let i 0)
@@ -265,31 +295,6 @@
   yy
 )))
 
-(def boxfill (fn (surf surface) x y w h color (do
-  (let ofs 0)
-  (let xi 0)
-  (let yi 0)
-  (let xi (+ x 0)) ; TODO get rid of this
-  (let yi (+ y 0))
-  (let xx (+ x w))
-  (let yy (+ y h))
-  (let pitch (sget surf pitch))
-  (let ofs (+ (* y pitch) (shl x 1)))
-  (let ww (shl w 1))
-  (let pixels (sget surf pixels))
-
-  (while (lt yi yy) (do
-    (let xi (+ x 0))
-    (while (lt xi xx) (do
-      (put16 pixels ofs color)
-      (let xi (+ xi 1))
-      (let ofs (+ ofs 2))
-    ))
-    (let ofs (- (+ ofs pitch) ww))
-    (let yi (+ yi 1))
-  ))
-  0 ; FIXME crashes x64 if this is not here
-)))
 
 (def triangle (fn (surf surface) a b c color (do
   (line surf a b color)

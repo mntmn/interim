@@ -118,6 +118,12 @@ Cell* keyfs_open() {
   return alloc_int(1);
 }
 
+static int mouse_buttons=0;
+static int mouse_x=0;
+static int mouse_y=0;
+static int last_mouse_x=0;
+static int last_mouse_y=0;
+
 #include <time.h>
 #include <unistd.h>
 
@@ -185,6 +191,11 @@ Cell* keyfs_read() {
         }
       }
       break;
+    case SDL_MOUSEMOTION:
+      mouse_x = event.motion.x;
+      mouse_y = event.motion.y;
+      mouse_buttons = event.motion.state;
+      break;
     }
   }
 
@@ -203,7 +214,41 @@ void sdl_mount_keyfs() {
   fs_mount_builtin("/keyboard", keyfs_open, keyfs_read, 0, 0, 0);
 }
 
+
+Cell* mouse_open(Cell* cpath) {
+  if (!cpath || cpath->tag!=TAG_STR) {
+    printf("[usbmouse] open error: non-string path given\r\n");
+    return alloc_nil();
+  }
+
+  return alloc_int(1);
+}
+
+Cell* mouse_read(Cell* stream) {
+  mouse_buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
+
+  int mouse_dx = mouse_x - last_mouse_x;
+  int mouse_dy = mouse_y - last_mouse_y;
+  Cell* res = alloc_cons(alloc_cons(alloc_int(mouse_x/SCALE),alloc_int(mouse_y/SCALE)),alloc_int(mouse_buttons));
+  last_mouse_x = mouse_x;
+  last_mouse_y = mouse_y;
+  return res;
+}
+
+Cell* mouse_write(Cell* arg) {
+  return NULL;
+}
+
+Cell* mouse_mmap(Cell* arg) {
+  return alloc_nil();
+}
+
+void sdl_mount_mousefs() {
+  fs_mount_builtin("/mouse", mouse_open, mouse_read, mouse_write, 0, mouse_mmap);
+}
+
 void dev_sdl_init() {
   sdl_mount_fbfs();
   sdl_mount_keyfs();
+  sdl_mount_mousefs();
 }

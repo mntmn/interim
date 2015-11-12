@@ -1,0 +1,17 @@
+algoriddim:
+
+1. sage dem task: dirty, rendere in deine surface
+2. blitte alle task surfaces in der richtigen reihenfolge (z) in den fb
+3. task kann selber sagen, ich war dirty, habe gerendert
+
+2 structs:
+
+task (external interface)
+- name
+- focused
+- surface
+- z
+- clobbered
+- painted
+
+opaque state object (internal interface)
