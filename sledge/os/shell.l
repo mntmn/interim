@@ -190,25 +190,25 @@
 
 (def max-task-id 0)
 
-(def spawn-editor (fn x y title focused (do
+(def spawn-editor (fn x y title (do
   (let my-editor (new editor))
   (let my-editor-task (new task))
   (sput my-editor-task id (+ max-task-id 1))
   (sput my-editor-task name title)
   (sput my-editor buffer " ")
-  (sput my-editor-task focused focused)
+  (sput my-editor-task focused 0)
   (sput my-editor-task surface (make-surface x y 400 240))
   (add-task editor-task my-editor-task my-editor)
   (def mask-task-id (+ max-task-id 1))
 )))
 
-(def spawn-repl (fn x y title focused (do
+(def spawn-repl (fn x y title (do
   (let my-repl (new repl))
   (let my-task (new task))
   (sput my-task id (+ max-task-id 1))
   (sput my-task name title)
   ;(sput my-repl buffer " ")
-  (sput my-task focused focused)
+  (sput my-task focused 0)
   (sput my-task surface (make-surface x y 400 240))
   (let s (sget my-task surface))
   (boxfill s 0 0 400 240 0xffff)
@@ -217,8 +217,8 @@
   (def mask-task-id (+ max-task-id 1))
 )))
 
-(spawn-editor 32 32 "editor               " 0)
-(spawn-repl 32 300 "repl               " 1)
+(spawn-editor 32 32 "editor               ")
+(spawn-repl 32 300 "repl               ")
 
 (def mouse-task (new task))
 (sput mouse-task id (+ max-task-id 1))
@@ -231,7 +231,7 @@
   (let f (sget t focused))
   (if (* f (* (not launched) mouse-btn)) (do
     (def launched 1)
-    (spawn-editor 100 100 "new editor" 0)
+    (spawn-editor 100 100 "new editor")
   ) 0)
   (if (not mouse-btn) (def launched 0) 0)
   0
