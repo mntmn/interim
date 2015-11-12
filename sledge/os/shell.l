@@ -4,6 +4,7 @@
 )))
 
 (struct task
+  id 0
   name "untitled task"
   focused 0
   z 0
@@ -38,12 +39,6 @@
 
 (import "/sd/os/mouse.l")
 
-;; (def evbuf (alloc-str 4096))
-;; (def p (fn xp x y maxx maxy (do
-;;   (write xp evbuf)
-;;   (blit-str evbuf x y maxx maxy)
-;; )))
-
 (draw-logo (- (/ (sget fb width) 2) 140) (/ (sget fb height) 2))
 (blit-str fb unifont "hello" 100 100)
 
@@ -61,18 +56,34 @@
   (if (sget t redrawn)
     (do
       (let task-surf (sget t surface))
-      (blit fb task-surf)
-      (let x (- (sget task-surf x) 1))
-      (let y (- (sget task-surf y) 1))
-      (let w (+ (sget task-surf width) 2))
-      (let h (+ (sget task-surf height) 2))
-      (box fb x y (+ x w) (+ y h) 0)
-      (box fb x (- y 20) (+ x w) y 0)
-      (blit-str fb unifont (sget t name) (+ x 2) (- y 18))
+      (let x (sget task-surf x))
+      (let y (sget task-surf y))
+      (let w (sget task-surf width))
+      (let h (sget task-surf height))
+      (if (and (gt w 0) (gt h 0)) (do
+        (box task-surf 0 0 (- w 1) (- h 1) 0)
+        (box task-surf 0 0 (- w 1) 20 0)
+        (blit-str task-surf unifont (sget t name) 2 2)
+        (blit fb task-surf)
+      ) 0)
       (sput t redrawn 0))
     0)
   0
 )))
+
+(def null-task (task))
+(sput null-task id 0) ; "null" task
+(def focused-task null-task)
+
+(def point-in-rect (fn px py x y x2 y2 
+  (if (gt px x)
+    (if (gt py y)
+      (if (lt px x2)
+        (if (lt py y2)
+          1 0) 0) 0) 0)))
+
+(def mouse-resizing 0)
+(def focus-given 0)
 
 (def check-task-focus (fn (t task) (do
   (let surf  (sget t surface))
@@ -80,24 +91,23 @@
   (let y (sget surf y))
   (let x2 (+ x (sget surf width)))
   (let y2 (+ y (sget surf height)))
+  (let z (sget t z))
 
-  (let dbg "            ")
-  (write mouse-btn dbg)
-  (blit-str fb unifont dbg 0 0)
+  (if (not mouse-dragging) (do
+    (def mouse-resizing 0)
+    (let already-focused (sget t focused))
+    (if (point-in-rect mouse-x mouse-y x y x2 y2)
+      (if (not focus-given)
+        (do
+          (def focus-given 1)
+          (sput t focused 1)) 0) 
+      (sput t focused 0))) 0)
 
-  (sput t focused 0)
-  (if (gt mouse-x x)
-    (if (gt mouse-y y)
-      (if (lt mouse-x x2)
-        (if (lt mouse-y y2)
-          (do
-            (sput t focused 1)
-            (if mouse-dragging (do
-              (boxfill fb (- x 2) (- y 22) (+ (- x2 x) 4) (+ (- y2 y) 24) 0xffff)
-              (if (lt mouse-y (- y2 16))
-                (do ; move
-                  (sput surf x (+ mouse-dx x))
-                  (sput surf y (+ mouse-dy y)))
+  (if mouse-dragging
+    (if (sget t focused)
+      (do
+              (boxfill fb x y (- x2 x) (- y2 y) 0xffff)
+              (if (or mouse-resizing (and (gt mouse-x (- x2 16)) (gt mouse-y (- y2 16))))
                 (do ; resize
                   (let nw (+ (sget surf width) mouse-dx))
                   (let nh (+ (sget surf height) mouse-dy))
@@ -105,17 +115,40 @@
                   (sput surf height nh)
                   (sput surf pitch (* 2 nw))
                   (sput surf pixels (alloc (* 2 (* nw nh))))
-                  ))
-              (sput t redrawn 1)
-            ) 0)
-          ) 0) 0) 0) 0)
+                  (sput t needs-redraw 1)
+                  (def mouse-resizing 1) ; sticky
+                  )
+                (do ; move
+                  (sput surf x (+ mouse-dx x))
+                  (sput surf y (+ mouse-dy y))) )
+              (sput t redrawn 1) ) 0) 0)
   0
+)))
+
+(def focused-at-mouse (fn (t task) (do
+  (let surf  (sget t surface))
+  (let x (sget surf x))
+  (let y (sget surf y))
+  (let x2 (+ x (sget surf width)))
+  (let y2 (+ y (sget surf height)))
+  (if (point-in-rect mouse-x mouse-y x y x2 y2)
+    (sget t focused) 0)
 )))
 
 (def run-tasks (fn (do
   (let tl tasks)
   (let new-tl (list))
   (let i 0)
+  (let highest-z-at-mouse 0)
+
+  (def focus-given 0)
+  (while (car tl) (do
+    (let task-item  (car tl))
+    (let task-obj   (car (cdr task-item)))
+    (def focus-given (or focus-given (focused-at-mouse task-obj)))
+    (let tl (cdr tl))
+  ))
+  (let tl tasks)
   
   (while (car tl) (do
     (let task-item  (car tl))
@@ -154,9 +187,12 @@
 
 ;(add-task repl-task (repl-make 1 432 32 200 300))
 
+(def max-task-id 0)
+
 (def spawn-editor (fn x y title focused (do
   (let my-editor (new editor))
   (let my-editor-task (new task))
+  (sput my-editor-task id (+ max-task-id 1))
   (sput my-editor-task name title)
   (sput my-editor buffer " ")
   (sput my-editor-task focused focused)
@@ -168,8 +204,28 @@
 (spawn-editor 32 300 "editor               " 1)
 
 (def mouse-task (new task))
+(sput mouse-task id (+ max-task-id 1))
 (sput mouse-task name "mouse")
 (add-task mouse-func mouse-task 0)
+
+(def launched 0)
+
+(def launcher-func (fn (t task) dummy (do
+  (let f (sget t focused))
+  (if (* f (* (not launched) mouse-btn)) (do
+    (def launched 1)
+    (spawn-editor 100 100 "new editor" 0)
+  ) 0)
+  (if (not mouse-btn) (def launched 0) 0)
+  0
+)))
+
+(def launcher-task (new task))
+(sput launcher-task id (+ max-task-id 1))
+(sput launcher-task name "icon")
+(sput launcher-task surface (make-surface 0 0 32 32))
+(sput launcher-task redrawn 1)
+(add-task launcher-func launcher-task 0)
 
 (def main (fn (while 1 (do
   (run-tasks)

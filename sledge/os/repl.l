@@ -1,5 +1,11 @@
 (
 
+;; (def evbuf (alloc-str 4096))
+;; (def p (fn xp x y maxx maxy (do
+;;   (write xp evbuf)
+;;   (blit-str evbuf x y maxx maxy)
+ ;; )))
+ 
 (def repl-history-back (fn history future (do
   (let line (car history))
 
@@ -54,13 +60,7 @@
     (let c (get str 0))
   ) 0)
 
-  ; TODO (rect)
-  ;(line (pt win-x win-y) (pt (+ win-x maxx) win-y))
-  ;(line (pt (+ win-x maxx) win-y) (pt (+ win-x maxx) (+ win-y maxy)))
-  ;(line (pt win-x win-y) (pt win-x (+ win-y maxy)))
-  ;(line (pt win-x (+ win-y maxy)) (pt (+ win-x maxx) (+ win-y maxy)))
-
-  ; new strategy:
+  ; TODO new strategy:
   ; - list of lines
   ; - fn to render one line
   ; - fn to render all visible lines

@@ -209,6 +209,14 @@
 ;   res
 ; )))
 (def boxfill (fn (surf surface) x y w h color (do
+  (if (lt x 0) (let x 0) 0)
+  (if (lt y 0) (let y 0) 0)
+  
+  (let dw (sget surf width))
+  (let dh (sget surf height))
+  (if (gt (+ x w) (- dw 1)) (let w (- dw x)) 0)
+  (if (gt (+ y h) (- dh 1)) (let h (- dh y)) 0)
+  
   (let ofs 0)
   (let xi 0)
   (let yi 0)
@@ -216,6 +224,7 @@
   (let yi (+ y 0))
   (let xx (+ x w))
   (let yy (+ y h))
+
   (let ww (shl w 1))
   (let pitch (sget surf pitch))
   (let ofs (+ (* y pitch) (shl x 1)))
@@ -244,13 +253,39 @@
   (let yh (+ (sget from y) (sget from height)))
   (let to (sget dest pixels))
   (let shift (sget dest shift))
-  (let pitch (- (sget dest pitch) (shl (sget from width) shift)))
-  (let di (+ (shl (sget from x) shift) (* yy (sget dest pitch))))
+  (let w (sget from width))
   (let c 0)
   (let pixels (sget from pixels))
+
+  ;; clipping
+  (let x (sget from x))
+  (let xskip 0)
+  (if (lt yy 0) (do
+    (let si (+ si (* (abs yy) (shl w 1))))
+    (let yy 0)
+  ) 0)
+  (if (gt yh (- (sget dest height) 1)) (do
+    (let yh (- (sget dest height) 1))
+  ) 0)
+  (if (lt x 0) (do
+    (let xskip (abs x))
+    (let w (- w xskip))
+    (let x (+ x xskip))
+  ) 0)
+  (if (gt xw (- (sget dest width) 1)) (do
+    (let xskip (- xw (sget dest width)))
+    (let si (- si (shl xskip 1)))
+    (let xw (- xw xskip))
+    (let w (- w xskip))
+  ) 0)
+  
+  (let pitch (- (sget dest pitch) (shl w shift)))
+  (let di (+ (shl x shift) (* yy (sget dest pitch))))
   
   (while (lt yy yh) (do
-    (let xx (+ (sget from x) 0))
+    (let xx (+ x 0))
+    (let si (+ si (shl xskip 1)))
+    
     (while (lt xx xw) (do
       (let c (get16 pixels si))
       (put16 to di c)

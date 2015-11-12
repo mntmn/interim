@@ -49,8 +49,8 @@
   (let ln (car lines))
   (let pos 0)
   (let nextpos 0)
-  (let x 0)
-  (let y 0)
+  (let x 2)
+  (let y 20)
   (let maxx (sget surf width))
   (let maxy (sget surf height))
   (let cursor (sget this cursor))
@@ -63,7 +63,7 @@
   (if (or scroll-dirty (not (eq (sget this last-num-lines) (list-size lines)))) (do
       (let render-all 1)
       (print "editor boxfill")
-      (boxfill surf x y maxx maxy 0xffff)
+      (boxfill surf 0 0 maxx maxy 0xffff)
       (sput this scroll-dirty 0)
     )
   0)
@@ -88,7 +88,7 @@
 
       ; blank out the line
       ;(if only-current (do
-      ;  (boxfill buf-render-x term-y (- maxx buf-render-x) rune-h 0xffff)
+      ;  (boxfill surf x y maxx (sget font rune-h) 0xffff)
       ;) 0)
     ) 0)
     
@@ -130,8 +130,6 @@
   (let font (sget this font))
   (let rune (if (eq cursor-char 0) 32 cursor-char))
 
-  (print (list rune surf font))
-  
   (blit-char16 surf font rune term-x term-y)
 )))
 
@@ -237,9 +235,13 @@
   (if (lt cursor 0) (sput this cursor 0) 0)
   (if (gt cursor (size buf)) (sput this cursor (size buf)) 0)
 
-  (if (sget this buf-dirty) (do
+  (if (or (sget task-obj needs-redraw) (sget this buf-dirty)) (do
+                    (if (sget task-obj needs-redraw)
+                      (sput this scroll-dirty 1)
+                      0)
                     (buf-render surf this)
                     (sput this buf-dirty 0)
+                    (sput task-obj needs-redraw 0)
                     (sput task-obj redrawn 1)
                   ) 0)
 

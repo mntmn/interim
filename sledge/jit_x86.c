@@ -241,7 +241,7 @@ void jit_divr(int dreg, int sreg) {
 
 void jit_ldr(int reg) {
   code[code_idx++] = 0x8b;
-  code[code_idx++] = (regi[reg]<<3) + regi[reg];
+  code[code_idx++] = (regi[reg]<<3) | regi[reg];
 }
 
 void jit_ldr_stack(int dreg, int offset) {
@@ -267,7 +267,18 @@ void jit_ldrb(int reg) {
   jit_movr(reg, R3);
 }
 
+void jit_ldrs(int reg) {
+  code[code_idx++] = 0x66; // movw (reg), %dx
+  code[code_idx++] = 0x8b;
+  code[code_idx++] = 0x10 | regi[reg];
+  
+  jit_andi(R3, 0xffff);
+  jit_movr(reg, R3);
+}
+
 void jit_ldrw(int reg) {
+  code[code_idx++] = 0x8b; // movl (reg), %dx
+  code[code_idx++] = 0x10 | regi[reg];
 }
 
 // 8 bit only from rdx!
@@ -277,6 +288,14 @@ void jit_strb(int reg) {
 }
 
 void jit_strw(int reg) {
+  code[code_idx++] = 0x89; // movl %edx, (reg)
+  code[code_idx++] = 0x10 | regi[reg];
+}
+
+void jit_strs(int reg) {
+  code[code_idx++] = 0x66;
+  code[code_idx++] = 0x89; // movw %dx, (reg)
+  code[code_idx++] = 0x10 | regi[reg];
 }
 
 #define jit_stra jit_strw
