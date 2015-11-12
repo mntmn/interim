@@ -482,7 +482,7 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
           Cell** fields = cons_type->ar.addr;
           Cell** def_fields = fields[0]->ar.addr;
           argdefs[argi].type_name = def_fields[0]->ar.addr;
-          printf("!!! nested struct name extracted: %s (arg# %d argt %d) !!!\r\n",argdefs[argi].type_name,argi,argdefs[argi].type);
+          //printf("!!! nested struct name extracted: %s (arg# %d argt %d) !!!\r\n",argdefs[argi].type_name,argi,argdefs[argi].type);
         }
         
         jit_push(R0,R0);

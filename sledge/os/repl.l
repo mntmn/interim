@@ -1,11 +1,20 @@
 (
+(struct repl
+  focused 0
+  buffer ""
+  term-x 0
+  term-y 0
+  history (list) 
+  future (list) 
+  font unifont
+)
 
-;; (def evbuf (alloc-str 4096))
-;; (def p (fn xp x y maxx maxy (do
-;;   (write xp evbuf)
-;;   (blit-str evbuf x y maxx maxy)
- ;; )))
- 
+(def evbuf (alloc-str 4096))
+(def p (fn (surf surface) xp x y (do
+   (write xp evbuf)
+   (blit-str surf unifont evbuf x y)
+)))
+
 (def repl-history-back (fn history future (do
   (let line (car history))
 
@@ -24,64 +33,47 @@
   (list line history future)
 )))
 
-(def repl-task-initial-state (list
-  0  ; focused
-  "" ; buffer
-  0  ; win-x
-  0  ; win-y
-  0  ; term-x
-  0  ; term-y
-  100 ; maxx
-  200 ; maxy
-  (list) ; history
-  (list) ; future
-))
+(def repl-task (fn (task-obj task) (this repl) (do
+  (let focused (sget task-obj focused))
+  (let buffer  (sget this buffer))
+  (let surf (sget task-obj surface))
+  (let term-x  (sget this term-x))
+  (let term-y  (sget this term-y))
+  
+  (let maxx    (sget surf width))
+  (let maxy    (sget surf height))
+  (let history (sget this history))
+  (let future  (sget this future))
 
-(def repl-make (fn focused win-x win-y w h (list
-  focused "" win-x win-y 0 0 w h (list) (list)
-)))
-
-(def repl-task (fn state (do
-  (let s state)
-  (let focused (car s)) (let s (cdr s))
-  (let buffer  (car s)) (let s (cdr s))
-  (let win-x   (car s)) (let s (cdr s))
-  (let win-y   (car s)) (let s (cdr s))
-  (let term-x  (car s)) (let s (cdr s))
-  (let term-y  (car s)) (let s (cdr s))
-  (let maxx    (car s)) (let s (cdr s))
-  (let maxy    (car s)) (let s (cdr s))
-  (let history (car s)) (let s (cdr s))
-  (let future  (car s)) (let s (cdr s))
+  (let win-x 2)
+  (let win-y 20)
+  (let font (sget this font))
+  (let rune-spacing (sget font spacing))
+  (let rune-h (sget font rune-h))
 
   (let c 0)
   (if focused (do
     (let str (recv keyboard))
-    (let c (get str 0))
+    (let c (get8 str 0))
   ) 0)
 
   ; TODO new strategy:
   ; - list of lines
   ; - fn to render one line
   ; - fn to render all visible lines
+  ; tab = 9
   
-  (if (gt c 0) (print c) 0)
-    (if (and (gt c 0x1f) (not (eq 0x7f c))) (do
+  (if (and (gt c 0x1f) (not (eq 0x7f c)))
+    (do
       (let term-y (-
-        (blit-str str (+ win-x term-x) (+ win-y term-y) (+ win-x maxx) (+ win-y maxy))
+        (blit-str surf unifont str (+ win-x term-x) (+ win-y term-y))
         win-y))
       (let buffer (concat buffer str))
-      (let term-x (+ term-x rune-spacing))
-    ) 0)
-      
-    (if (eq c 9) (do ; tab
-      ; give up focus
-      (let focused 0)
-    ) 0)
+      (let term-x (+ term-x rune-spacing))) 0)
     
-    (if (eq c 10) ; return
-      (do
-        (blit-char 32 (+ win-x term-x) (+ win-y term-y))
+  (if (eq c 10) ; return
+    (do
+        (blit-char16 surf unifont 32 (+ win-x term-x) (+ win-y term-y))
         ;(let history (cons buffer history))
 
         (let buffer-read (list (read buffer)))
@@ -91,11 +83,11 @@
         (let buffer "")
         (let term-x 0)
         (let term-y (+ term-y rune-h))
-        (let term-y (- (+ rune-h (p result (+ win-x term-x) (+ win-y term-y) (+ win-x maxx) (+ win-y maxy)) ) win-y))
-        0
-      ) 0)
+        (let term-y (- (+ rune-h (p surf result (+ win-x term-x) (+ win-y term-y)) ) win-y))
+        0) 0)
 
-    (if (eq c 17) (do ; cursor up
+  (if (eq c 17)
+    (do ; cursor up
       (let res (repl-history-back history future))
       (let buffer  (car res))
       (let history (car (cdr res)))
@@ -103,7 +95,8 @@
       (let term-x  (* rune-spacing (strlen buffer)))
     ) 0)
         
-    (if (eq c 18) (do ; cursor down
+  (if (eq c 18)
+    (do ; cursor down
       (let res (repl-history-forth history future))
       (let buffer  (car res))
       (let history (car (cdr res)))
@@ -111,29 +104,39 @@
       (let term-x  (* rune-spacing (strlen buffer)))
     ) 0)
 
-    (if (eq c 0x7f) ; bksp
-      (if (gt (strlen buffer) 0)
+  (if (eq c 0x7f) ; bksp
+    (if (gt (strlen buffer) 0)
       (do
-        (blit-char 32 (+ win-x term-x) (+ win-y term-y))
+        (blit-char16 surf unifont 32 (+ win-x term-x) (+ win-y term-y))
         (let term-x (- term-x rune-spacing))
         (let nl (- (strlen buffer) 1))
         (let buffer (substr buffer 0 nl))
       ) 0) 0)
 
-    (if (gt term-x maxx) (do
-      (let term-x 0)
-      (let term-y (+ term-y rune-h))) 0)
+  (if (gt c 0) (do
+    (sput task-obj redrawn 1)
+  ) 0)
 
-    (if (gt term-y maxy) (let term-y 0) 0)
+  (if (gt term-x maxx) (do
+    (let term-x 0)
+    (let term-y (+ term-y rune-h))) 0)
 
-    (if (lt term-x 0) (let term-x 0) 0)
+  (if (gt term-y maxy) (let term-y 0) 0)
+
+  (if (lt term-x 0) (let term-x 0) 0)
     
-    (if (and focused (eq cursor-blink (/ cursor-blink-delay 2)))
-        (blit-char 0x2588 (+ win-x term-x) (+ win-y term-y)) 0)
-    (if (eq cursor-blink 0)
-        (blit-char 32 (+ win-x term-x) (+ win-y term-y)) 0)
+  (if (and focused (eq cursor-blink (/ cursor-blink-delay 2))) (do
+    (blit-char16 surf unifont 0x2588 (+ win-x term-x) (+ win-y term-y))
+    (sput task-obj redrawn 1)) 0)
+  (if (eq cursor-blink 0) (do
+    (blit-char16 surf unifont 32 (+ win-x term-x) (+ win-y term-y))
+    (sput task-obj redrawn 1)) 0)
 
-    (let new-state (list focused buffer win-x win-y term-x term-y maxx maxy history future))
-    new-state
+  (sput this buffer buffer)
+  (sput this term-x term-x)
+  (sput this term-y term-y)
+  (sput this history history)
+  (sput this future future)
+  0
 )))
 )

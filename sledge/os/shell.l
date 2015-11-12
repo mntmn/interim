@@ -63,6 +63,7 @@
       (if (and (gt w 0) (gt h 0)) (do
         (box task-surf 0 0 (- w 1) (- h 1) 0)
         (box task-surf 0 0 (- w 1) 20 0)
+        (box task-surf (- w 16) (- h 16) (- w 1) (- h 1) 0)
         (blit-str task-surf unifont (sget t name) 2 2)
         (blit fb task-surf)
       ) 0)
@@ -171,7 +172,7 @@
 (def cursor-blink 0)
 (def cursor-blink-delay 20)
 
-;(import "/sd/os/repl.l")
+(import "/sd/os/repl.l")
 (import "/sd/os/editor.l")
 
 (def make-surface (fn x y w h (do
@@ -198,10 +199,26 @@
   (sput my-editor-task focused focused)
   (sput my-editor-task surface (make-surface x y 400 240))
   (add-task editor-task my-editor-task my-editor)
+  (def mask-task-id (+ max-task-id 1))
+)))
+
+(def spawn-repl (fn x y title focused (do
+  (let my-repl (new repl))
+  (let my-task (new task))
+  (sput my-task id (+ max-task-id 1))
+  (sput my-task name title)
+  ;(sput my-repl buffer " ")
+  (sput my-task focused focused)
+  (sput my-task surface (make-surface x y 400 240))
+  (let s (sget my-task surface))
+  (boxfill s 0 0 400 240 0xffff)
+  (sput my-task redrawn 1)
+  (add-task repl-task my-task my-repl)
+  (def mask-task-id (+ max-task-id 1))
 )))
 
 (spawn-editor 32 32 "editor               " 0)
-(spawn-editor 32 300 "editor               " 1)
+(spawn-repl 32 300 "repl               " 1)
 
 (def mouse-task (new task))
 (sput mouse-task id (+ max-task-id 1))
@@ -225,7 +242,7 @@
 (sput launcher-task name "icon")
 (sput launcher-task surface (make-surface 0 0 32 32))
 (sput launcher-task redrawn 1)
-(add-task launcher-func launcher-task 0)
+;(add-task launcher-func launcher-task 0)
 
 (def main (fn (while 1 (do
   (run-tasks)
