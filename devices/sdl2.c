@@ -5,6 +5,9 @@
 #include "stream.h"
 #include "compiler_new.h"
 
+#include <time.h>
+#include <unistd.h>
+
 #define WIDTH 800
 #define HEIGHT 600
 #define BPP 2
@@ -33,7 +36,11 @@ void* sdl_init(int fullscreen)
   
   win_surf = SDL_GetWindowSurface(win);
 
-  pixels_surf = SDL_CreateRGBSurface(0,WIDTH,HEIGHT,DEPTH,0xf800,0x7e0,0x1f,0);
+  if (0) {
+    pixels_surf = win_surf;
+  } else {
+    pixels_surf = SDL_CreateRGBSurface(0,WIDTH,HEIGHT,DEPTH,0xf800,0x7e0,0x1f,0);
+  }
 
   printf("pixels_surf: %p\r\n\r\n",pixels_surf);
   printf("win_surf: %p\r\n\r\n",win_surf);
@@ -87,14 +94,25 @@ Cell* fbfs_read(Cell* stream) {
 Cell* fbfs_write(Cell* arg) {
   sdl_init(0);
   SDL_Event event;
-  SDL_PollEvent(&event);
+  if (SDL_PollEvent(&event))
+  {
+    if (event.type==SDL_QUIT) exit(0);
+  }
 
   SDL_Rect sr = {0,0,WIDTH,HEIGHT};
   SDL_Rect dr = {0,0,WIDTH*SCALE,HEIGHT*SCALE};
 
-  SDL_BlitScaled(pixels_surf,&sr,win_surf,&dr);
-  
+  if (SCALE!=1) {
+    SDL_BlitScaled(pixels_surf,&sr,win_surf,&dr);
+  } else {
+    SDL_BlitSurface(pixels_surf,NULL,win_surf,NULL);
+  }
+
+  // TODO only if changes happened
   SDL_UpdateWindowSurface(win);
+
+  SDL_Delay(20);
+  
   return arg;
 }
 
@@ -124,14 +142,9 @@ static int mouse_y=0;
 static int last_mouse_x=0;
 static int last_mouse_y=0;
 
-#include <time.h>
-#include <unistd.h>
-
 Cell* keyfs_read() {
   sdl_key = 0;
   SDL_Event event;
-
-  usleep(10000);
   
   if (SDL_PollEvent(&event))
   {
