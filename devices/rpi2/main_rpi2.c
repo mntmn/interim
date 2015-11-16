@@ -240,16 +240,16 @@ Cell* platform_eval(Cell* expr) {
     code = malloc(CODESZ);
     memset(code, 0, CODESZ);
     jit_init(0x400);
-    register void* sp asm ("sp"); // FIXME maybe unportable
+    register void* sp asm ("sp");
     Frame empty_frame = {NULL, 0, 0, sp};
-    int tag = compile_expr(c, &empty_frame, TAG_ANY);
+    Cell* res = compile_expr(c, &empty_frame, prototype_any);
 
     arm_dmb();
     arm_isb();
     arm_dsb();
     printf("compiled %d\r\n",i);
   
-    if (tag) {
+    if (res) {
       jit_ret();
       funcptr fn = (funcptr)code;
       //printf("~~ fn at %p\r\n",fn);

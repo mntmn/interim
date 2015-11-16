@@ -173,8 +173,26 @@ void jit_ldrb(int reg) {
 }
 
 // 8 bit only from rdx! (R3)
+void jit_ldrs(int reg) {
+  uint32_t op = 0xe1d000b0; // ldrh
+  op |= 1<<22; // byte access
+  op |= (reg<<16); // r3
+  op |= (3<<12); // dreg
+  code[code_idx++] = op;
+}
+
+// 8 bit only from rdx! (R3)
 void jit_strb(int reg) {
   uint32_t op = 0xe5800000;
+  op |= 1<<22; // byte access
+  op |= (reg<<16); // r3
+  op |= (3<<12); // dreg
+  code[code_idx++] = op;
+}
+
+// 16 bit only from rdx! (R3)
+void jit_strs(int reg) {
+  uint32_t op = 0xe1c000b0; // strh
   op |= 1<<22; // byte access
   op |= (reg<<16); // r3
   op |= (3<<12); // dreg
