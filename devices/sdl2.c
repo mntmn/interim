@@ -54,6 +54,7 @@ void* sdl_init(int fullscreen)
 
 static int sdl_key = 0;
 static int sdl_modifiers = 0;
+static int sdl_shifted = 0;
 
 void* sdl_get_fb() {
   return pixels_surf->pixels;
@@ -155,53 +156,76 @@ Cell* keyfs_read() {
     case SDL_QUIT:
       exit(0);
       break;
-    case SDL_TEXTINPUT:
     case SDL_KEYDOWN:
-      if (event.type == SDL_KEYDOWN) {
-        sdl_modifiers = event.key.keysym.mod;
-        //printf("key: %d, mod: %x\r\n",event.key.keysym.sym,event.key.keysym.mod);
-        sdl_key = event.key.keysym.sym;
-      } else {
-        sdl_modifiers = 0;
-        sdl_key = event.text.text[0];
-      }
-      
-      if (sdl_key<200) {
-      } else {
-        switch (sdl_key) {
-          case 1073741906: sdl_key = 17; break; // DC1 cursor up
-          case 1073741905: sdl_key = 18; break; // DC2 cursor down
-          case 1073741904: sdl_key = 19; break; // DC3 cursor left
-          case 1073741903: sdl_key = 20; break; // DC4 cursor right
-          default: sdl_key = 0;
-        }
-      }
-      if (sdl_modifiers&1 || sdl_modifiers&2) {
-        if (sdl_key>='a' && sdl_key<='z') {
-          sdl_key+=('A'-'a');
-        }
-        else {
-          switch (sdl_key) {
-          case 223: sdl_key = '?'; break;
-          case '1': sdl_key = '!'; break;
-          case '2': sdl_key = '"'; break;
-          case '3': sdl_key = '~'; break;
-          case '4': sdl_key = '$'; break;
-          case '5': sdl_key = '%'; break;
-          case '6': sdl_key = '&'; break;
-          case '7': sdl_key = '/'; break;
-          case '8': sdl_key = '('; break;
-          case '9': sdl_key = ')'; break;
-          case '0': sdl_key = '='; break;
-          case '<': sdl_key = '>'; break;
-          case '+': sdl_key = '*'; break;
-          case '#': sdl_key = '\''; break;
-          case ',': sdl_key = ';'; break;
-          case '.': sdl_key = ':'; break;
-          case '-': sdl_key = '_'; break;
-          default: break;
-          }
-        }
+      sdl_modifiers = event.key.keysym.mod;
+      sdl_shifted = sdl_modifiers & KMOD_SHIFT;
+      sdl_key = event.key.keysym.scancode;
+      //printf("key: %d, mod: %x\r\n",sdl_key,sdl_modifiers);
+
+      switch (sdl_key) {
+        case SDL_SCANCODE_A: sdl_key = sdl_shifted ? 'A' : 'a'; break;
+        case SDL_SCANCODE_B: sdl_key = sdl_shifted ? 'B' : 'b'; break;
+        case SDL_SCANCODE_C: sdl_key = sdl_shifted ? 'C' : 'c'; break;
+        case SDL_SCANCODE_D: sdl_key = sdl_shifted ? 'D' : 'd'; break;
+        case SDL_SCANCODE_E: sdl_key = sdl_shifted ? 'E' : 'e'; break;
+        case SDL_SCANCODE_F: sdl_key = sdl_shifted ? 'F' : 'f'; break;
+        case SDL_SCANCODE_G: sdl_key = sdl_shifted ? 'G' : 'g'; break;
+        case SDL_SCANCODE_H: sdl_key = sdl_shifted ? 'H' : 'h'; break;
+        case SDL_SCANCODE_I: sdl_key = sdl_shifted ? 'I' : 'i'; break;
+        case SDL_SCANCODE_J: sdl_key = sdl_shifted ? 'J' : 'j'; break;
+        case SDL_SCANCODE_K: sdl_key = sdl_shifted ? 'K' : 'k'; break;
+        case SDL_SCANCODE_L: sdl_key = sdl_shifted ? 'L' : 'l'; break;
+        case SDL_SCANCODE_M: sdl_key = sdl_shifted ? 'M' : 'm'; break;
+        case SDL_SCANCODE_N: sdl_key = sdl_shifted ? 'N' : 'n'; break;
+        case SDL_SCANCODE_O: sdl_key = sdl_shifted ? 'O' : 'o'; break;
+        case SDL_SCANCODE_P: sdl_key = sdl_shifted ? 'P' : 'p'; break;
+        case SDL_SCANCODE_Q: sdl_key = sdl_shifted ? 'Q' : 'q'; break;
+        case SDL_SCANCODE_R: sdl_key = sdl_shifted ? 'R' : 'r'; break;
+        case SDL_SCANCODE_S: sdl_key = sdl_shifted ? 'S' : 's'; break;
+        case SDL_SCANCODE_T: sdl_key = sdl_shifted ? 'T' : 't'; break;
+        case SDL_SCANCODE_U: sdl_key = sdl_shifted ? 'U' : 'u'; break;
+        case SDL_SCANCODE_V: sdl_key = sdl_shifted ? 'V' : 'v'; break;
+        case SDL_SCANCODE_W: sdl_key = sdl_shifted ? 'W' : 'w'; break;
+        case SDL_SCANCODE_X: sdl_key = sdl_shifted ? 'X' : 'x'; break;
+        case SDL_SCANCODE_Y: sdl_key = sdl_shifted ? 'Y' : 'y'; break;
+        case SDL_SCANCODE_Z: sdl_key = sdl_shifted ? 'Z' : 'z'; break;
+
+        case SDL_SCANCODE_0: sdl_key = sdl_shifted ? ')' : '0'; break;
+        case SDL_SCANCODE_1: sdl_key = sdl_shifted ? '!' : '1'; break;
+        case SDL_SCANCODE_2: sdl_key = sdl_shifted ? '@' : '2'; break;
+        case SDL_SCANCODE_3: sdl_key = sdl_shifted ? '#' : '3'; break;
+        case SDL_SCANCODE_4: sdl_key = sdl_shifted ? '$' : '4'; break;
+        case SDL_SCANCODE_5: sdl_key = sdl_shifted ? '%' : '5'; break;
+        case SDL_SCANCODE_6: sdl_key = sdl_shifted ? '^' : '6'; break;
+        case SDL_SCANCODE_7: sdl_key = sdl_shifted ? '&' : '7'; break;
+        case SDL_SCANCODE_8: sdl_key = sdl_shifted ? '*' : '8'; break;
+        case SDL_SCANCODE_9: sdl_key = sdl_shifted ? '(' : '9'; break;
+
+        case SDL_SCANCODE_RETURN:
+        case SDL_SCANCODE_RETURN2: sdl_key = 10; break;
+
+        case SDL_SCANCODE_BACKSPACE:
+        case SDL_SCANCODE_DELETE: sdl_key = 127; break;
+
+        case SDL_SCANCODE_SPACE: sdl_key = ' '; break;
+        case SDL_SCANCODE_MINUS: sdl_key = sdl_shifted ? '_' : '-'; break;
+        case SDL_SCANCODE_EQUALS: sdl_key = sdl_shifted ? '+' : '='; break;
+        case SDL_SCANCODE_LEFTBRACKET: sdl_key = sdl_shifted ? '{' : '['; break;
+        case SDL_SCANCODE_RIGHTBRACKET: sdl_key = sdl_shifted ? '}' : ']'; break;
+        case SDL_SCANCODE_BACKSLASH: sdl_key = sdl_shifted ? '|' : '\\'; break;
+        case SDL_SCANCODE_SEMICOLON: sdl_key = sdl_shifted ? ':' : ';'; break;
+        case SDL_SCANCODE_APOSTROPHE: sdl_key = sdl_shifted ? '"' : '\''; break;
+        case SDL_SCANCODE_GRAVE: sdl_key = sdl_shifted ? '~' : '`'; break;
+        case SDL_SCANCODE_COMMA: sdl_key = sdl_shifted ? '<' : ','; break;
+        case SDL_SCANCODE_PERIOD: sdl_key = sdl_shifted ? '>' : '.'; break;
+        case SDL_SCANCODE_SLASH: sdl_key = sdl_shifted ? '?' : '/'; break;
+
+        case SDL_SCANCODE_UP: sdl_key = 17; break; // device control 1
+        case SDL_SCANCODE_DOWN: sdl_key = 18; break; // device control 2
+        case SDL_SCANCODE_LEFT: sdl_key = 19; break; // device control 3
+        case SDL_SCANCODE_RIGHT: sdl_key = 20; break; // device control 4
+
+        default: sdl_key = 0; break;
       }
       break;
     case SDL_MOUSEMOTION:
@@ -212,11 +236,6 @@ Cell* keyfs_read() {
     }
   }
 
-  switch (sdl_key) {
-  case 13: sdl_key = 10; break;
-  case 8: sdl_key = 127; break;
-  }
-  
   Cell* res = alloc_string_copy(" ");
   ((uint8_t*)res->ar.addr)[0] = sdl_key;
   sdl_key = 0;
