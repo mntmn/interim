@@ -137,6 +137,7 @@ int main(int argc, char *argv[])
       in_fd = 0;
       in_offset=0;
       if (feof(stdin)) {
+        printf("\n");
         exit(0);
       }
     }
