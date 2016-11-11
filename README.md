@@ -17,9 +17,7 @@ Detailed docs are in *docs/index.html*.
 Contact / FAQ / Get Involved
 ----------------------------
 
-To coordinate the development efforts, there is now an official mailing list. The best place for technical discussion is there:
-
-http://sympa.mntmn.com/info/interim-dev
+The official IRC channel for development and usage questions is #interim-os on freenode.
 
 If you find bugs, please file an issue in the [Github issue tracker](https://github.com/mntmn/interim/issues).
 
