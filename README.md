@@ -75,7 +75,7 @@ Roadmap
 Licenses
 --------
 
-Interim OS: GNU GPLv3 or later, (C) 2015 Lukas F. Hartmann / @mntmn
+Interim OS: GNU GPLv3 or later, (C) 2015-2016 Lukas F. Hartmann / @mntmn
 
 Interim OS is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
