@@ -62,7 +62,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
       } else {
         write_((Cell*)cell->dr.next, tmpr, 0, TMP_BUF_SIZE);
         // improper list
-        snprintf(buffer, bufsize, "(%s.%s)", tmpl, tmpr);
+        snprintf(buffer, bufsize, "(%s . %s)", tmpl, tmpr);
       }
       free(tmpl);
       free(tmpr);
