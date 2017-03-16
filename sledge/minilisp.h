@@ -63,6 +63,7 @@
 #define MAX_EVAL_DEPTH 10000
 #define SYM_INIT_BUFFER_SIZE 32
 #define BIGNUM_INIT_BUFFER_SIZE 32
+#define MAX_SYMBOL_SIZE 64
 
 #define ERR_SYNTAX 0
 #define ERR_MAX_EVAL_DEPTH 1
@@ -94,7 +95,7 @@ int is_nil(Cell* c);
 
 typedef struct env_entry {
   Cell* cell;
-  char name[64];
+  char name[MAX_SYMBOL_SIZE];
 } env_entry;
 
 #define car(x) (x?(Cell*)((Cell*)x)->ar.addr:NULL)

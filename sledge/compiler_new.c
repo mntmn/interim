@@ -40,9 +40,14 @@ Cell* insert_symbol(Cell* symbol, Cell* cell, env_t** env) {
   }
     
   e = malloc(sizeof(env_entry));
-  memcpy(e->name, (char*)symbol->ar.addr, symbol->dr.size);
-  e->cell = cell;
+  int ret = snprintf(e->name, MAX_SYMBOL_SIZE, "%s", (char*)symbol->ar.addr);
+  if (ret >= MAX_SYMBOL_SIZE) {
+    printf("[insert_symbol] max symbol size exceeded by %d\n", ret - MAX_SYMBOL_SIZE + 1);
+    free(e);
+    return alloc_nil();
+  }
 
+  e->cell = cell;
   //printf("[insert_symbol] %s entry at %p (cell: %p)\r\n",symbol->ar.addr,e,e->cell);
   sm_put(*env, e->name, e);
 
