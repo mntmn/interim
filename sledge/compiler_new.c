@@ -1112,7 +1112,7 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
       
       while ((key = car(args))) {
         if (key->tag != TAG_SYM) {
-          printf("<every second argument of struct following the struct'sname has to be a symbol>\r\n");
+          printf("<every second argument of struct following the struct's name has to be a symbol>\r\n");
           return 0;
         }
         jit_lea(R0,key);
@@ -1146,11 +1146,13 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
       }
 
       // load the struct name
-      jit_lea(ARGR0,name_sym);
+      jit_push(R0,R0);
       jit_movr(ARGR1,R0);
+      jit_lea(ARGR0,name_sym);
       push_frame_regs(frame->f);
       jit_call2(insert_global_symbol, "insert_global_symbol");
       pop_frame_regs(frame->f);
+      jit_pop(R0,R0);
       
       break;
     }
