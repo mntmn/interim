@@ -1146,11 +1146,13 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
       }
 
       // load the struct name
-      jit_lea(ARGR0,name_sym);
+      jit_push(R0,R0);
       jit_movr(ARGR1,R0);
+      jit_lea(ARGR0,name_sym);
       push_frame_regs(frame->f);
       jit_call2(insert_global_symbol, "insert_global_symbol");
       pop_frame_regs(frame->f);
+      jit_pop(R0,R0);
       
       break;
     }
