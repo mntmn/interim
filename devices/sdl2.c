@@ -41,6 +41,7 @@ void* sdl_init(int fullscreen)
   } else {
     pixels_surf = SDL_CreateRGBSurface(0,WIDTH,HEIGHT,DEPTH,0xf800,0x7e0,0x1f,0);
   }
+  SDL_PumpEvents();
 
   printf("pixels_surf: %p\r\n\r\n",pixels_surf);
   printf("win_surf: %p\r\n\r\n",win_surf);

@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 #define TMP_BUF_SIZE 512
-#define INTFORMAT "%ld"
+#define INTFORMAT "%d"
 
 char* tag_to_str(int tag) {
   switch (tag) {
