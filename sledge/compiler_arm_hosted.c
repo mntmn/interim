@@ -22,24 +22,10 @@ int compile_for_platform(Cell* expr, Cell** res) {
 
   Cell* success = compile_expr(expr, empty_frame, prototype_any);
   jit_ret();
-  char* defsym = "anon";
 
   if (!success) {
     printf("<compile_expr failed: %p>\r\n",success);
   }
-
-  // disassemble
-#ifdef DEBUG
-  system("arm-linux-gnueabihf-objdump -D -b binary -marmv5 /tmp/test >/tmp/disasm");
-  int fd = open("/tmp/disasm",O_RDONLY);
-  char buf[1024];
-  int buflen;
-  while((buflen = read(fd, buf, 1024)) > 0)
-  {
-    write(1, buf, buflen);
-  }
-  close(fd);
-#endif
 
   int mp_res = mprotect(code, CODESZ, PROT_EXEC|PROT_READ);
 
@@ -51,8 +37,5 @@ int compile_for_platform(Cell* expr, Cell** res) {
     success = 0;
   }
   
-  //printf("pointer result: %p\n",*res);
-  //printf("pointer value: %p\n",((Cell*)*res)->value);
-
   return !!success;
 }

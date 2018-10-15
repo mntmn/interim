@@ -356,7 +356,6 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
   }
   op = op_env->cell;
   
-  printf("op tag: %d\n",op->tag);
   if (op->tag == TAG_BUILTIN) {
     signature_args = op->dr.next;
 
