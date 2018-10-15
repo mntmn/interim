@@ -25,16 +25,16 @@ int compile_for_platform(Cell* expr, Cell** res) {
 
   if (!success) {
     printf("<compile_expr failed: %p>\r\n",success);
-  }
-
-  int mp_res = mprotect(code, CODESZ, PROT_EXEC|PROT_READ);
-
-  if (!mp_res) {
-    *res = execute_jitted(code);
   } else {
-    printf("<mprotect result: %d\n>",mp_res);
-    *res = NULL;
-    success = 0;
+    int mp_res = mprotect(code, CODESZ, PROT_EXEC|PROT_READ);
+
+    if (!mp_res) {
+      *res = execute_jitted(code);
+    } else {
+      printf("<mprotect result: %d\n>",mp_res);
+      *res = NULL;
+      success = 0;
+    }
   }
   
   return !!success;
