@@ -23,7 +23,7 @@
 (sput fb shift  (- (load "/framebuffer/depth") 1))
 (sput fb pitch (shl (sget fb width) (sget fb shift)))
 
-(print (list "[gfx] fb " fb))
+;(print (list "[gfx] fb " fb))
 
 (def screen (open "/framebuffer"))
 
@@ -78,7 +78,7 @@
   (let sx 0)
   (let sy 0)
   (let so 0)
-  (let do 0)
+  (let ddo 0)
   (let iy 0)
   (let rune-ww 0)
   (let c 0)
@@ -96,7 +96,7 @@
   (let sx (* rune-w (% rune rune-mod)))
   (let sy (* rune-h (/ rune rune-mod)))
   (let so (+ sx (* sy font-pitch)))
-  (let do (+ (shl  x 1) (*  y screen-pitch)))
+  (let ddo (+ (shl  x 1) (*  y screen-pitch)))
 
   (let rune-ww (shl rune-spacing 1))
 
@@ -104,11 +104,11 @@
     (let ix 0)
     (while (lt ix rune-ww) (do
       (let c (get8 font-pixels (+ so (shr ix 1))))
-      (put16 pixels (+ do ix) (bitor c (shl c 8)))
+      (put16 pixels (+ ddo ix) (bitor c (shl c 8)))
       (let ix (+ ix 2))
     ))
     (let so (+ so font-pitch))
-    (let do (+ do screen-pitch))
+    (let ddo (+ ddo screen-pitch))
     (let iy (+ iy 1))
   ))
   0

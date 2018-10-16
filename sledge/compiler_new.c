@@ -490,12 +490,13 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
       }
       else if (given_tag == TAG_SYM && sig_tag != TAG_SYM) {
         // symbol given, lookup (indirect)
-        //printf("indirect symbol lookup (name: %p)\n",arg->ar.value);
+        //printf("indirect symbol lookup (name: %s)\n",arg->ar.value);
 
+        // is this symbol defined in our current frame?
         int arg_frame_idx = get_sym_frame_idx(arg->ar.addr, fn_frame, 0);
 
-        // argument passed to function in register
         if (arg_frame_idx>=0) {
+          // argument is local
           argdefs[argi] = fn_frame[arg_frame_idx];
 
           //printf("argument %s from stack frame.\n", arg->ar.addr);
@@ -1697,8 +1698,7 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
 
     int spo_adjust = 0, j;
     
-    // save our args
-
+    // save our local args to the stack
     int pushed = push_frame_regs(frame->f);
     frame->sp+=pushed;
     
@@ -1706,6 +1706,8 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
       if (j>=ARG_SPILLOVER) {
         // pass arg on stack
 
+        //printf("arg %d spillover\n",j);
+        
         load_cell(R0, argdefs[j], frame);
         jit_push(R0,R0);
         spo_adjust++;
@@ -1716,9 +1718,12 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
         if (argdefs[j].type == ARGT_REG) {
           // FIXME kludge?
           if (1 || argdefs[j].slot<j+LBDREG) {
-            int offset = ((pushed+spo_adjust) - (argdefs[j].slot-LBDREG) - 1);
+            // look up the correct position of our saved register in the stack
+            int stack_slot = (argdefs[j].slot-LBDREG);
+            int offset = stack_slot+spo_adjust;
+
             // register already clobbered, load from stack
-            //printf("-- loading clobbered reg %d from stack offset %d to reg %d\n",argdefs[j].slot,offset,LBDREG+j);
+            //printf("arg %d -- loading clobbered reg %d from stack offset %d to reg %d\n",j,argdefs[j].slot,offset,LBDREG+j);
             jit_ldr_stack(LBDREG+j, offset*PTRSZ);
           } else {
             // no need to move a reg into itself
@@ -1728,6 +1733,7 @@ Cell* compile_expr(Cell* expr, Frame* frame, Cell* return_type) {
           }
         }
         else {
+          //printf("load arg %d from type %d\n",j,argdefs[j].type);
           load_cell(LBDREG+j, argdefs[j], frame);
         }
       }

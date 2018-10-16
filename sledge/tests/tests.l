@@ -34,14 +34,16 @@
 (def foo (fn a b (+ a b)))
 (test 15 (do (def a 5) (def b 6) (= (foo (+ a 1) (- b 2)) 10)))
 
-(test 17 (= (get [65] 0) (get "beef" 1)))
-(test 18 (= (get [66] 0) (get "beef" 3)))
+(test 16 (= 12 (strlen (concat "hello" "worlden"))))
+
+(test 17 (= (get8 [65] 0) (get8 "beef" 1)))
+(test 18 (= (get8 [66] 0) (get8 "beef" 3)))
 
 (test 19 (lt 4 500))
 (test 20 (gt -2 -4))
 (test 21 (eq 666 (* -1 -666)))
 
-(test 22 (= (get (substr "hellaz" 1 3) 0) 101))
+(test 22 (= (get8 (substr "hellaz" 1 3) 0) 101))
 
 (def fun1 (fn a b c (list a b c)))
 (def fun2 (fn a b c (fun1 c a b)))
@@ -55,8 +57,6 @@
 (def func-a (fn xx yy (* (+ xx 1) (+ yy 1))))
 (def func-b (fn x y (func-a x y)))
 (test 26 (= (func-b 5 5) 36))
-
-(test 16 (= 12 (strlen (concat "hello" "worlden"))))
 
 (def lett (fn g (do
   (let a 23)
@@ -76,11 +76,14 @@
 (spillover 1 2 3 4 5 6)
 
 (def fa (fn x y z w (do
-  (let a 8)
-  (let b 9)
+  (let a 5)
+  (let b 6)
+  (print z)
+  (print w)
   (print a)
   (print b)
-  (print x) ; gives 2, should give 1
+  
+  (print x)
   (print y)
   (print z)
   

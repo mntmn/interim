@@ -1,10 +1,14 @@
-(
+(def import (fn path (eval (read (recv (open path))))))
+(import "/sd/os/lib.l")
+(import "/sd/os/gfx.l")
+(def keyboard (open "/keyboard"))
+
 (def cursor 0)
 
 (def screen-w 80)
 (def screen-h 32)
 
-(def screen   (alloc (* screen-w screen-h)))
+(def tscreen   (alloc (* screen-w screen-h)))
 (def tilemap (alloc (* screen-w screen-h)))
 (def solidmap (alloc (* screen-w screen-h)))
 
@@ -12,7 +16,7 @@
   (print (list "fill" (size buf) from to c))
   (let i from)
   (while (lt i (+ to 1)) (do
-    (put buf i c)
+    (put8 buf i c)
     (let i (+ i 1))
   ))
 )))
@@ -20,7 +24,7 @@
 (def buf-render (fn b bx by (do
   (let y 0)
   (while (lt y screen-h) (do
-    (blit-str (substr b (* y screen-w) screen-w) bx (+ by (* y 16)))
+    (blit-str fb unifont (substr b (* y screen-w) screen-w) bx (+ by (* y 16)))
     (let y (+ y 1))
   ))
   0
@@ -28,25 +32,25 @@
 
 ; symbols ------------------------------------------------------
 
-(def sym-block (get "#" 0))
-(def sym-umbrella  (get "m" 0))
-(def sym-coffee  (get "c" 0))
-(def sym-scissors  (get "x" 0))
-(def sym-zigzag  (get "z" 0))
-(def sym-dog  (get "D" 0))
-(def sym-pot  (get "p" 0))
-(def sym-pill  (get "." 0))
-(def sym-egg  (get "o" 0))
-(def sym-ear  (get "e" 0))
-(def sym-rabbit  (get "R" 0))
-(def sym-table  (get "T" 0))
-(def sym-salad  (get "s" 0))
-(def sym-hot  (get "~" 0))
-(def sym-fish  (get "<" 0))
-(def sym-disc  (get "0" 0))
-(def sym-potb  (get "p" 0))
-(def sym-person  (get "@" 0))
-(def sym-blockb  (get "=" 0))
+(def sym-block (get8 "#" 0))
+(def sym-umbrella  (get8 "m" 0))
+(def sym-coffee  (get8 "c" 0))
+(def sym-scissors  (get8 "x" 0))
+(def sym-zigzag  (get8 "z" 0))
+(def sym-dog  (get8 "D" 0))
+(def sym-pot  (get8 "p" 0))
+(def sym-pill  (get8 "." 0))
+(def sym-egg  (get8 "o" 0))
+(def sym-ear  (get8 "e" 0))
+(def sym-rabbit  (get8 "R" 0))
+(def sym-table  (get8 "T" 0))
+(def sym-salad  (get8 "s" 0))
+(def sym-hot  (get8 "~" 0))
+(def sym-fish  (get8 "<" 0))
+(def sym-disc  (get8 "0" 0))
+(def sym-potb  (get8 "p" 0))
+(def sym-person  (get8 "@" 0))
+(def sym-blockb  (get8 "=" 0))
 
 ; structures -----------------------------------------------------------
 
@@ -65,10 +69,10 @@
 
 (def tile-space        (make-tile (list 32 0 0 "space")))
 (def tile-wall         (make-tile (list sym-block 12 1 "wall")))
-(def tile-asphalt      (make-tile (list (get "." 0) 11 0 "asphalt")))
-(def tile-floor-yellow (make-tile (list (get "_" 0) 7 0 "yellow floor")))
-(def tile-floor-wood   (make-tile (list (get "_" 0) 8 0 "wooden floor")))
-(def tile-floor-woodl  (make-tile (list (get "_" 0) 9 0)))
+(def tile-asphalt      (make-tile (list (get8 "." 0) 11 0 "asphalt")))
+(def tile-floor-yellow (make-tile (list (get8 "_" 0) 7 0 "yellow floor")))
+(def tile-floor-wood   (make-tile (list (get8 "_" 0) 8 0 "wooden floor")))
+(def tile-floor-woodl  (make-tile (list (get8 "_" 0) 9 0)))
 (def tile-dog          (make-tile (list sym-dog 1 0 "dog")))
 (def tile-pot          (make-tile (list sym-pot 1 0 "pot")))
 (def tile-pill         (make-tile (list sym-pill 1 0 "pill")))
@@ -83,9 +87,9 @@
 ; coffee
 
 (def put-tile (fn x y tile (do
-  (put tilemap  (+ x (* screen-w y)) (car tile))
-  (put screen   (+ x (* screen-w y)) (car (cdr tile)))
-  (put solidmap (+ x (* screen-w y)) (car (cdr (cdr (cdr tile)))))
+  (put8 tilemap  (+ x (* screen-w y)) (car tile))
+  (put8 tscreen   (+ x (* screen-w y)) (car (cdr tile)))
+  (put8 solidmap (+ x (* screen-w y)) (car (cdr (cdr (cdr tile)))))
 )))
 
 (def is-tile-solid (fn tile (do
@@ -93,15 +97,15 @@
 )))
 
 (def get-tile-rune (fn x y (do
-  (get screen (+ x (* screen-w y)))
+  (get8 tscreen (+ x (* screen-w y)))
 )))
 
 (def get-tile-solid (fn x y (do
-  (get solidmap (+ x (* screen-w y)))
+  (get8 solidmap (+ x (* screen-w y)))
 )))
 
 (def get-tile (fn x y (do
-  (let tile-id (get tilemap (+ x (* screen-w y))))
+  (let tile-id (get8 tilemap (+ x (* screen-w y))))
   (item tiles (- (- num-tiles tile-id) 1))
 )))
 
@@ -151,7 +155,7 @@
 
 
 (def make-actor (fn tile x y
-  (cons tile (cons x (cons y nil)))
+  (do (cons tile (cons x (cons y nil))))
 ))
 
 (def add-actor (fn a (do
@@ -222,7 +226,7 @@
   
   (update-player-tile)
 
-  (if (eq k (get "t" 0)) (do
+  (if (eq k (get8 "t" 0)) (do
     ; take item
     (def inventory (cons player-tile inventory))
     (put-tile px py tile-asphalt)
@@ -240,7 +244,9 @@
   (let aa (car ad))
   
   (while aa (do
-    (blit-char (actor-rune aa) (* 8 (actor-x aa)) (* 16 (actor-y aa)))
+             (blit-char16 fb unifont (actor-rune aa)
+                          (* 8 (actor-x aa))
+                          (* 16 (actor-y aa)))
     
     (let ad (cdr ad))
     (let aa (car ad))
@@ -253,7 +259,7 @@
 
   (if (eq state state-init) (do
     ;(fill colormap 0 (- screen-size 1) 0)
-    (fill screen 0 (- screen-size 1) 32)
+    (fill tscreen 0 (- screen-size 1) 32)
     ;(fill screen 0 (- screen-size 1) sym-block)
 
     (fill-tile-rect 0 0 screen-w 11 tile-asphalt)
@@ -278,19 +284,20 @@
   ) 0)
 
   (let str (recv keyboard))
-  (let c (get str 0))
-  
+  (let c (get8 str 0))
+
   (handle-game-key c)
-  (buf-render screen 0 0)
+  (buf-render tscreen 0 0)
   (actors-render 0 0)
 
-  (p (list px py player-tile inventory) 0 0)
-
-  (send scr 0)
+  (if c
+    (print (list px py player-tile inventory))
+    0)
+  
+  (send screen 0)
   (gc)
 ))
 ))
 
 (main)
 
-)
