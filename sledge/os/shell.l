@@ -40,7 +40,6 @@
 (import "/sd/os/mouse.l")
 
 (draw-logo (- (/ (sget fb width) 2) 140) (/ (sget fb height) 2))
-(blit-str fb unifont "hello" 100 100)
 
 (def tasks (list))
 (def new-tasks (list))
@@ -199,7 +198,7 @@
   (sput my-editor-task focused 0)
   (sput my-editor-task surface (make-surface x y 400 240))
   (add-task editor-task my-editor-task my-editor)
-  (def mask-task-id (+ max-task-id 1))
+  (def max-task-id (+ max-task-id 1))
 )))
 
 (def spawn-repl (fn x y title (do
@@ -214,11 +213,11 @@
   (boxfill s 0 0 400 240 0xffff)
   (sput my-task redrawn 1)
   (add-task repl-task my-task my-repl)
-  (def mask-task-id (+ max-task-id 1))
+  (def max-task-id (+ max-task-id 1))
 )))
 
 (spawn-editor 32 32 "editor               ")
-(spawn-repl 32 300 "repl               ")
+(spawn-repl 64 64 "repl               ")
 
 (def mouse-task (new task))
 (sput mouse-task id (+ max-task-id 1))

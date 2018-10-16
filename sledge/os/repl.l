@@ -86,23 +86,24 @@
         (let term-y (- (+ rune-h (p surf result (+ win-x term-x) (+ win-y term-y)) ) win-y))
         0) 0)
 
-  (if (eq c 17)
-    (do ; cursor up
-      (let res (repl-history-back history future))
-      (let buffer  (car res))
-      (let history (car (cdr res)))
-      (let future  (car (cdr (cdr res))))
-      (let term-x  (* rune-spacing (strlen buffer)))
-    ) 0)
+  ;; FIXME crashes compiler                                                 
+  ;; (if (eq c 17)
+  ;;   (do cursor up
+  ;;     (let res (repl-history-back history future))
+  ;;     (let buffer  (car res))
+  ;;     (let history (car (cdr res)))
+  ;;     (let future  (car (cdr (cdr res))))
+  ;;     (let term-x  (* rune-spacing (strlen buffer)))
+  ;;   ) 0)
         
-  (if (eq c 18)
-    (do ; cursor down
-      (let res (repl-history-forth history future))
-      (let buffer  (car res))
-      (let history (car (cdr res)))
-      (let future  (car (cdr (cdr res))))
-      (let term-x  (* rune-spacing (strlen buffer)))
-    ) 0)
+  ;; (if (eq c 18)
+  ;;   (do ; cursor down
+  ;;     (let res (repl-history-forth history future))
+  ;;     (let buffer  (car res))
+  ;;     (let history (car (cdr res)))
+  ;;     (let future  (car (cdr (cdr res))))
+  ;;     (let term-x  (* rune-spacing (strlen buffer)))
+  ;;   ) 0)
 
   (if (eq c 0x7f) ; bksp
     (if (gt (strlen buffer) 0)

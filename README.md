@@ -45,6 +45,8 @@ Building
 
 2. To build the hosted variant, cd to ````sledge```` and ````./build_x64.sh````.
 
+2b. To build the hosted variant on ARM, cd to ````sledge```` and ````./build_arm.sh````.
+
 3. To cross-compile for bare metal, use ````./rpi2-build.sh````. This will create build/interim-arm.elf.
 
 Running (Hosted)
@@ -55,7 +57,7 @@ Running (Hosted)
 
 To launch the graphical REPL/Shell:
 
-    ./sledge < tests/boot2.l
+    ./sledge boot-os.l
 
 Running (Raspberry Pi 2)
 ------------------------
@@ -75,7 +77,7 @@ Roadmap
 Licenses
 --------
 
-Interim OS: GNU GPLv3 or later, (C) 2015-2016 Lukas F. Hartmann / @mntmn
+Interim OS: GNU GPLv3 or later, (C) 2015-2018 Lukas F. Hartmann / @mntmn
 
 Interim OS is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
