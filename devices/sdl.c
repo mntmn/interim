@@ -5,11 +5,11 @@
 #include "stream.h"
 #include "compiler_new.h"
 
-#define WIDTH 1920
-#define HEIGHT 1080
+#define WIDTH 800
+#define HEIGHT 600
 #define BPP 2
-#define DEPTH 16
-#define SCALE 2
+#define DEPTH 8*BPP
+#define SCALE 1
 
 SDL_Surface* screen;
 uint8_t* pixels = NULL;
@@ -23,6 +23,8 @@ static int sdl_initialized = 0;
 void* sdl_init(int fullscreen)
 {
   if (sdl_initialized) return screen->pixels;
+
+  sdl_initialized = 1;
 
   SDL_Init(SDL_INIT_VIDEO);
   screen = SDL_SetVideoMode(WIDTH, HEIGHT, DEPTH, SDL_SWSURFACE);
@@ -64,8 +66,27 @@ Cell* fbfs_open() {
   return alloc_int(1);
 }
 
-Cell* fbfs_read() {
-  return alloc_int(0);
+Cell* fbfs_read(Cell* stream) {
+  Stream* s = (Stream*)stream->ar.addr;
+  char* path = s->path->ar.addr;
+  if (!strcmp(path+12,"/width")) {
+    return alloc_int(WIDTH);
+  }
+  else if (!strcmp(path+12,"/height")) {
+    return alloc_int(HEIGHT);
+  }
+  else if (!strcmp(path+12,"/depth")) {
+    return alloc_int(BPP);
+  }
+  else if (!strcmp(path+12,"/")) {
+    return
+      alloc_cons(alloc_string_copy("/width"),
+      alloc_cons(alloc_string_copy("/height"),
+      alloc_cons(alloc_string_copy("/depth"),alloc_nil())));
+  }
+  else {
+    return alloc_int(0);
+  }
 }
 
 static int fb_state = 0;
@@ -86,12 +107,12 @@ Cell* fbfs_write(Cell* arg) {
 
 Cell* fbfs_mmap(Cell* arg) {
   Cell* fbtest = alloc_num_bytes(0);
-  fbtest->addr = sdl_get_fb();
-  fbtest->size = sdl_get_fbsize();
-  printf("fbtest->addr: %p\n",fbtest->addr);
-  printf("fbtest->size: %lx\n",fbtest->size);
+  fbtest->ar.addr = sdl_get_fb();
+  fbtest->dr.size = sdl_get_fbsize();
+  //printf("fbtest->addr: %p\n",fbtest->addr);
+  //printf("fbtest->size: %lx\n",fbtest->size);
 
-  memset(fbtest->addr,0xff,WIDTH*HEIGHT*BPP);
+  memset(fbtest->ar.addr,0xff,WIDTH*HEIGHT*BPP);
 
   return fbtest;
 }
@@ -128,7 +149,7 @@ Cell* keyfs_read() {
   }
   
   Cell* res = alloc_string_copy(" ");
-  ((uint8_t*)res->addr)[0] = sdl_key;
+  ((uint8_t*)res->ar.addr)[0] = sdl_key;
   sdl_key = 0;
   return res;
 }
