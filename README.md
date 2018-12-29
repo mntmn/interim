@@ -60,9 +60,9 @@ To launch the graphical REPL/Shell:
 Running (Raspberry Pi 2)
 ------------------------
 
-Prepare a bootable SD card with the usual FAT partition that has the Pi-specific boot blobs in it and copy ````kernel.img```` into it. You can recycle any other Raspberry OS distribution, i.e. Raspian for this. Just replace the kernel7.img and delete cmdline.txt. Keyboard input is currently only over UART, so you will probably want to connect a UART->USB cable to another computer and use it to control Interim. 
+Prepare a bootable SD card with the usual FAT partition that has the Pi-specific boot blobs in it and copy ````kernel.img```` into it. You can recycle any other Raspberry OS distribution, i.e. Raspbian for this. Just replace the kernel7.img and delete cmdline.txt. Keyboard input is currently only over UART, so you will probably want to connect a UART->USB cable to another computer and use it to control Interim. 
 
-![Interim OS Screenshot](http://dump.mntmn.com/interim-paper/illustrations/interim-picture.jpg)
+![Interim OS Screenshot](http://dump.mntmn.com/interim-paper/illustrations/interim-picture.jpg?wat=1)
 
 Roadmap
 -------

@@ -30,7 +30,7 @@ I figured I needed a few components to make the system do something interesting:
 7. Write data to a disk
 8. Receive and send packets from/to ethernet (network)
 
-The platform I chose to implement these things was the Raspberry Pi 2 (actually first the Pi 1 because I had several lying around, but this is a differnt story). The Raspberry Pi 2 fulfills, in theory, mostly, the requirements I had for the hardware:
+The platform I chose to implement these things was the Raspberry Pi 2 (actually first the Pi 1 because I had several lying around, but this is a different story). The Raspberry Pi 2 fulfills, in theory, mostly, the requirements I had for the hardware:
 
 - (almost) 1 GHz RISC CPU (actually _four_ of them + "QPU")
 - 1 GB RAM
@@ -45,11 +45,11 @@ What I dislike about the RPi 2:
 - Unnecessary features on the board (MIPI, CSI) that seem like left-overs from mobile SoC
 - Ethernet is an internal USB device; USB is overly complex
 - After working with it intensively for several months, it doesn't seem at all like a "clean and simple" system to me
-- More detailled criticism at https://wiki.debian.org/RaspberryPi
+- More detailed criticism at https://wiki.debian.org/RaspberryPi
 
 ## Bare-Metal Setup (RPi2)
 
-Loading a bare-metal kernel on the RPi 2 is relatively easy. You put a file "kernel7.img" on the first FAT partition of an MBR partioned SD card. You also put the required binary blobs and a "config.txt" file on the card. Then you plug it in and pray. 
+Loading a bare-metal kernel on the RPi 2 is relatively easy. You put a file "kernel7.img" on the first FAT partition of an MBR partitioned SD card. You also put the required binary blobs and a "config.txt" file on the card. Then you plug it in and pray. 
 
 How do you create a "kernel" file?
 
@@ -275,7 +275,7 @@ A pair is a link between two atoms; it has a left-hand side (traditionally calle
 
 A list atom is a pair whose left side points to an atom of any type and whose right side points to the next list atom or an "empty list" atom (a pair of two "nothings"). Lists are entered and displayed simply by separating atoms with whitespace and wrapping the result in parentheses: (1 2 3 4).
 
-Interim programs are simply Interim lists. The first item of a progam list must be the symbol of the function to apply to the following parameters; the remaining items of the list are the parameters:
+Interim programs are simply Interim lists. The first item of a program list must be the symbol of the function to apply to the following parameters; the remaining items of the list are the parameters:
 
     (+ 1 2)    ; evaluates to 3.
     (- 5 4)    ; evaluates to 1.
@@ -314,7 +314,7 @@ Flow control
 ------------
 
     (if <condition> <then> <else>)
-Conditional branch. If condition evaluates to non-zero, <then> is evaluated, or else <else> is evaluted. The value of the evaluated branch is returned.
+Conditional branch. If condition evaluates to non-zero, <then> is evaluated, or else <else> is evaluated. The value of the evaluated branch is returned.
 
     (while <condition> <then>)
 Conditional loop. As long as condition evaluates to non-zero, <then> is evaluated over and over again. The value of the last evaluation is returned.
