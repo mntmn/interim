@@ -163,7 +163,7 @@ char* write_(Cell* cell, char* buffer, int in_list, int bufsize) {
       snprintf(buffer, bufsize, "<stream:null>");
     }
   } else {
-    snprintf(buffer, bufsize, "<tag:%ld>", cell->tag);
+    snprintf(buffer, bufsize, "<tag:%zd>", cell->tag);
   }
   return buffer;
 }

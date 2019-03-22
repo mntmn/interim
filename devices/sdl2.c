@@ -239,9 +239,6 @@ Cell* mouse_open(Cell* cpath) {
 
 Cell* mouse_read(Cell* stream) {
   mouse_buttons = SDL_GetMouseState(&mouse_x, &mouse_y);
-
-  int mouse_dx = mouse_x - last_mouse_x;
-  int mouse_dy = mouse_y - last_mouse_y;
   Cell* res = alloc_cons(alloc_cons(alloc_int(mouse_x/SCALE),alloc_int(mouse_y/SCALE)),alloc_int(mouse_buttons));
   last_mouse_x = mouse_x;
   last_mouse_y = mouse_y;
