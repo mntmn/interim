@@ -10,7 +10,7 @@
 #include <stdint.h>
 #endif
 
-#if CPU_X64
+#if CPU_X64 || CPU_ARM64
 #define jit_word_t uint64_t
 #else
 #define jit_word_t uint32_t

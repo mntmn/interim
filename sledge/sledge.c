@@ -18,6 +18,10 @@
 #include "compiler_arm_hosted.c"
 #endif
 
+#ifdef CPU_ARM64
+#include "compiler_arm_hosted.c"
+#endif
+
 #ifdef CPU_X86
 #include "compiler_x86.c"
 #endif

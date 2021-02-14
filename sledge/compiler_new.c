@@ -83,6 +83,11 @@ static Cell* prototype_cons;
 #define PTRSZ 4
 #endif
 
+#ifdef CPU_ARM64
+#include "jit_aarch64.c"
+#define PTRSZ 8
+#endif
+
 #ifdef CPU_X64
 #include "jit_x64.c"
 #define PTRSZ 8

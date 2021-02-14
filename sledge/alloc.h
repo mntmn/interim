@@ -12,7 +12,7 @@
 #define STACK_FRAME_MARKER 0xf0000001
 #endif
 
-#ifdef CPU_X64
+#if defined(CPU_X64) || defined(CPU_ARM64)
 // functions store a pointer to their own definition ORed with this marker on the stack
 #define STACK_FRAME_MARKER 0xf000000000000001
 #endif
