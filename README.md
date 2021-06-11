@@ -17,7 +17,7 @@ Detailed docs are in *docs/index.html*.
 Contact / FAQ / Get Involved
 ----------------------------
 
-The official IRC channel for development and usage questions is #interim-os on freenode.
+The official IRC channel for development and usage questions is #interim on irc.libera.chat.
 
 If you find bugs, please file an issue in the [Github issue tracker](https://github.com/mntmn/interim/issues).
 
